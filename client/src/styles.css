@@ -1,0 +1,612 @@
+/* ---------------------------------------------------------------------------
+   Class Meet — stylesheet
+
+   Hand-written CSS, no UI framework. The app is two screens and a handful of
+   small components; a component library would be more API to learn than code
+   to write, and the team needs to be able to change how this looks without
+   reading someone else's documentation. Design tokens live in :root so that
+   stays true as the product grows.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* UTA blue, plus a neutral ramp. */
+  --brand-600: #0a4b8c;
+  --brand-500: #0f5fae;
+  --brand-100: #e4eefa;
+
+  --ink-900: #10161f;
+  --ink-700: #33404f;
+  --ink-500: #5d6b7c;
+  --ink-300: #9aa6b3;
+
+  --surface: #ffffff;
+  --surface-sunken: #f5f7fa;
+  --surface-raised: #ffffff;
+  --border: #dde3ea;
+
+  --danger-600: #a4262c;
+  --danger-50: #fdf2f2;
+  --danger-border: #f1c9c9;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --shadow-sm: 0 1px 2px rgba(16, 22, 31, 0.06);
+  --shadow-md: 0 6px 24px rgba(16, 22, 31, 0.08);
+
+  --gutter: 16px;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand-600: #7fb2ea;
+    --brand-500: #6aa4e6;
+    --brand-100: #16273b;
+
+    --ink-900: #eef2f7;
+    --ink-700: #c4cedb;
+    --ink-500: #96a3b3;
+    --ink-300: #6b7786;
+
+    --surface: #0d1117;
+    --surface-sunken: #11171f;
+    --surface-raised: #161d26;
+    --border: #26303c;
+
+    --danger-600: #f2a0a0;
+    --danger-50: #2a1618;
+    --danger-border: #5a2b2e;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 8px 28px rgba(0, 0, 0, 0.45);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-sunken);
+  color: var(--ink-900);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+p {
+  margin: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --- wordmark ------------------------------------------------------------ */
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wordmark__glyph {
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+
+.wordmark--compact .wordmark__glyph {
+  width: 28px;
+  height: 28px;
+}
+
+.wordmark__glyph-bg {
+  fill: var(--brand-500);
+}
+
+.wordmark__glyph-dot {
+  fill: #ffffff;
+}
+
+.wordmark__glyph-arc {
+  stroke: #ffffff;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+}
+
+.wordmark__text {
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.wordmark--compact .wordmark__text {
+  font-size: 1rem;
+}
+
+/* --- shared bits --------------------------------------------------------- */
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.badge--soon {
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border);
+  color: var(--ink-500);
+}
+
+.badge--phase {
+  background: var(--brand-100);
+  color: var(--brand-600);
+  border: 1px solid transparent;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--ink-700);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease,
+    color 120ms ease;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--brand-500);
+  color: var(--brand-600);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.button__icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+}
+
+.button__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+  background: var(--brand-100);
+  color: var(--brand-600);
+  font-size: 0.85em;
+  font-weight: 650;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+.alert {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+
+.alert--error {
+  background: var(--danger-50);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-600);
+}
+
+.alert__title {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.alert__body {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  color: var(--ink-700);
+}
+
+/* --- loading ------------------------------------------------------------- */
+
+.full-page-state {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--brand-500);
+  animation: spin 700ms linear infinite;
+}
+
+.full-page-state__label {
+  color: var(--ink-500);
+  font-size: 0.9rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+}
+
+/* --- login --------------------------------------------------------------- */
+
+.login {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 48px var(--gutter);
+  background: radial-gradient(
+      1100px 520px at 50% -10%,
+      var(--brand-100),
+      transparent 70%
+    ),
+    var(--surface-sunken);
+}
+
+.login__card {
+  width: 100%;
+  max-width: 480px;
+  padding: 36px 32px 32px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.login__card .wordmark {
+  justify-content: center;
+}
+
+.login__title {
+  margin-top: 22px;
+  font-size: 1.6rem;
+  font-weight: 680;
+}
+
+.login__subtitle {
+  margin-top: 12px;
+  color: var(--ink-500);
+  font-size: 0.975rem;
+}
+
+.login__action {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.login__pending {
+  font-size: 0.875rem;
+  color: var(--ink-500);
+}
+
+.login__domain-note {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--ink-500);
+}
+
+.login__footer {
+  font-size: 0.8rem;
+  color: var(--ink-300);
+  text-align: center;
+  max-width: 480px;
+}
+
+/* The sign-in button is ours, not a widget from the identity provider, so it
+   gets the app's own primary-button treatment. */
+.button--signin {
+  justify-content: center;
+  width: 100%;
+  max-width: 320px;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  color: #ffffff;
+}
+
+.button--signin:hover:not(:disabled) {
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+  color: #ffffff;
+}
+
+/* DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT, along with the block
+   in LoginPage.tsx that uses these two classes. Deliberately plain and small:
+   it must never read as one of the product's features. */
+.login__dev {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+}
+
+.login__dev-button {
+  font-size: 0.8rem;
+  color: var(--ink-500);
+}
+
+.login__dev-note {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--ink-300);
+  text-align: left;
+}
+
+/* --- app shell ----------------------------------------------------------- */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar__inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 12px var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.topbar__account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar__identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.topbar__name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.topbar__email {
+  font-size: 0.78rem;
+  color: var(--ink-500);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page {
+  flex: 1;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px var(--gutter) 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.greeting {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.greeting__title {
+  font-size: 1.85rem;
+  font-weight: 700;
+}
+
+.greeting__subtitle {
+  margin-top: 6px;
+  color: var(--ink-500);
+  max-width: 62ch;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--brand-100);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--ink-700);
+  font-size: 0.9rem;
+}
+
+.banner p {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.panel__header {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel__title {
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.panel__hint {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: var(--ink-500);
+}
+
+.panel__body {
+  padding: 24px 20px 28px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 12px 4px;
+}
+
+.empty__icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  color: var(--ink-300);
+}
+
+.empty__icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.empty__title {
+  font-size: 0.975rem;
+  font-weight: 620;
+}
+
+.empty__body {
+  font-size: 0.875rem;
+  color: var(--ink-500);
+  max-width: 44ch;
+}
+
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 20px var(--gutter);
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--ink-300);
+}
+
+/* --- responsive ---------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .topbar__identity {
+    display: none;
+  }
+
+  .greeting {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .greeting__title {
+    font-size: 1.5rem;
+  }
+
+  .login__card {
+    padding: 28px 20px 24px;
+  }
+
+  .login__title {
+    font-size: 1.35rem;
+  }
+}

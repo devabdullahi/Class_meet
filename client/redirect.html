@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Signing in&hellip;</title>
+  </head>
+  <body>
+    <p>Finishing sign-in&hellip;</p>
+    <!--
+      The MSAL redirect bridge, and deliberately nothing else. This page is
+      what the sign-in popup navigates to; `broadcastResponseToMainFrame()`
+      hands the authorization response back to the Class Meet tab over a
+      BroadcastChannel, which is the only route left once the
+      Cross-Origin-Opener-Policy header severs `window.opener`.
+
+      MSAL's own guidance for this page: load the bridge script, include no
+      other JavaScript, and include no routing logic — a router here would
+      swallow the response hash. So it does not load /src/main.tsx.
+
+      The specifier is resolved by Vite at build time, not fetched by the
+      browser, which is why this file is a Vite entry point (see
+      vite.config.ts) rather than a static file in public/.
+    -->
+    <script type="module">
+      import { broadcastResponseToMainFrame } from '@azure/msal-browser/redirect-bridge';
+
+      broadcastResponseToMainFrame().catch((error) => {
+        console.error('MSAL redirect bridge failed:', error);
+      });
+    </script>
+  </body>
+</html>
