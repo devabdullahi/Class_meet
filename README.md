@@ -24,7 +24,7 @@ The University of Texas at Arlington
 | Name | GitHub |
 |---|---|
 | Abdullahi Abdullah Khalafalla | @devabdullahi |
-| Phyo Ei Ko | |
+| Phyo Ei Ko | @pek8504 |
 | Jesus Martinez | |
 | Shofi Shrestha | |
 
