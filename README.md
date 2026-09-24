@@ -26,7 +26,7 @@ The University of Texas at Arlington
 | Abdullahi Abdullah Khalafalla | @devabdullahi |
 | Phyo Ei Ko | @pek8504 |
 | Jesus Martinez | |
-| Shofi Shrestha | @sophieshrestha501-netizen |
+| Shofi Shrestha | @sophieshrestha |
 
 ## Deliverables
 
