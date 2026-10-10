@@ -4,6 +4,7 @@ import { AuthProvider } from './auth/AuthProvider';
 import { RequireAuth } from './auth/RequireAuth';
 import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
+import { CreateGroupPage } from './pages/CreateGroupPage';
 
 export function App(): ReactNode {
   return (
@@ -16,6 +17,14 @@ export function App(): ReactNode {
             element={
               <RequireAuth>
                 <HomePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/groups/create"
+            element={
+              <RequireAuth>
+                <CreateGroupPage />
               </RequireAuth>
             }
           />

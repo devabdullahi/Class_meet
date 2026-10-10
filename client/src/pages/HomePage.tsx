@@ -8,6 +8,7 @@
  * (fake seeded cards) would make it look like more.
  */
 import { useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { Avatar } from '../components/Avatar';
 import { AddCourseForm } from '../components/AddCourseForm';
@@ -122,6 +123,9 @@ export function HomePage(): ReactNode {
               <p className="panel__hint">
                 Day, time, place and seats left &mdash; for your courses only.
               </p>
+              <Link className="button" to="/groups/create">
+                Create Group
+              </Link>
             </div>
             <div className="panel__body">
               <EmptyState

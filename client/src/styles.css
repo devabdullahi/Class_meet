@@ -190,6 +190,10 @@ p {
     color 120ms ease;
 }
 
+a.button {
+  text-decoration: none;
+}
+
 .button:hover:not(:disabled) {
   border-color: var(--brand-500);
   color: var(--brand-600);
@@ -633,6 +637,51 @@ p {
   justify-content: space-between;
   gap: 16px;
 }
+/* --- create group form -------------------------------------------------- */
+
+.create-group-back {
+  align-self: flex-start;
+}
+
+.create-group-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.create-group-form input,
+.create-group-form select,
+.create-group-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-900);
+  font: inherit;
+}
+
+.create-group-form textarea {
+  resize: vertical;
+}
+
+.create-group-form select:disabled {
+  opacity: 0.7;
+}
+
+.create-group-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.create-group-form__actions a {
+  text-decoration: none;
+}
+
 /* --- responsive ---------------------------------------------------------- */
 
 @media (max-width: 900px) {
