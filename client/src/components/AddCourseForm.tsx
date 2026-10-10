@@ -19,7 +19,7 @@ export function AddCourseForm({
     }
 
     setError('');
-    console.log('Searching for:', searchText);
+    setError('Course search is not available yet. No search was performed.');
   }
 
   return (
