@@ -435,6 +435,36 @@ To remove it: delete `server/src/dev-login.ts` and the call sites listed in its
 header comment (`env.ts`, `routes/auth.ts`, `index.ts`, and the block in
 `client/src/pages/LoginPage.tsx`).
 
+### Frontend form checks
+
+After initial setup, run both development servers from the repository root:
+
+```bash
+npm run dev
+```
+
+Open the Local URL printed by Vite. Sign in, or use
+**Skip sign-in (development only)** when the development bypass is enabled.
+
+- **Add Course** opens a modal with input validation and keyboard controls.
+- **Create Group** opens `/groups/create` with meeting details and in-person
+  or online location options.
+- Course search, course selection, and group saving are not connected to
+  backend APIs yet. The forms display availability messages.
+
+Run the automated checks from the repository root:
+
+```bash
+npm run typecheck
+npm run test --workspace client
+```
+
+The frontend tests use Vitest, jsdom, and Testing Library. They cover form
+validation, feedback, navigation, and modal keyboard behavior. No running
+backend is needed for these tests.
+
+Check responsive layout and the native time picker manually in a browser.
+
 ### Other scripts
 
 | Command (from the repo root) | What it does |
