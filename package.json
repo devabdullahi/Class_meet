@@ -22,6 +22,6 @@
     "start": "npm run start --workspace server"
   },
   "devDependencies": {
-    "concurrently": "^10.0.5"
+    "concurrently": "^10.0.6"
   }
 }
