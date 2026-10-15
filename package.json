@@ -2,7 +2,7 @@
   "name": "class-meet",
   "private": true,
   "version": "0.2.0",
-  "description": "Class Meet \u2014 a course-scoped study group finder (CSE 3311, UT Arlington)",
+  "description": "Class Meet — a course-scoped study group finder (CSE 3311, UT Arlington)",
   "workspaces": [
     "client",
     "server"
@@ -23,5 +23,8 @@
   },
   "devDependencies": {
     "concurrently": "^10.0.5"
+  },
+  "dependencies": {
+    "expo": "^57.0.28"
   }
 }

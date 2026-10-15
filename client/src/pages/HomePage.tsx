@@ -7,9 +7,11 @@
  * iteration-1 demo look like less than it is, and the alternative to *that*
  * (fake seeded cards) would make it look like more.
  */
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { Avatar } from '../components/Avatar';
+import { AddCourseForm } from '../components/AddCourseForm';
 import { Wordmark } from '../components/Wordmark';
 import { EmptyState } from '../components/EmptyState';
 import { BookIcon, PeopleIcon, LogoutIcon } from '../components/icons';
@@ -22,6 +24,8 @@ function firstName(fullName: string): string {
 export function HomePage(): ReactNode {
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
+  const addCourseButtonRef = useRef<HTMLButtonElement>(null);
 
   if (user === null) {
     // RequireAuth guarantees a user here; this keeps the type honest.
@@ -31,6 +35,11 @@ export function HomePage(): ReactNode {
   const handleSignOut = (): void => {
     setSigningOut(true);
     void signOut().finally(() => setSigningOut(false));
+  };
+
+  const handleCloseAddCourse = (): void => {
+    setIsAddCourseOpen(false);
+    addCourseButtonRef.current?.focus();
   };
 
   return (
@@ -87,6 +96,14 @@ export function HomePage(): ReactNode {
                 Your courses
               </h2>
               <p className="panel__hint">The exact sections you&rsquo;re enrolled in this term.</p>
+              <button
+                ref={addCourseButtonRef}
+                type="button"
+                className="button"
+                onClick={() => setIsAddCourseOpen(true)}
+              >
+                Add Course
+              </button>
             </div>
             <div className="panel__body">
               <EmptyState
@@ -106,6 +123,9 @@ export function HomePage(): ReactNode {
               <p className="panel__hint">
                 Day, time, place and seats left &mdash; for your courses only.
               </p>
+              <Link className="button" to="/groups/create">
+                Create Group
+              </Link>
             </div>
             <div className="panel__body">
               <EmptyState
@@ -118,6 +138,10 @@ export function HomePage(): ReactNode {
           </section>
         </div>
       </main>
+
+      {isAddCourseOpen && (
+        <AddCourseForm onClose={handleCloseAddCourse} />
+      )}
 
       <footer className="footer">
         <p>

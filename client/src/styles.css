@@ -190,6 +190,10 @@ p {
     color 120ms ease;
 }
 
+a.button {
+  text-decoration: none;
+}
+
 .button:hover:not(:disabled) {
   border-color: var(--brand-500);
   color: var(--brand-600);
@@ -577,6 +581,105 @@ p {
   text-align: center;
   font-size: 0.8rem;
   color: var(--ink-300);
+}
+
+/* --- add course modal --------------------------------------------------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px var(--gutter);
+  background: rgba(16, 22, 31, 0.55);
+}
+
+.modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  padding: 24px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.modal input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-900);
+  font: inherit;
+}
+
+.modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+/* --- create group form -------------------------------------------------- */
+
+.create-group-back {
+  align-self: flex-start;
+}
+
+.create-group-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.create-group-form input,
+.create-group-form select,
+.create-group-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-900);
+  font: inherit;
+}
+
+.create-group-form textarea {
+  resize: vertical;
+}
+
+.create-group-form select:disabled {
+  opacity: 0.7;
+}
+
+.create-group-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.create-group-form__actions a {
+  text-decoration: none;
 }
 
 /* --- responsive ---------------------------------------------------------- */
