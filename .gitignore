@@ -23,3 +23,6 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Expo local state (this is a Vite web app; Expo is not used)
+.expo/

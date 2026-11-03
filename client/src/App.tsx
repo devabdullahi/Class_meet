@@ -7,6 +7,7 @@ import { HomePage } from './pages/HomePage';
 import { MyCoursesPage } from './pages/MyCoursesPage';
 import { StudyGroupsPage } from './pages/StudyGroupsPage';
 import { GroupDetailsPage } from './pages/GroupDetailsPage';
+import { CreateGroupPage } from './pages/CreateGroupPage';
 export function App(): ReactNode {
   return (
     <BrowserRouter>
@@ -30,6 +31,14 @@ export function App(): ReactNode {
   path="/groups/:courseId/:groupId"
   element={<GroupDetailsPage />}
 />
+          <Route
+            path="/groups/create"
+            element={
+              <RequireAuth>
+                <CreateGroupPage />
+              </RequireAuth>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
