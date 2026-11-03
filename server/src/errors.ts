@@ -26,6 +26,10 @@ export class HttpError extends Error {
     return new HttpError(403, code, message);
   }
 
+  static notFound(code: string, message: string): HttpError {
+    return new HttpError(404, code, message);
+  }
+
   static serviceUnavailable(code: string, message: string): HttpError {
     return new HttpError(503, code, message);
   }

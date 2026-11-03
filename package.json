@@ -19,7 +19,8 @@
     "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace client",
     "migrate": "npm run migrate --workspace server",
     "migrate:status": "npm run migrate:status --workspace server",
-    "start": "npm run start --workspace server"
+    "start": "npm run start --workspace server",
+    "test": "npm run test --workspace server && npm run test --workspace client"
   },
   "devDependencies": {
     "concurrently": "^10.0.6"
