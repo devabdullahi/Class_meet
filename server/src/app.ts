@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import { authRouter } from './routes/auth.js';
 import { createCoursesRouter } from './routes/courses.js';
 import { createGroupsRouter } from './routes/groups.js';
+import { createMeRouter } from './routes/me.js';
 import { postgresGroupRepository } from './groups/repository.js';
 import { requireAuth } from './middleware/require-auth.js';
 import { requireSameOriginRequest } from './middleware/csrf.js';
@@ -37,6 +38,7 @@ export function createApp(): Express {
   });
 
   app.use('/api/auth', authRouter);
+  app.use('/api/me', requireAuth, createMeRouter(postgresGroupRepository));
   app.use('/api/courses', requireAuth, createCoursesRouter(postgresGroupRepository));
   app.use('/api/groups', requireAuth, createGroupsRouter(postgresGroupRepository));
 

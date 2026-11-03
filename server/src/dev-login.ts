@@ -23,9 +23,10 @@
  *  - The endpoint takes no input. The identity below is hard-coded, so the
  *    endpoint cannot be used to become an arbitrary user — which is the
  *    difference between a dev shortcut and an impersonation API.
- *  - It writes nothing. The session is marked `dev` and `GET /api/auth/me`
- *    answers it from this constant, so no fake row ever reaches Postgres and
- *    the real sign-in path does not depend on any of this.
+ *  - The session is marked `dev` and `GET /api/auth/me` answers it from this
+ *    constant, so the real sign-in path does not depend on any of this. When a
+ *    database is configured, the dev student also gets one fixed `users` row
+ *    (see `ensureDevUserRow`) so stored features work locally.
  */
 import type { PublicUser } from './users.js';
 

@@ -88,3 +88,19 @@ export async function findUserById(id: string): Promise<PublicUser | null> {
   const row = rows[0];
   return row === undefined ? null : toPublicUser(row);
 }
+
+/**
+ * DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT.
+ *
+ * Gives the development student a real `users` row (with the fixed id the dev
+ * session already carries), so every feature that stores something against a
+ * user — courses, groups, join requests — works in local development.
+ */
+export async function ensureDevUserRow(user: PublicUser): Promise<void> {
+  await query(
+    `INSERT INTO users (id, provider_tenant_id, provider_object_id, email, name)
+     VALUES ($1, 'dev-login', 'dev-login-no-directory-account', $2, $3)
+     ON CONFLICT (id) DO UPDATE SET last_login_at = now()`,
+    [user.id, user.email, user.name],
+  );
+}

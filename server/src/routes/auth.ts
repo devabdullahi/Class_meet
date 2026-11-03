@@ -11,7 +11,8 @@
  */
 import { Router, type Request, type Response } from 'express';
 import { verifyEntraAccessToken, isEntraConfigured } from '../entra.js';
-import { upsertUserFromDirectory, findUserById, type PublicUser } from '../users.js';
+import { upsertUserFromDirectory, findUserById, ensureDevUserRow, type PublicUser } from '../users.js';
+import { isDatabaseConfigured } from '../db/pool.js';
 import { createSessionToken, setSessionCookie, clearSessionCookie } from '../session.js';
 import { requireAuth } from '../middleware/require-auth.js';
 import { HttpError } from '../errors.js';
@@ -150,7 +151,7 @@ authRouter.get('/config', (_req: Request, res: Response) => {
  * It sits on the same router as the real sign-in, so it inherits the CSRF
  * header and Origin checks in `src/middleware/csrf.ts` unchanged.
  */
-authRouter.post('/dev-login', (_req: Request, res: Response) => {
+authRouter.post('/dev-login', async (_req: Request, res: Response) => {
   if (!env.allowDevLogin) {
     throw HttpError.forbidden(
       'dev_login_disabled',
@@ -160,6 +161,18 @@ authRouter.post('/dev-login', (_req: Request, res: Response) => {
   }
 
   const user = devUser();
+
+  // With a database configured, the dev student gets a real row so that
+  // courses, groups and join requests can be stored for them. Without one the
+  // sign-in still works, so the team can see the UI before Neon exists.
+  if (isDatabaseConfigured()) {
+    try {
+      await ensureDevUserRow(user);
+    } catch (error) {
+      console.warn('[auth] DEV LOGIN: could not create the dev user row:', error instanceof Error ? error.message : error);
+    }
+  }
+
   console.warn('[auth] DEV LOGIN: issued a session for the fake user %s', user.email);
 
   setSessionCookie(

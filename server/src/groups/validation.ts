@@ -122,3 +122,23 @@ export function parseCreateGroupInput(body: unknown): CreateGroupInput {
     maxMembers,
   };
 }
+
+export type JoinDecision = 'approve' | 'decline';
+
+export function parseEnrollInput(body: unknown): { courseId: string } {
+  if (typeof body !== 'object' || body === null) {
+    throw HttpError.badRequest('invalid_body', 'Expected a JSON object.');
+  }
+  const courseId = (body as Record<string, unknown>)['courseId'];
+  if (!isUuid(courseId)) throw invalid('courseId', 'Choose a course.');
+  return { courseId };
+}
+
+export function parseJoinDecision(body: unknown): JoinDecision {
+  const decision =
+    typeof body === 'object' && body !== null ? (body as Record<string, unknown>)['decision'] : undefined;
+  if (decision !== 'approve' && decision !== 'decline') {
+    throw invalid('decision', 'Decision must be approve or decline.');
+  }
+  return decision;
+}
