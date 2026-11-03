@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 
@@ -6,6 +6,9 @@ const root = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'jsdom',
+  },
   server: {
     port: 5173,
     // Everything under /api is proxied to the Express server, so the browser
