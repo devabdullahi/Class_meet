@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { AddCourseForm } from '../components/AddCourseForm';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
+import { AlertIcon, PlusIcon } from '../components/icons';
 import { useApiData } from '../hooks/useApiData';
 
 export function MyCoursesPage(): ReactNode {
@@ -15,6 +16,7 @@ export function MyCoursesPage(): ReactNode {
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
   const addCourseButtonRef = useRef<HTMLButtonElement>(null);
 
+  const openAddCourse = (): void => setIsAddCourseOpen(true);
   const handleCloseAddCourse = (): void => {
     setIsAddCourseOpen(false);
     addCourseButtonRef.current?.focus();
@@ -24,48 +26,68 @@ export function MyCoursesPage(): ReactNode {
 
   return (
     <ClassMeetLayout>
-      <header className="cm-header cm-header--actions">
+      <header className="cm-pagehead">
         <div>
           <h1>My Courses</h1>
-          <p>Choose a course to find a study group.</p>
+          <p className="cm-pagehead__sub">Pick a course to see its study groups.</p>
         </div>
         <div className="cm-actions">
-          <button
-            ref={addCourseButtonRef}
-            type="button"
-            className="cm-button"
-            onClick={() => setIsAddCourseOpen(true)}
-          >
+          <button ref={addCourseButtonRef} type="button" className="cm-btn cm-btn--secondary" onClick={openAddCourse}>
+            <PlusIcon />
             Add Course
           </button>
-          <Link className="cm-button" to="/groups/create">
+          <Link className="cm-btn cm-btn--primary" to="/groups/create">
             Create Group
           </Link>
         </div>
       </header>
 
-      {loading && data === null && <p className="cm-note">Loading your courses…</p>}
       {error !== null && (
-        <p className="cm-error" role="alert">
-          {error}
-        </p>
-      )}
-      {data !== null && courses.length === 0 && (
-        <p className="cm-note">You have not added any courses yet. Use Add Course to find yours.</p>
+        <div className="cm-notice cm-notice--error" role="alert">
+          <AlertIcon />
+          <span className="cm-notice__body">{error}</span>
+          <button type="button" className="cm-btn cm-btn--quiet cm-btn--sm" onClick={reload}>
+            Try again
+          </button>
+        </div>
       )}
 
-      <section className="cm-courses" aria-label="Your courses">
-        {courses.map((course) => (
-          <article className="cm-course-card" key={course.id}>
-            <span>{course.code}</span>
-            <h2>{course.title}</h2>
-            <p>
-              {course.groupCount} {course.groupCount === 1 ? 'study group' : 'study groups'}
-            </p>
-            <Link to={`/groups/${course.id}`}>View Groups →</Link>
-          </article>
-        ))}
-      </section>
+      {loading && data === null && error === null && (
+        <div className="cm-card-grid" aria-busy="true">
+          <span className="cm-sr-only">Loading your courses</span>
+          <div className="cm-skeleton" />
+          <div className="cm-skeleton" />
+        </div>
+      )}
+
+      {data !== null && courses.length === 0 && (
+        <div className="cm-empty">
+          <h2>No courses yet</h2>
+          <p>Add the courses you are taking to see the study groups students have started for them.</p>
+          <button type="button" className="cm-btn cm-btn--primary" onClick={openAddCourse}>
+            Add your first course
+          </button>
+        </div>
+      )}
+
+      {courses.length > 0 && (
+        <section className="cm-card-grid" aria-label="Your courses">
+          {courses.map((course) => (
+            <article className="cm-card" key={course.id}>
+              <span className="cm-code">{course.code}</span>
+              <h2 className="cm-card__title">{course.title}</h2>
+              <div className="cm-card__foot">
+                <span className="cm-card__muted">
+                  {course.groupCount} {course.groupCount === 1 ? 'study group' : 'study groups'}
+                </span>
+                <Link className="cm-btn cm-btn--secondary cm-btn--sm" to={`/groups/${course.id}`}>
+                  View groups
+                </Link>
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
 
       {isAddCourseOpen && <AddCourseForm onClose={handleCloseAddCourse} onAdded={reload} />}
     </ClassMeetLayout>
