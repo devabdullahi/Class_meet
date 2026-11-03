@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthProvider';
 import { RequireAuth } from './auth/RequireAuth';
 import { LoginPage } from './pages/LoginPage';
-import { HomePage } from './pages/HomePage';
 import { MyCoursesPage } from './pages/MyCoursesPage';
 import { StudyGroupsPage } from './pages/StudyGroupsPage';
 import { GroupDetailsPage } from './pages/GroupDetailsPage';
@@ -18,11 +17,11 @@ export function App(): ReactNode {
             path="/"
             element={
               <RequireAuth>
-                <HomePage />
+                <MyCoursesPage />
               </RequireAuth>
             }
           />
-          <Route path="/courses" element={<MyCoursesPage />} />
+          <Route path="/courses" element={<Navigate to="/" replace />} />
           <Route
   path="/groups/:courseId"
   element={<StudyGroupsPage />}
