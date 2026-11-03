@@ -13,11 +13,10 @@ import { useAuth } from '../auth/useAuth';
 import { Avatar } from '../components/Avatar';
 import { Wordmark } from '../components/Wordmark';
 import { LogoutIcon } from '../components/icons';
-const FIRST_INDEX = 0;
 
 function firstName(fullName: string): string {
-  const first = fullName.trim().split(/\s+/)[FIRST_INDEX];
-  return first !== undefined && first.length > FIRST_INDEX ? first : fullName;
+  const first = fullName.trim().split(/\s+/)[0];
+  return first !== undefined && first.length > 0 ? first : fullName;
 }
 
 export function HomePage(): ReactNode {

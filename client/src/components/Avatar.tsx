@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-const SINGLE_NAME_PART_COUNT = 1;
+
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter((part) => part.length > 0);
   const first = parts[0]?.[0] ?? '?';
-  const last = parts.length > SINGLE_NAME_PART_COUNT ? parts[parts.length - 1]?.[0] ?? '' : '';
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : '';
   return (first + last).toUpperCase();
 }
 
@@ -19,8 +19,7 @@ export interface AvatarProps {
  * there is no image path here to go wrong. F2 (student profile) is where a
  * real picture belongs.
  */
-const DEFAULT_AVATAR_SIZE = 40;
-export function Avatar({ name, size = DEFAULT_AVATAR_SIZE }: AvatarProps): ReactNode {
+export function Avatar({ name, size = 40 }: AvatarProps): ReactNode {
   const dimension = `${String(size)}px`;
 
   return (

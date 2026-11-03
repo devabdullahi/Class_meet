@@ -80,7 +80,7 @@ if (entraClientId.length === 0) {
       );
     },
     (error: unknown) => {
-console.error('MSAL failed to initialise:', error);
+      console.error('MSAL failed to initialise:', error);
       root.render(
         <StrictMode>
           <StartupError

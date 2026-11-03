@@ -5,7 +5,7 @@ import { RequireAuth } from './auth/RequireAuth';
 import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
 import { MyCoursesPage } from './pages/MyCoursesPage';
-import { StudyGroupsPage } from './StudyGroupsPage';
+import { StudyGroupsPage } from './pages/StudyGroupsPage';
 import { GroupDetailsPage } from './pages/GroupDetailsPage';
 export function App(): ReactNode {
   return (
