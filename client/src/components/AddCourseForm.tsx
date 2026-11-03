@@ -131,7 +131,9 @@ export function AddCourseForm({
           )}
 
           {results !== null && results.length === 0 && (
-            <p className="panel__hint" role="status">No courses match that search.</p>
+            <p className="course-search-status" role="status">
+              No courses match that search. Try a code like CSE 3311 or part of the title.
+            </p>
           )}
 
           {results !== null && results.length > 0 && (
@@ -155,7 +157,7 @@ export function AddCourseForm({
             </ul>
           )}
 
-          {addedMessage && <p className="panel__hint" role="status">{addedMessage}</p>}
+          {addedMessage && <p className="course-search-status" role="status">{addedMessage}</p>}
 
           <footer className="modal__footer">
             <button type="button" className="button" onClick={onClose}>

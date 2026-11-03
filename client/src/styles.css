@@ -1076,3 +1076,11 @@ a.button {
     margin-top: 24px;
   }
 }
+
+/* Messages under the Add Course search box: full-size and high contrast. */
+.course-search-status {
+  margin-top: 12px;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--ink-700);
+}

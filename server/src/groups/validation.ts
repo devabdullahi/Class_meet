@@ -142,3 +142,16 @@ export function parseJoinDecision(body: unknown): JoinDecision {
   }
   return decision;
 }
+
+/**
+ * What a course search matches against. Students type "cse3311" as often as
+ * "CSE 3311", so the code is also compared with its spaces removed.
+ * LIKE wildcards in the typed text are escaped so they match literally.
+ */
+export function courseSearchPatterns(search: string): { text: string; compact: string } {
+  const escape = (value: string): string => value.replace(/[\\%_]/g, (character) => `\\${character}`);
+  return {
+    text: `%${escape(search.trim())}%`,
+    compact: `%${escape(search.replace(/\s+/g, ''))}%`,
+  };
+}
