@@ -10,7 +10,7 @@ export function GroupDetailsPage(): ReactNode {
       <aside className="cm-sidebar">
         <h2>Class Meet</h2>
         <nav>
-          <Link to="/courses">My Courses</Link>
+          <Link to="/">My Courses</Link>
           <Link to="/groups/CSE3311">Study Groups</Link>
         </nav>
       </aside>

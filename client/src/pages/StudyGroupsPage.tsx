@@ -89,13 +89,13 @@ export function StudyGroupsPage(): ReactNode {
       <aside className="cm-sidebar">
         <h2>Class Meet</h2>
         <nav>
-          <Link to="/courses">My Courses</Link>
+          <Link to="/">My Courses</Link>
           <Link to="/groups/CSE3311">Study Groups</Link>
         </nav>
       </aside>
 
       <main className="cm-main">
-        <Link to="/courses">← Back to My Courses</Link>
+        <Link to="/">← Back to My Courses</Link>
 
         <header className="cm-header">
           <h1>CSE 3311 — Study Groups</h1>
