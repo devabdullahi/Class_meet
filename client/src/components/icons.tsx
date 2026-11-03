@@ -54,3 +54,64 @@ export function MicrosoftIcon(): ReactNode {
     </svg>
   );
 }
+
+export function PinIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 21s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0C5.5 15.4 12 21 12 21z" {...STROKE} />
+      <circle cx="12" cy="10" r="2.3" {...STROKE} />
+    </svg>
+  );
+}
+
+export function VideoIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="3.5" y="6.5" width="12" height="11" rx="2.2" {...STROKE} />
+      <path d="m15.5 11 5-2.8v7.6l-5-2.8" {...STROKE} />
+    </svg>
+  );
+}
+
+export function CalendarIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" {...STROKE} />
+      <path d="M3.5 10h17M8 3v4M16 3v4" {...STROKE} />
+    </svg>
+  );
+}
+
+export function CheckCircleIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="8.5" {...STROKE} />
+      <path d="m8.5 12.3 2.4 2.4 4.6-5" {...STROKE} />
+    </svg>
+  );
+}
+
+export function AlertIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 4.5 21 19.5H3z" {...STROKE} />
+      <path d="M12 10v4.2M12 16.9v.1" {...STROKE} />
+    </svg>
+  );
+}
+
+export function PlusIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 5v14M5 12h14" {...STROKE} />
+    </svg>
+  );
+}
+
+export function ChevronLeftIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m14.5 6-6 6 6 6" {...STROKE} />
+    </svg>
+  );
+}

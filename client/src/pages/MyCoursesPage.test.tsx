@@ -60,20 +60,23 @@ test('shows the student\'s courses with group counts', async () => {
 test('each course links to its study groups by course id', async () => {
   fetchMyCourses.mockResolvedValue({ courses: [OOSE] });
   const user = renderPage();
-  await user.click(await screen.findByRole('link', { name: /View Groups/ }));
+  await user.click(await screen.findByRole('link', { name: /View groups/ }));
   expect(screen.getByRole('heading', { name: 'Groups page' })).toBeTruthy();
 });
 
 test('invites the student to add a course when they have none', async () => {
   fetchMyCourses.mockResolvedValue({ courses: [] });
   renderPage();
-  expect(await screen.findByText(/You have not added any courses yet/)).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'No courses yet' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Add your first course' })).toBeTruthy();
 });
 
 test('shows the server message when the courses cannot be loaded', async () => {
   fetchMyCourses.mockRejectedValue(new ApiError(503, 'database_unavailable', 'Could not reach the database.'));
   renderPage();
-  expect((await screen.findByRole('alert')).textContent).toBe('Could not reach the database.');
+  const alert = await screen.findByRole('alert');
+  expect(alert.textContent).toContain('Could not reach the database.');
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
 });
 
 test('Add Course opens the dialog and Escape returns focus to the button', async () => {
@@ -93,7 +96,7 @@ test('a course added in the dialog appears in the list', async () => {
   searchCourses.mockResolvedValue({ courses: [{ id: 'c2', code: 'CSE 4308', title: 'Artificial Intelligence', enrolled: false }] });
   enrollInCourse.mockResolvedValue({ course: { id: 'c2', code: 'CSE 4308', title: 'Artificial Intelligence' } });
   const user = renderPage();
-  await screen.findByText(/You have not added any courses yet/);
+  await screen.findByRole('heading', { name: 'No courses yet' });
   await user.click(screen.getByRole('button', { name: 'Add Course' }));
   await user.type(screen.getByLabelText('Course name or code'), 'AI{Enter}');
   await user.click(await screen.findByRole('button', { name: 'Add CSE 4308' }));

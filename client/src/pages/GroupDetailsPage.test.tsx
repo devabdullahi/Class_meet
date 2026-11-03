@@ -67,17 +67,18 @@ test('shows the meeting information and the members, leader first', async () => 
   renderPage();
   expect(await screen.findByRole('heading', { level: 1, name: 'Review SOLID' })).toBeTruthy();
   expect(fetchGroup).toHaveBeenCalledWith('g1');
-  expect(screen.getByText('2:30 PM')).toBeTruthy();
-  expect(screen.getByText(/Library 412/)).toBeTruthy();
-  expect(screen.getByText(/2 \/ 6 members/)).toBeTruthy();
-  expect(screen.getByText('Alex Rivera — Group Leader')).toBeTruthy();
+  expect(screen.getByText('Every Tuesday at 2:30 PM')).toBeTruthy();
+  expect(screen.getByText('Library 412')).toBeTruthy();
+  expect(screen.getByText('2 of 6 seats filled')).toBeTruthy();
+  expect(screen.getByText('Alex Rivera')).toBeTruthy();
+  expect(screen.getByText('Leader')).toBeTruthy();
   expect(screen.getByText('Sam Lee')).toBeTruthy();
 });
 
 test('an online group links to its meeting link', async () => {
   fetchGroup.mockResolvedValue({ group: { ...BASE, format: 'online', location: 'https://meet.example/room' } });
   renderPage();
-  const link = await screen.findByRole('link', { name: 'https://meet.example/room' });
+  const link = await screen.findByRole('link', { name: 'Open meeting link' });
   expect(link.getAttribute('href')).toBe('https://meet.example/room');
   expect(link.getAttribute('rel')).toContain('noopener');
 });
@@ -143,7 +144,7 @@ test('the leader sees a created banner, the calendar options and join requests t
     group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u7', name: 'Jo Kim' }] },
   });
   renderPage({ created: true });
-  expect((await screen.findByRole('status')).textContent).toBe('Your group was created. You are its leader.');
+  expect((await screen.findByRole('status')).textContent).toMatch(/Group created\. You are its leader\./);
   expect(screen.getByText('Jo Kim')).toBeTruthy();
   expect(screen.getByText('Add to your calendar')).toBeTruthy();
 });
@@ -174,5 +175,5 @@ test('the leader can decline a request', async () => {
 test('shows the server message when the group does not exist', async () => {
   fetchGroup.mockRejectedValue(new ApiError(404, 'group_not_found', 'That group does not exist.'));
   renderPage();
-  expect((await screen.findByRole('alert')).textContent).toBe('That group does not exist.');
+  expect((await screen.findByRole('alert')).textContent).toContain('That group does not exist.');
 });

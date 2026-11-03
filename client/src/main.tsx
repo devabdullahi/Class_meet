@@ -13,6 +13,7 @@ import { App } from './App';
 import { FullPageSpinner } from './components/FullPageSpinner';
 import { Wordmark } from './components/Wordmark';
 import { createMsalInstance, entraClientId } from './auth/msal';
+import '@fontsource-variable/inter/wght.css';
 import './styles.css';
 
 const container = document.getElementById('root');

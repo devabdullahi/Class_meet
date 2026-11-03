@@ -33,7 +33,7 @@ export function LoginPage(): ReactNode {
   // enforces it, so the copy cannot promise something the policy does not.
   const tenantCopy =
     config !== null
-      ? `Sign in with your ${config.tenantDisplayName} account — the one you use for email and Canvas.`
+      ? `Sign in with the account you use for email and Canvas at ${config.tenantDisplayName}.`
       : 'Sign in with your university account.';
 
   return (
@@ -42,8 +42,8 @@ export function LoginPage(): ReactNode {
         <Wordmark />
         <h1 className="login__title">Find a study group for the course you&rsquo;re actually in.</h1>
         <p className="login__subtitle">
-          Class Meet lists the open study groups for your exact courses &mdash; day, time, place and
-          seats left. No invite from someone you already know required.
+          Class Meet lists the open study groups for your courses: day, time, place and seats left.
+          You do not need an invite.
         </p>
 
         <div className="login__action">
@@ -80,9 +80,8 @@ export function LoginPage(): ReactNode {
               Skip sign-in (development only)
             </button>
             <p className="login__dev-note">
-              This exists because Microsoft Entra ID and the database are not configured yet. It
-              signs you in as a fake student so the rest of the app can be built, and it is
-              removed before deployment.
+              Signs you in as a demo student when Microsoft sign-in is not set up. Removed before
+              deployment.
             </p>
           </div>
         )}
@@ -90,8 +89,7 @@ export function LoginPage(): ReactNode {
 
       <footer className="login__footer">
         <p>
-          A CSE 3311 project at the University of Texas at Arlington. Iteration 1 &mdash; sign-in
-          only.
+          A CSE 3311 project at the University of Texas at Arlington.
         </p>
       </footer>
     </main>

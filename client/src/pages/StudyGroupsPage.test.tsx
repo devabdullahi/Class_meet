@@ -62,16 +62,17 @@ test('shows the course and its groups with time, place and seats', async () => {
   renderPage();
   expect(await screen.findByRole('heading', { level: 1, name: 'CSE 3311 — Study Groups' })).toBeTruthy();
   expect(fetchCourseGroups).toHaveBeenCalledWith('c1');
-  expect(screen.getByText('Tuesday · 2:30 PM')).toBeTruthy();
-  expect(screen.getAllByText('Library 412 (In Person)')).toHaveLength(2);
-  expect(screen.getAllByText('Members: 2/6')).toHaveLength(2);
-  expect(screen.getByText('Members: 6/6')).toBeTruthy();
+  expect(screen.getByText('Tue')).toBeTruthy();
+  expect(screen.getAllByText('2:30')).toHaveLength(3);
+  expect(screen.getAllByText('Library 412')).toHaveLength(2);
+  expect(screen.getAllByText('2 of 6 seats filled')).toHaveLength(2);
+  expect(screen.getByText('6 of 6 seats filled')).toBeTruthy();
 });
 
 test('online groups show Online instead of the raw meeting link', async () => {
   fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
   renderPage();
-  expect(await screen.findByText('Online (Online)')).toBeTruthy();
+  expect(await screen.findByText('Online meeting')).toBeTruthy();
   expect(screen.queryByText(/meet\.example/)).toBeNull();
 });
 
@@ -102,7 +103,7 @@ test('says when the filters match nothing', async () => {
   const user = renderPage();
   await screen.findByText('Review SOLID');
   await user.selectOptions(screen.getByLabelText('Day'), 'Monday');
-  expect(screen.getByText('No groups match these filters.')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'No groups match these filters' })).toBeTruthy();
 });
 
 test('invites the student to create the first group', async () => {
@@ -116,7 +117,7 @@ test('invites the student to create the first group', async () => {
 test('opens a group from its card', async () => {
   fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
   const user = renderPage();
-  const links = await screen.findAllByRole('link', { name: /View Group/ });
+  const links = await screen.findAllByRole('link', { name: /View group/i });
   await user.click(links[0]!);
   expect(screen.getByRole('heading', { name: 'Details page' })).toBeTruthy();
 });
@@ -124,7 +125,7 @@ test('opens a group from its card', async () => {
 test('shows the server message when the course cannot be found', async () => {
   fetchCourseGroups.mockRejectedValue(new ApiError(404, 'course_not_found', 'That course does not exist.'));
   renderPage();
-  expect((await screen.findByRole('alert')).textContent).toBe('That course does not exist.');
+  expect((await screen.findByRole('alert')).textContent).toContain('That course does not exist.');
 });
 
 test('Back returns to My Courses', async () => {
