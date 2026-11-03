@@ -13,30 +13,13 @@ export function App(): ReactNode {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/"
-            element={
-              <RequireAuth>
-                <MyCoursesPage />
-              </RequireAuth>
-            }
-          />
+          <Route path="/" element={<RequireAuth><MyCoursesPage /></RequireAuth>} />
           <Route path="/courses" element={<Navigate to="/" replace />} />
+          <Route path="/groups/create" element={<RequireAuth><CreateGroupPage /></RequireAuth>} />
+          <Route path="/groups/:courseId" element={<RequireAuth><StudyGroupsPage /></RequireAuth>} />
           <Route
-  path="/groups/:courseId"
-  element={<StudyGroupsPage />}
-/>
-<Route
-  path="/groups/:courseId/:groupId"
-  element={<GroupDetailsPage />}
-/>
-          <Route
-            path="/groups/create"
-            element={
-              <RequireAuth>
-                <CreateGroupPage />
-              </RequireAuth>
-            }
+            path="/groups/:courseId/:groupId"
+            element={<RequireAuth><GroupDetailsPage /></RequireAuth>}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

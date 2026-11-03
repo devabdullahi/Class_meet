@@ -896,47 +896,180 @@ a.button {
   background: #475569;
   cursor: not-allowed;
 }
-/* ---- My Courses (main screen) ---- */
-.page-heading {
+
+/* ---- Class Meet dark screens: sidebar account, actions, notes ---- */
+.cm-sidebar {
+  display: flex;
+  flex-direction: column;
+  /* Stay in view on long pages so the account and Sign out are always reachable. */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.cm-account {
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid #34445e;
+  color: #cbd5e1;
+}
+
+.cm-account__name {
+  font-weight: 600;
+  color: white;
+}
+
+.cm-account__email {
+  font-size: 13px;
+  word-break: break-all;
+  margin-bottom: 12px;
+}
+
+.cm-account button {
+  background: transparent;
+  color: #cbd5e1;
+  border: 1px solid #34445e;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.cm-account button:hover:not(:disabled) {
+  background: #293b56;
+}
+
+.cm-header--actions {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--gutter);
+  gap: 16px;
 }
 
-.page-heading__title {
-  font-size: 2rem;
-  line-height: 1.15;
-}
-
-.page-heading__subtitle {
-  color: var(--ink-500);
-}
-
-.page-heading__actions {
+.cm-actions {
   display: flex;
+  gap: 12px;
+}
+
+.cm-button,
+.cm-link-button {
+  display: inline-block;
+  background: #2684ff;
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 7px;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cm-button:hover,
+.cm-link-button:hover {
+  background: #1d6ed6;
+}
+
+.cm-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cm-filters select {
+  background: #202d43;
+  color: #f1f5f9;
+  border: 1px solid #35465f;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+}
+
+.cm-note {
+  margin-top: 24px;
+  color: #94a3b8;
+}
+
+.cm-error {
+  margin-top: 24px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #3b1f26;
+  border: 1px solid #7a3340;
+  color: #fecaca;
+}
+
+.cm-success {
+  margin-top: 8px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #16352a;
+  border: 1px solid #2f6b50;
+  color: #bbf7d0;
+}
+
+.cm-request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.cm-request__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.cm-details .cm-card button.cm-button--quiet {
+  background: transparent;
+  border: 1px solid #4a5d7a;
+}
+
+.cm-details .cm-card a {
+  color: #7db8ff;
+}
+
+.cm-details .cm-card a.cm-link-button {
+  color: white;
+  margin-top: 12px;
+}
+
+.cm-courses .cm-course-card h2 {
+  overflow-wrap: anywhere;
+}
+
+/* Search results inside Add Course (Phyo's light dialog). */
+.course-results {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-.course-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--gutter);
-}
-
-.course-card {
+.course-results__item {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 20px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.course-card__title {
-  font-size: 1.125rem;
+@media (max-width: 650px) {
+  /* Stacked layout: the sidebar is a header, not a column. */
+  .cm-sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .cm-account {
+    margin-top: 24px;
+  }
 }
