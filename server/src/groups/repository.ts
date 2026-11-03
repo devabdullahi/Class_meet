@@ -4,7 +4,13 @@
  * testable with an in-memory fake and the database stays behind one boundary.
  */
 import { query } from '../db/pool.js';
-import type { CreateGroupInput, GroupFormat, JoinDecision, MeetingDay } from './validation.js';
+import {
+  courseSearchPatterns,
+  type CreateGroupInput,
+  type GroupFormat,
+  type JoinDecision,
+  type MeetingDay,
+} from './validation.js';
 
 export interface Course {
   id: string;
@@ -114,23 +120,18 @@ function toGroupSummary(row: GroupRow): GroupSummary {
   };
 }
 
-/** Escape LIKE wildcards so a search for "100%" matches literally. */
-function escapeLike(text: string): string {
-  return text.replace(/[\\%_]/g, (character) => `\\${character}`);
-}
-
 export const postgresGroupRepository: GroupRepository = {
   async listCourses(search, viewerId) {
-    const pattern = `%${escapeLike(search)}%`;
+    const { text, compact } = courseSearchPatterns(search);
     return query<CourseSearchResult>(
       `SELECT c.id, c.code, c.title,
               EXISTS (SELECT 1 FROM course_enrollments e
                        WHERE e.course_id = c.id AND e.user_id = $2) AS enrolled
          FROM courses c
-        WHERE c.code ILIKE $1 OR c.title ILIKE $1
+        WHERE c.code ILIKE $1 OR c.title ILIKE $1 OR replace(c.code, ' ', '') ILIKE $3
         ORDER BY c.code
         LIMIT ${MAX_COURSE_SEARCH_RESULTS}`,
-      [pattern, viewerId],
+      [text, viewerId, compact],
     );
   },
 

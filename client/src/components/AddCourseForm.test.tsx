@@ -63,7 +63,9 @@ test('says so when no course matches', async () => {
   const user = userEvent.setup();
   render(<AddCourseForm onClose={vi.fn()} />);
   await user.type(screen.getByLabelText('Course name or code'), 'ZZZ{Enter}');
-  expect((await screen.findByRole('status')).textContent).toBe('No courses match that search.');
+  expect((await screen.findByRole('status')).textContent).toBe(
+    'No courses match that search. Try a code like CSE 3311 or part of the title.',
+  );
 });
 
 test('adding a course enrolls the student, marks it added and tells the page', async () => {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HttpError } from '../errors.js';
-import { parseCreateGroupInput } from './validation.js';
+import { courseSearchPatterns, parseCreateGroupInput } from './validation.js';
 
 const COURSE_ID = '3f2b8c1e-5d4a-4c0e-9b7a-1a2b3c4d5e6f';
 
@@ -93,3 +93,12 @@ for (const link of ['not-a-link', 'ftp://example.com/room', 'javascript:alert(1)
     assert.equal(rejectionCode(validBody({ format: 'online', location: link })), 'invalid_location');
   });
 }
+
+test('course search also matches a code typed without its space', () => {
+  assert.deepEqual(courseSearchPatterns('cse3311'), { text: '%cse3311%', compact: '%cse3311%' });
+  assert.deepEqual(courseSearchPatterns(' CSE  3311 '), { text: '%CSE  3311%', compact: '%CSE3311%' });
+});
+
+test('course search escapes LIKE wildcards in what the student typed', () => {
+  assert.deepEqual(courseSearchPatterns('100%_x'), { text: '%100\\%\\_x%', compact: '%100\\%\\_x%' });
+});
