@@ -127,6 +127,7 @@ client/                  Vite + React + TypeScript single-page app
 server/                  Express + TypeScript API
   migrations/
     001_create_users.sql the users table
+    002_create_courses_and_groups.sql  courses, study_groups, group_members (+ 3 starter courses)
   src/
     index.ts             listen, startup warnings, graceful shutdown
     app.ts               middleware wiring and route mounting
@@ -135,6 +136,9 @@ server/                  Express + TypeScript API
     entra.ts             verifies the Entra access token, applies the tenant policy
     session.ts           session JWT and cookie attributes
     users.ts             the users table: upsert and lookup
+    groups/
+      validation.ts      rules for creating a group (pure, unit-tested)
+      repository.ts      all SQL for courses and groups, behind an interface
     dev-login.ts         development sign-in bypass — remove before the pilot
     db/pool.ts           pg Pool, TLS, and the deliberate "no database" path
     middleware/
@@ -142,6 +146,8 @@ server/                  Express + TypeScript API
       csrf.ts            custom-header + Origin check on unsafe methods
       error-handler.ts   one JSON error shape, 404 handler
     routes/auth.ts       POST /api/auth/entra, GET /me, POST /logout, GET /config
+    routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
+    routes/groups.ts     POST /api/groups, GET /api/groups/:id              (sign-in required)
     scripts/migrate.ts   the migration runner
 ```
 
