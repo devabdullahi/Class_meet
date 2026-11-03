@@ -4,8 +4,10 @@ import { AuthProvider } from './auth/AuthProvider';
 import { RequireAuth } from './auth/RequireAuth';
 import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
+import { MyCoursesPage } from './pages/MyCoursesPage';
+import { StudyGroupsPage } from './pages/StudyGroupsPage';
+import { GroupDetailsPage } from './pages/GroupDetailsPage';
 import { CreateGroupPage } from './pages/CreateGroupPage';
-
 export function App(): ReactNode {
   return (
     <BrowserRouter>
@@ -20,6 +22,15 @@ export function App(): ReactNode {
               </RequireAuth>
             }
           />
+          <Route path="/courses" element={<MyCoursesPage />} />
+          <Route
+  path="/groups/:courseId"
+  element={<StudyGroupsPage />}
+/>
+<Route
+  path="/groups/:courseId/:groupId"
+  element={<GroupDetailsPage />}
+/>
           <Route
             path="/groups/create"
             element={

@@ -13,8 +13,7 @@ import { useAuth } from '../auth/useAuth';
 import { Avatar } from '../components/Avatar';
 import { AddCourseForm } from '../components/AddCourseForm';
 import { Wordmark } from '../components/Wordmark';
-import { EmptyState } from '../components/EmptyState';
-import { BookIcon, PeopleIcon, LogoutIcon } from '../components/icons';
+import { LogoutIcon } from '../components/icons';
 
 function firstName(fullName: string): string {
   const first = fullName.trim().split(/\s+/)[0];
@@ -69,23 +68,25 @@ export function HomePage(): ReactNode {
       </header>
 
       <main className="page">
+       <Link to="/courses" className="button">
+    My Courses →
+  </Link>
+
         <section className="greeting">
           <Avatar name={user.name} size={64} />
           <div>
             <h1 className="greeting__title">Hey, {firstName(user.name)}.</h1>
             <p className="greeting__subtitle">
-              You&rsquo;re signed in with <strong>{user.email}</strong>. Next you&rsquo;ll add the
-              courses you&rsquo;re taking, and this page will fill up with the study groups inside
-              them.
+              You&rsquo;re signed in with <strong>{user.email}</strong>.
+              Explore your courses, browse available study groups, and view group details below.
             </p>
           </div>
         </section>
 
         <div className="banner" role="note">
-          <span className="badge badge--phase">Iteration 1</span>
+          <span className="badge badge--phase">Iteration 2</span>
           <p>
-            Sign-in is the only feature built so far. Course selection, group discovery and group
-            creation are next &mdash; the sections below are where they will appear.
+           Sign-in is working, and the My Courses, Study Groups, and Group Details pages are ready for demonstration. Study groups currently use sample data; backend integration is still in progress.
           </p>
         </div>
 
@@ -106,12 +107,13 @@ export function HomePage(): ReactNode {
               </button>
             </div>
             <div className="panel__body">
-              <EmptyState
-                icon={<BookIcon />}
-                title="No courses yet"
-                body="Adding courses from the university catalog is the next feature. Once a course is on this list, its study groups show up on the right."
-                arrivingIn="Coming in iteration 1"
-              />
+             <div>
+  <p>Browse your courses and discover available study groups.</p>
+  <Link to="/courses" className="button">
+    View My Courses →
+  </Link>
+  <p>Currently using sample data for the frontend demo.</p>
+</div>
             </div>
           </section>
 
@@ -128,12 +130,15 @@ export function HomePage(): ReactNode {
               </Link>
             </div>
             <div className="panel__body">
-              <EmptyState
-                icon={<PeopleIcon />}
-                title="Nothing to show until you have courses"
-                body="Group discovery is scoped to the courses you add, so this list stays empty by design. Creating a group and joining one land in iteration 2."
-                arrivingIn="Coming in iterations 1–2"
-              />
+             <div>
+               <p>Explore study groups, check meeting details, and request to join.</p>
+
+              <Link to="/groups/CSE3311" className="button">
+                 Browse Study Groups →
+              </Link>
+
+              <p>Frontend demo using sample data. Backend integration is pending.</p>
+            </div>
             </div>
           </section>
         </div>
