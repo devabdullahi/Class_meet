@@ -39,6 +39,83 @@ export interface AuthConfigResponse {
   devLoginEnabled: boolean;
 }
 
+
+// ---- Courses and study groups (mirror server/src/groups/repository.ts) ------
+
+export type MeetingDay =
+  | 'Monday'
+  | 'Tuesday'
+  | 'Wednesday'
+  | 'Thursday'
+  | 'Friday'
+  | 'Saturday'
+  | 'Sunday';
+
+export type GroupFormat = 'in_person' | 'online';
+
+export interface Course {
+  id: string;
+  code: string;
+  title: string;
+}
+
+export interface CourseSearchResult extends Course {
+  /** Whether the signed-in student has already added this course. */
+  enrolled: boolean;
+}
+
+export interface EnrolledCourse extends Course {
+  groupCount: number;
+}
+
+export interface GroupSummary {
+  id: string;
+  courseId: string;
+  goal: string;
+  meetingDay: MeetingDay;
+  /** "HH:MM", 24-hour. */
+  meetingTime: string;
+  format: GroupFormat;
+  /** A place for in-person groups, a meeting link for online ones. */
+  location: string;
+  maxMembers: number;
+  memberCount: number;
+}
+
+export interface GroupMember {
+  userId: string;
+  name: string;
+  isLeader: boolean;
+}
+
+export interface PendingJoinRequest {
+  id: string;
+  userId: string;
+  name: string;
+}
+
+export interface GroupDetails extends GroupSummary {
+  courseCode: string;
+  courseTitle: string;
+  members: GroupMember[];
+  viewerRole: 'leader' | 'member' | 'none';
+  viewerRequestStatus: 'pending' | 'declined' | null;
+  /** Only filled in for the group's leader. */
+  pendingRequests: PendingJoinRequest[];
+}
+
+export interface CreateGroupRequest {
+  courseId: string;
+  goal: string;
+  meetingDay: MeetingDay;
+  meetingTime: string;
+  format: GroupFormat;
+  location: string;
+  maxMembers: number;
+}
+
+export type JoinDecision = 'approve' | 'decline';
+
 /** An API failure with a message that is safe and useful to display. */
 export class ApiError extends Error {
   readonly status: number;
@@ -143,4 +220,45 @@ export const api = {
    */
   devLogin: (): Promise<SessionResponse> =>
     request<SessionResponse>('/api/auth/dev-login', { method: 'POST' }),
+
+  // ---- Courses and study groups ------------------------------------------
+
+  /** Courses matching a code or title, each marked as added or not. */
+  searchCourses: (search: string): Promise<{ courses: CourseSearchResult[] }> =>
+    request<{ courses: CourseSearchResult[] }>(`/api/courses?q=${encodeURIComponent(search)}`),
+
+  fetchMyCourses: (): Promise<{ courses: EnrolledCourse[] }> =>
+    request<{ courses: EnrolledCourse[] }>('/api/me/courses'),
+
+  enrollInCourse: (courseId: string): Promise<{ course: Course }> =>
+    request<{ course: Course }>('/api/me/courses', {
+      method: 'POST',
+      body: JSON.stringify({ courseId }),
+    }),
+
+  fetchCourseGroups: (courseId: string): Promise<{ course: Course; groups: GroupSummary[] }> =>
+    request<{ course: Course; groups: GroupSummary[] }>(`/api/courses/${courseId}/groups`),
+
+  fetchGroup: (groupId: string): Promise<{ group: GroupDetails }> =>
+    request<{ group: GroupDetails }>(`/api/groups/${groupId}`),
+
+  createGroup: (input: CreateGroupRequest): Promise<{ group: GroupDetails }> =>
+    request<{ group: GroupDetails }>('/api/groups', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  requestToJoin: (groupId: string): Promise<{ status: 'pending' }> =>
+    request<{ status: 'pending' }>(`/api/groups/${groupId}/join-requests`, { method: 'POST' }),
+
+  /** Leader only. Returns the updated group. */
+  decideJoinRequest: (
+    groupId: string,
+    requestId: string,
+    decision: JoinDecision,
+  ): Promise<{ group: GroupDetails }> =>
+    request<{ group: GroupDetails }>(`/api/groups/${groupId}/join-requests/${requestId}/decision`, {
+      method: 'POST',
+      body: JSON.stringify({ decision }),
+    }),
 };

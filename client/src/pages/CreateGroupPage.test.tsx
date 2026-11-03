@@ -1,16 +1,42 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, expect, test } from 'vitest';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { api, ApiError, type GroupDetails } from '../api';
 import { CreateGroupPage } from './CreateGroupPage';
 
-afterEach(cleanup);
+vi.mock('../api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api')>();
+  return { ...actual, api: { ...actual.api, fetchMyCourses: vi.fn(), createGroup: vi.fn() } };
+});
 
-function renderPage() {
+const fetchMyCourses = vi.mocked(api.fetchMyCourses);
+const createGroup = vi.mocked(api.createGroup);
+
+const COURSE = { id: 'c1', code: 'CSE 3311', title: 'Object Oriented Software Engineering', groupCount: 0 };
+const CREATED = { id: 'g1', courseId: 'c1' } as GroupDetails;
+
+beforeEach(() => {
+  fetchMyCourses.mockResolvedValue({ courses: [COURSE] });
+  createGroup.mockResolvedValue({ group: CREATED });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.resetAllMocks();
+});
+
+function GroupPageStub() {
+  const state = useLocation().state as { created?: boolean } | null;
+  return <h1>Group page {state?.created === true ? '(created)' : ''}</h1>;
+}
+
+function renderPage(entry = '/groups/create') {
   render(
-    <MemoryRouter initialEntries={['/groups/create']}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/groups/create" element={<CreateGroupPage />} />
+        <Route path="/groups/:courseId/:groupId" element={<GroupPageStub />} />
         <Route path="/" element={<h1>Dashboard</h1>} />
       </Routes>
     </MemoryRouter>,
@@ -19,6 +45,8 @@ function renderPage() {
 }
 
 async function fillDetails(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByRole('option', { name: /CSE 3311/ });
+  await user.selectOptions(screen.getByLabelText('Course'), 'c1');
   await user.selectOptions(screen.getByLabelText('Meeting day'), 'Tuesday');
   // Native time-picker UI is browser-owned; supply its normalized value in jsdom.
   fireEvent.change(screen.getByLabelText('Meeting time (local time)'), {
@@ -29,15 +57,27 @@ async function fillDetails(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Meeting location'), 'Central Library');
 }
 
-test('explains that course selection and saving are unavailable', () => {
+test('lists the student\'s own courses to choose from', async () => {
   renderPage();
+  expect(await screen.findByRole('option', { name: /CSE 3311/ })).toBeTruthy();
+  expect((screen.getByLabelText('Course') as HTMLSelectElement).disabled).toBe(false);
+});
+
+test('preselects the course when opened from a course page', async () => {
+  renderPage('/groups/create?course=c1');
+  await screen.findByRole('option', { name: /CSE 3311/ });
+  expect((screen.getByLabelText('Course') as HTMLSelectElement).value).toBe('c1');
+});
+
+test('explains what to do when the student has no courses yet', async () => {
+  fetchMyCourses.mockResolvedValue({ courses: [] });
+  renderPage();
+  expect(await screen.findByText(/You have no courses yet/)).toBeTruthy();
   expect((screen.getByLabelText('Course') as HTMLSelectElement).disabled).toBe(true);
-  expect(screen.getByRole('option', { name: 'No courses available yet' })).toBeTruthy();
-  expect(screen.getByText(/Groups cannot be saved yet/)).toBeTruthy();
 });
 
 test.each([
-  'Meeting day', 'Meeting time (local time)', 'Maximum members',
+  'Course', 'Meeting day', 'Meeting time (local time)', 'Maximum members',
   'Study goal', 'Meeting location',
 ])('requires %s before submitting', async (label) => {
   const user = renderPage();
@@ -46,10 +86,10 @@ test.each([
   fireEvent.change(field, { target: { value: '' } });
   await user.click(screen.getByRole('button', { name: 'Create Group' }));
   expect(field.validity.valueMissing).toBe(true);
-  expect(screen.queryByRole('alert')).toBeNull();
+  expect(createGroup).not.toHaveBeenCalled();
 });
 
-test.each(['0', '-1', '2.5'])('rejects invalid member count %s', async (count) => {
+test.each(['0', '1', '-1', '2.5'])('rejects invalid member count %s', async (count) => {
   const user = renderPage();
   await fillDetails(user);
   const field = screen.getByLabelText('Maximum members') as HTMLInputElement;
@@ -57,7 +97,7 @@ test.each(['0', '-1', '2.5'])('rejects invalid member count %s', async (count) =
   await user.type(field, count);
   await user.click(screen.getByRole('button', { name: 'Create Group' }));
   expect(field.checkValidity()).toBe(false);
-  expect(screen.queryByRole('alert')).toBeNull();
+  expect(createGroup).not.toHaveBeenCalled();
 });
 
 test.each(['Study goal', 'Meeting location'])('rejects whitespace-only %s', async (label) => {
@@ -67,6 +107,7 @@ test.each(['Study goal', 'Meeting location'])('rejects whitespace-only %s', asyn
   await user.type(screen.getByLabelText(label), '   ');
   await user.click(screen.getByRole('button', { name: 'Create Group' }));
   expect(screen.getByRole('alert').textContent).toBe('Enter a study goal and meeting location.');
+  expect(createGroup).not.toHaveBeenCalled();
 });
 
 test('online format shows link guidance and clears location in both directions', async () => {
@@ -92,20 +133,43 @@ test.each(['', 'not-a-link'])('blocks submission with invalid online link %j', a
   if (value) await user.type(link, value);
   await user.click(screen.getByRole('button', { name: 'Create Group' }));
   expect(link.checkValidity()).toBe(false);
-  expect(screen.queryByRole('alert')).toBeNull();
+  expect(createGroup).not.toHaveBeenCalled();
 });
 
-test.each(['in-person', 'online'])('valid %s details show unavailable feedback without claiming success', async (format) => {
+test('an in-person group is sent to the API and the student lands on the new group', async () => {
   const user = renderPage();
   await fillDetails(user);
-  if (format === 'online') {
-    await user.selectOptions(screen.getByLabelText('Meeting format'), 'online');
-    await user.type(screen.getByLabelText('Meeting link'), 'https://example.com/meeting');
-  }
   await user.click(screen.getByRole('button', { name: 'Create Group' }));
-  expect(screen.getByRole('alert').textContent).toBe(
-    'Your group has not been created. Course selection and group creation are not available yet.',
+  expect(createGroup).toHaveBeenCalledWith({
+    courseId: 'c1',
+    goal: 'Review for the exam',
+    meetingDay: 'Tuesday',
+    meetingTime: '14:30',
+    format: 'in_person',
+    location: 'Central Library',
+    maxMembers: 4,
+  });
+  expect(await screen.findByRole('heading', { name: 'Group page (created)' })).toBeTruthy();
+});
+
+test('an online group is sent with its meeting link', async () => {
+  const user = renderPage();
+  await fillDetails(user);
+  await user.selectOptions(screen.getByLabelText('Meeting format'), 'online');
+  await user.type(screen.getByLabelText('Meeting link'), 'https://example.com/meeting');
+  await user.click(screen.getByRole('button', { name: 'Create Group' }));
+  expect(createGroup).toHaveBeenCalledWith(
+    expect.objectContaining({ format: 'online', location: 'https://example.com/meeting' }),
   );
+});
+
+test('shows the server message when the group cannot be created and keeps the form', async () => {
+  createGroup.mockRejectedValue(new ApiError(404, 'course_not_found', 'That course does not exist.'));
+  const user = renderPage();
+  await fillDetails(user);
+  await user.click(screen.getByRole('button', { name: 'Create Group' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('That course does not exist.');
+  expect((screen.getByLabelText('Study goal') as HTMLTextAreaElement).value).toBe('Review for the exam');
   await user.type(screen.getByLabelText('Study goal'), ' together');
   expect(screen.queryByRole('alert')).toBeNull();
 });

@@ -1,16 +1,25 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { api, type CourseSearchResult } from '../api';
+import { describeError } from '../hooks/useApiData';
 
 interface AddCourseFormProps {
   onClose: () => void;
+  /** Called after a course is added, so the page behind the dialog can refresh. */
+  onAdded?: () => void;
 }
 
 export function AddCourseForm({
   onClose,
+  onAdded,
 }: AddCourseFormProps): ReactNode {
   const [searchText, setSearchText] = useState('');
   const [error, setError] = useState('');
+  const [results, setResults] = useState<CourseSearchResult[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [addingCourseId, setAddingCourseId] = useState<string | null>(null);
+  const [addedMessage, setAddedMessage] = useState('');
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
     if (!searchText.trim()) {
@@ -19,7 +28,36 @@ export function AddCourseForm({
     }
 
     setError('');
-    setError('Course search is not available yet. No search was performed.');
+    setAddedMessage('');
+    setSearching(true);
+    try {
+      const reply = await api.searchCourses(searchText.trim());
+      setResults(reply.courses);
+    } catch (failure) {
+      setResults(null);
+      setError(describeError(failure));
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function handleAdd(course: CourseSearchResult): Promise<void> {
+    setError('');
+    setAddingCourseId(course.id);
+    try {
+      await api.enrollInCourse(course.id);
+      setResults((current) =>
+        current === null
+          ? current
+          : current.map((item) => (item.id === course.id ? { ...item, enrolled: true } : item)),
+      );
+      setAddedMessage(`${course.code} was added to your courses.`);
+      onAdded?.();
+    } catch (failure) {
+      setError(describeError(failure));
+    } finally {
+      setAddingCourseId(null);
+    }
   }
 
   return (
@@ -67,7 +105,7 @@ export function AddCourseForm({
           </button>
         </header>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(event) => void handleSubmit(event)}>
           <label htmlFor="course-search">
             Course name or code
           </label>
@@ -92,12 +130,39 @@ export function AddCourseForm({
             </p>
           )}
 
+          {results !== null && results.length === 0 && (
+            <p className="panel__hint" role="status">No courses match that search.</p>
+          )}
+
+          {results !== null && results.length > 0 && (
+            <ul className="course-results" aria-label="Search results">
+              {results.map((course) => (
+                <li key={course.id} className="course-results__item">
+                  <span>
+                    <strong>{course.code}</strong> &mdash; {course.title}
+                  </span>
+                  <button
+                    type="button"
+                    className="button"
+                    disabled={course.enrolled || addingCourseId === course.id}
+                    aria-label={course.enrolled ? `${course.code} already added` : `Add ${course.code}`}
+                    onClick={() => void handleAdd(course)}
+                  >
+                    {course.enrolled ? 'Added' : 'Add'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {addedMessage && <p className="panel__hint" role="status">{addedMessage}</p>}
+
           <footer className="modal__footer">
             <button type="button" className="button" onClick={onClose}>
               Cancel
             </button>
 
-            <button type="submit" className="button">
+            <button type="submit" className="button" disabled={searching}>
               Search
             </button>
           </footer>

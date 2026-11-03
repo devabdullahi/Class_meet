@@ -1,34 +1,17 @@
 /**
- * The signed-in main screen: your courses, with a way into each course's
+ * The signed-in main screen: the student's courses, each with a way into its
  * study groups, plus the two actions that start something (add a course,
  * create a group).
- *
- * The course list is sample data until the courses API is wired in.
  */
 import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../api';
 import { AddCourseForm } from '../components/AddCourseForm';
-import { AppHeader } from '../components/AppHeader';
-
-const courses = [
-  {
-    code: 'CSE 3311',
-    name: 'Object Oriented Software Engineering',
-    groups: 6,
-  },
-  {
-    code: 'CSE 4308',
-    name: 'Artificial Intelligence',
-    groups: 3,
-  },
-  {
-    code: 'CSE 4316',
-    name: 'Computer Networks',
-    groups: 5,
-  },
-];
+import { ClassMeetLayout } from '../components/ClassMeetLayout';
+import { useApiData } from '../hooks/useApiData';
 
 export function MyCoursesPage(): ReactNode {
+  const { data, error, loading, reload } = useApiData(() => api.fetchMyCourses(), []);
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
   const addCourseButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -37,55 +20,54 @@ export function MyCoursesPage(): ReactNode {
     addCourseButtonRef.current?.focus();
   };
 
+  const courses = data?.courses ?? [];
+
   return (
-    <div className="app">
-      <AppHeader />
-
-      <main className="page">
-        <div className="page-heading">
-          <div>
-            <h1 className="page-heading__title">My Courses</h1>
-            <p className="page-heading__subtitle">Choose a course to find a study group.</p>
-          </div>
-          <div className="page-heading__actions">
-            <button
-              ref={addCourseButtonRef}
-              type="button"
-              className="button"
-              onClick={() => setIsAddCourseOpen(true)}
-            >
-              Add Course
-            </button>
-            <Link className="button" to="/groups/create">
-              Create Group
-            </Link>
-          </div>
+    <ClassMeetLayout>
+      <header className="cm-header cm-header--actions">
+        <div>
+          <h1>My Courses</h1>
+          <p>Choose a course to find a study group.</p>
         </div>
+        <div className="cm-actions">
+          <button
+            ref={addCourseButtonRef}
+            type="button"
+            className="cm-button"
+            onClick={() => setIsAddCourseOpen(true)}
+          >
+            Add Course
+          </button>
+          <Link className="cm-button" to="/groups/create">
+            Create Group
+          </Link>
+        </div>
+      </header>
 
-        <p className="panel__hint">Demo data &mdash; courses are not yet connected to the backend.</p>
-
-        <section className="course-grid" aria-label="Your courses">
-          {courses.map((course) => (
-            <article className="course-card" key={course.code}>
-              <span className="badge">{course.code}</span>
-              <h2 className="course-card__title">{course.name}</h2>
-              <p className="panel__hint">{course.groups} available study groups</p>
-              <Link className="button" to={`/groups/${course.code.replace(' ', '')}`}>
-                View Groups &rarr;
-              </Link>
-            </article>
-          ))}
-        </section>
-      </main>
-
-      {isAddCourseOpen && <AddCourseForm onClose={handleCloseAddCourse} />}
-
-      <footer className="footer">
-        <p>
-          Class Meet &middot; CSE 3311 Software Engineering II &middot; The University of Texas at
-          Arlington
+      {loading && data === null && <p className="cm-note">Loading your courses…</p>}
+      {error !== null && (
+        <p className="cm-error" role="alert">
+          {error}
         </p>
-      </footer>
-    </div>
+      )}
+      {data !== null && courses.length === 0 && (
+        <p className="cm-note">You have not added any courses yet. Use Add Course to find yours.</p>
+      )}
+
+      <section className="cm-courses" aria-label="Your courses">
+        {courses.map((course) => (
+          <article className="cm-course-card" key={course.id}>
+            <span>{course.code}</span>
+            <h2>{course.title}</h2>
+            <p>
+              {course.groupCount} {course.groupCount === 1 ? 'study group' : 'study groups'}
+            </p>
+            <Link to={`/groups/${course.id}`}>View Groups →</Link>
+          </article>
+        ))}
+      </section>
+
+      {isAddCourseOpen && <AddCourseForm onClose={handleCloseAddCourse} onAdded={reload} />}
+    </ClassMeetLayout>
   );
 }
