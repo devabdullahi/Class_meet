@@ -123,6 +123,18 @@ client/                  Vite + React + TypeScript single-page app
                          refetched on navigation and after an answer; feeds the
                          "My groups" badge
       usePendingRequests.ts  the hook the layout and Group Details use
+    moderation/
+      ModerationStatusProvider.tsx  asks the server whether the student is a
+                         moderator, and how many reports wait; feeds the
+                         "Reports" item, which only moderators see
+      useModerationStatus.ts  the hook the layout and the Reports page use
+    reports/
+      GroupReporting.tsx  Group Details' "Report group or member" button and
+                         the "you reported this" notice
+      ReportDialog.tsx   who, what is wrong, optional details
+      GroupUnavailable.tsx  a missing group's page: "This group was removed"
+                         when a moderator took it down, else "Group not found"
+      reportWording.ts   reason and outcome wording, dates
     components/
       EntraSignInButton.tsx  an ordinary button — MSAL ships no widget
       Avatar.tsx         profile picture with an initials fallback
@@ -138,6 +150,7 @@ client/                  Vite + React + TypeScript single-page app
       LoginPage.tsx      sign-in screen
       MyGroupsPage.tsx   groups you lead, are in and asked to join; what needs you first
       EditGroupPage.tsx  the leader edits a group, using GroupForm
+      ModerationPage.tsx  Reports, for moderators: the queue and resolved decisions
       HomePage.tsx       signed-in landing page
     types/
       vite-env.d.ts      typings for the VITE_ variables
@@ -148,6 +161,8 @@ server/                  Express + TypeScript API
     002_create_courses_and_groups.sql  courses, study_groups, group_members (+ 3 starter courses)
     003_create_enrollments_and_join_requests.sql  course_enrollments, group_join_requests
     004_add_group_name.sql  study_groups.name (NULL for groups made before it; the goal is shown instead)
+    007_add_reports_and_moderators.sql  users.is_moderator, reports (one open
+                         per student per target), removed_groups
   src/
     index.ts             listen, startup warnings, graceful shutdown
     app.ts               middleware wiring and route mounting; in production
@@ -163,6 +178,10 @@ server/                  Express + TypeScript API
       visibility.ts      what outsiders may see: no online meeting links
       my-groups.ts       sorts a student's groups into led / member / requested (pure, unit-tested)
       repository.ts      all SQL for courses and groups, behind an interface
+                         (tested against PGlite in repository.test.ts)
+    moderation/
+      validation.ts      the report reasons and the details limit (pure)
+      repository.ts      all SQL for reports, the queue and moderator decisions
                          (tested against PGlite in repository.test.ts)
     dev-login.ts         development sign-in bypass — remove before the pilot
     db/pool.ts           pg Pool, TLS, and the deliberate "no database" path
@@ -180,6 +199,10 @@ server/                  Express + TypeScript API
     routes/groups.ts     POST /api/groups, GET /api/groups/:id, PATCH and DELETE /api/groups/:id (leader), join requests
                          (ask, withdraw your own, leader decides),
                          DELETE /api/groups/:id/members/me (leave)           (sign-in required)
+    routes/reports.ts    POST /api/groups/:id/reports, GET /api/groups/:id/reports/mine,
+                         GET /api/groups/:id/removal                         (sign-in required)
+    routes/moderation.ts GET /api/moderation/me (anyone signed in); the queue, keep
+                         and remove under /api/moderation                    (moderators only)
     scripts/migrate.ts   the migration runner
 ```
 
@@ -473,6 +496,36 @@ To remove it: delete `server/src/dev-login.ts` and the call sites listed in its
 header comment (`env.ts`, `routes/auth.ts`, `index.ts`, and the block in
 `client/src/pages/LoginPage.tsx`).
 
+### Moderators
+
+Any student can report a group, or a member of one, from its page. Moderators
+review those reports under **Reports** in the navigation, which only they see.
+There is no screen for making someone a moderator, on purpose: it is one line
+of SQL, run against the database (the Neon SQL editor in production), and the
+person must have signed in once so their `users` row exists:
+
+```sql
+UPDATE users SET is_moderator = true WHERE email = 'someone@mavs.uta.edu';
+```
+
+Set it back to `false` to revoke it. Either takes effect on their next click,
+because the server reads the flag on every moderation request rather than
+from the session. In local development, the dev-login student's email is
+`dev.student@mavs.uta.edu`.
+
+What a moderator's decisions do:
+
+- **Resolve** closes the reports and changes nothing else.
+- **Remove group** deletes the group exactly as its leader's Delete group
+  does (members and requests go with it) and keeps a `removed_groups` record,
+  so anyone opening its old link reads "This group was removed" instead of
+  "Group not found".
+- **Remove from group** takes one member out; they may ask to join again,
+  and the leader decides.
+
+Who reported what is visible to moderators only. A group's leader and members
+never see reports about it, and a student sees only their own.
+
 ### Automated tests
 
 Run them from the repository root. Neither needs a running server, a
@@ -491,6 +544,8 @@ npm test
   [PGlite](https://pglite.dev) (Postgres compiled to WebAssembly, in-process)
   with the project's migrations applied: the seat cap, leaving, deleting a
   group, the remove-course rule, My groups and meeting-link privacy.
+  `moderation/repository.test.ts` does the same for reports: one open report
+  per target, the queue's order, and what removing a group or a member does.
 - **Client** (Vitest, jsdom, Testing Library, `client/src/**/*.test.ts(x)`):
   form rules, calendar export, each page's states and actions, the
   navigation badge, and the sign-in redirect when a session expires.
