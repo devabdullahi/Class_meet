@@ -4,7 +4,7 @@
  * mirror them.
  */
 import { HttpError } from '../errors.js';
-import { chatLinkProblem } from './chat-link.js';
+import { checkChatLink } from './chat-link.js';
 
 export const MEETING_DAYS = [
   'Monday',
@@ -166,9 +166,9 @@ function readChatLink(fields: Record<string, unknown>): string | null {
   if (typeof value !== 'string') throw invalid('chatLink', 'The chat link must be text.');
   const link = value.trim();
   if (link === '') return null;
-  const problem = chatLinkProblem(link);
-  if (problem !== null) throw invalid('chatLink', problem);
-  return link;
+  const checked = checkChatLink(link);
+  if (!checked.ok) throw invalid('chatLink', checked.problem);
+  return checked.link;
 }
 
 export type JoinDecision = 'approve' | 'decline';

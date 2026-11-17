@@ -36,21 +36,32 @@ export const CHAT_LINK_NOT_HTTPS = 'Paste the full invite link, starting with ht
 export const CHAT_LINK_NOT_ALLOWED =
   'Use an invite link from GroupMe, Discord, WhatsApp or Microsoft Teams. Shortened links can’t be checked.';
 
-/** Why a chat link cannot be saved, or null when it can. Expects a trimmed, non-empty link. */
-export function chatLinkProblem(link: string): string | null {
-  if (link.length > MAX_CHAT_LINK_LENGTH) {
-    return `The chat link must be ${MAX_CHAT_LINK_LENGTH} characters or fewer.`;
-  }
+export type ChatLinkCheck = { ok: true; link: string } | { ok: false; problem: string };
+
+/**
+ * The link in the form it is saved in, or why it cannot be saved. Expects a
+ * trimmed, non-empty link.
+ *
+ * The URL parser accepts other spellings of https:// ("HTTPS://…",
+ * "https:/…", "https:…", backslashes), and the database only keeps links that
+ * literally start with "https://" (migration 006). So the link is saved as the
+ * parser normalises it, never as typed, and the length limit applies to that.
+ */
+export function checkChatLink(link: string): ChatLinkCheck {
   let url: URL;
   try {
     url = new URL(link);
   } catch {
-    return CHAT_LINK_NOT_HTTPS;
+    return { ok: false, problem: CHAT_LINK_NOT_HTTPS };
   }
-  if (url.protocol !== 'https:') return CHAT_LINK_NOT_HTTPS;
+  if (url.protocol !== 'https:') return { ok: false, problem: CHAT_LINK_NOT_HTTPS };
+  if (url.href.length > MAX_CHAT_LINK_LENGTH) {
+    return { ok: false, problem: `The chat link must be ${MAX_CHAT_LINK_LENGTH} characters or fewer.` };
+  }
   const onAllowedHost =
     CHAT_LINK_HOSTS.has(url.hostname) && url.port === '' && url.username === '' && url.password === '';
   // A bare host ("https://discord.com") is the app's home page, not an invite.
   const hasInvitePath = url.pathname.length > 1;
-  return onAllowedHost && hasInvitePath ? null : CHAT_LINK_NOT_ALLOWED;
+  if (!onAllowedHost || !hasInvitePath) return { ok: false, problem: CHAT_LINK_NOT_ALLOWED };
+  return { ok: true, link: url.href };
 }

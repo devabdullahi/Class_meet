@@ -24,11 +24,13 @@ export const CHAT_LINK_NOT_HTTPS = 'Paste the full invite link, starting with ht
 export const CHAT_LINK_NOT_ALLOWED =
   'Use an invite link from GroupMe, Discord, WhatsApp or Microsoft Teams. Shortened links can’t be checked.';
 
-/** Why a chat link cannot be saved, or undefined when it can. Expects a trimmed, non-empty link. */
+/**
+ * Why a chat link cannot be saved, or undefined when it can. Expects a
+ * trimmed, non-empty link. The server saves the link as the URL parser
+ * normalises it ("HTTPS://…" or "https:…" become "https://…"), so the length
+ * limit applies to that form here too.
+ */
 export function chatLinkError(link: string): string | undefined {
-  if (link.length > MAX_CHAT_LINK_LENGTH) {
-    return `The chat link must be ${MAX_CHAT_LINK_LENGTH} characters or fewer.`;
-  }
   let url: URL;
   try {
     url = new URL(link);
@@ -36,6 +38,9 @@ export function chatLinkError(link: string): string | undefined {
     return CHAT_LINK_NOT_HTTPS;
   }
   if (url.protocol !== 'https:') return CHAT_LINK_NOT_HTTPS;
+  if (url.href.length > MAX_CHAT_LINK_LENGTH) {
+    return `The chat link must be ${MAX_CHAT_LINK_LENGTH} characters or fewer.`;
+  }
   const onAllowedHost =
     Object.hasOwn(CHAT_PLATFORM_BY_HOST, url.hostname) &&
     url.port === '' &&

@@ -117,6 +117,15 @@ test('a group chat link from an allowed host is kept, trimmed', () => {
   assert.equal(input.chatLink, 'https://discord.gg/abc123');
 });
 
+// new URL() accepts these spellings of https://, but the database only
+// stores links that literally start with "https://" (migration 006), so the
+// link is saved in the form the URL parser normalises it to.
+for (const link of ['HTTPS://discord.gg/abc', 'https:/discord.gg/abc', 'https:discord.gg/abc', 'https:\\\\discord.gg\\abc']) {
+  test(`the chat link ${link} is saved as https://discord.gg/abc`, () => {
+    assert.equal(parseCreateGroupInput(validBody({ chatLink: link })).chatLink, 'https://discord.gg/abc');
+  });
+}
+
 test('a shortened, plain-http or non-text chat link is rejected', () => {
   assert.equal(rejectionCode(validBody({ chatLink: 'https://bit.ly/3xKq9Zt' })), 'invalid_chatLink');
   assert.equal(rejectionCode(validBody({ chatLink: 'http://discord.gg/abc123' })), 'invalid_chatLink');

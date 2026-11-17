@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CHAT_LINK_NOT_ALLOWED, CHAT_LINK_NOT_HTTPS, MAX_CHAT_LINK_LENGTH, chatLinkProblem } from './chat-link.js';
+import { CHAT_LINK_NOT_ALLOWED, CHAT_LINK_NOT_HTTPS, MAX_CHAT_LINK_LENGTH, checkChatLink } from './chat-link.js';
+
+function chatLinkProblem(link: string): string | null {
+  const checked = checkChatLink(link);
+  return checked.ok ? null : checked.problem;
+}
 
 test('accepts invite links from GroupMe, Discord, WhatsApp and Microsoft Teams', () => {
   for (const link of [
@@ -50,5 +55,12 @@ test('asks for https, and for a whole link', () => {
 
 test('refuses an over-long link', () => {
   const link = `https://discord.gg/${'a'.repeat(MAX_CHAT_LINK_LENGTH)}`;
+  assert.match(chatLinkProblem(link) ?? '', /characters or fewer/);
+});
+
+test('checks the length of the link as it will be saved, not as typed', () => {
+  // 300 characters as typed; "https:" gains its "//" when normalised.
+  const link = `https:discord.gg/${'a'.repeat(MAX_CHAT_LINK_LENGTH - 'https:discord.gg/'.length)}`;
+  assert.equal(link.length, MAX_CHAT_LINK_LENGTH);
   assert.match(chatLinkProblem(link) ?? '', /characters or fewer/);
 });

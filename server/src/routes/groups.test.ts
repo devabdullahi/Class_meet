@@ -496,6 +496,11 @@ test('a leader sets the group chat link when creating or editing, and an empty o
   assert.equal(repository.updates.at(-1)?.settings.chatLink, null);
 });
 
+test('a chat link with an unusual spelling of https:// is saved normalised, so the database accepts it', async () => {
+  await send('PATCH', `/api/groups/${GROUP_ID}`, { ...validSettings, chatLink: 'HTTPS://discord.gg/abc' });
+  assert.equal(repository.updates.at(-1)?.settings.chatLink, 'https://discord.gg/abc');
+});
+
 test('a shortened chat link is refused with the message the form shows', async () => {
   const before = repository.updates.length;
   const { status, json } = await send('PATCH', `/api/groups/${GROUP_ID}`, {

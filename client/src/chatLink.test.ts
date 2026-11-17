@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { CHAT_LINK_NOT_ALLOWED, CHAT_LINK_NOT_HTTPS, chatLinkError, chatPlatform } from './chatLink';
+import { CHAT_LINK_NOT_ALLOWED, CHAT_LINK_NOT_HTTPS, MAX_CHAT_LINK_LENGTH, chatLinkError, chatPlatform } from './chatLink';
 
 // The same cases as server/src/groups/chat-link.test.ts, so the two lists cannot drift apart unnoticed.
 
@@ -43,4 +43,18 @@ test('names the app a link opens', () => {
   expect(chatPlatform('https://teams.live.com/l/invite/abc')).toBe('Microsoft Teams');
   expect(chatPlatform('https://example.com/abc')).toBeNull();
   expect(chatPlatform('not a link')).toBeNull();
+});
+
+test.each(['HTTPS://discord.gg/abc', 'https:/discord.gg/abc', 'https:discord.gg/abc', 'https:\\\\discord.gg\\abc'])(
+  'accepts %s, which the server saves as https://discord.gg/abc',
+  (link) => {
+    expect(chatLinkError(link)).toBeUndefined();
+  },
+);
+
+test('checks the length of the link as the server saves it, not as typed', () => {
+  // 300 characters as typed; "https:" gains its "//" when normalised.
+  const link = `https:discord.gg/${'a'.repeat(MAX_CHAT_LINK_LENGTH - 'https:discord.gg/'.length)}`;
+  expect(link).toHaveLength(MAX_CHAT_LINK_LENGTH);
+  expect(chatLinkError(link)).toMatch(/characters or fewer/);
 });
