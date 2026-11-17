@@ -279,7 +279,7 @@ should not sign someone out of their university email.
 
 ## Running the app
 
-You need **Node.js 22.12 or newer** (`node -v`) and a Microsoft work or school
+You need **Node.js 22.22.2 or newer** (`node -v`) and a Microsoft work or school
 account. You do not need Docker or a local Postgres. You do need a tenant you
 can register an application in — see the note at the end of step 1.
 

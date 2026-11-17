@@ -34,8 +34,11 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Matches `engines.node` in package.json. Vite 8 and Express 5 both need it. */
-const MINIMUM_NODE = { major: 22, minor: 12 };
+/**
+ * Matches `engines.node` in package.json. jsdom, which the client tests run
+ * in, sets the floor: it requires 22.22.2 on the Node 22 line.
+ */
+const MINIMUM_NODE = { major: 22, minor: 22, patch: 2 };
 
 /** 48 bytes of base64url comfortably clears the server's 32-character floor. */
 const SESSION_SECRET_BYTES = 48;
@@ -153,14 +156,17 @@ function ensureEnvFile(target, example, label) {
 function checkNodeVersion() {
   step('Checking Node.js');
 
-  const [major, minor] = process.versions.node.split('.').map(Number);
-  const tooOld =
-    major < MINIMUM_NODE.major || (major === MINIMUM_NODE.major && minor < MINIMUM_NODE.minor);
+  const [major, minor, patch] = process.versions.node.split('.').map(Number);
+  const current = [major, minor, patch];
+  const minimum = [MINIMUM_NODE.major, MINIMUM_NODE.minor, MINIMUM_NODE.patch];
+  // The first component that differs decides; equal all the way is new enough.
+  const differsAt = current.findIndex((part, index) => part !== minimum[index]);
+  const tooOld = differsAt !== -1 && current[differsAt] < minimum[differsAt];
 
   if (tooOld) {
     fail(
       `Node ${process.versions.node} is too old. This project needs ` +
-        `${MINIMUM_NODE.major}.${MINIMUM_NODE.minor} or newer — see https://nodejs.org/.`,
+        `${minimum.join('.')} or newer — see https://nodejs.org/.`,
     );
   }
   info(`Node ${process.versions.node}`);
