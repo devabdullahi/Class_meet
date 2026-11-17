@@ -24,7 +24,9 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // The production server serves client/dist publicly, so source maps would
+    // publish the full original source. Debug with `npm run dev` instead.
+    sourcemap: false,
     rollupOptions: {
       // Two entries, not one: `redirect.html` is the MSAL redirect bridge page
       // the sign-in popup lands on. It has to be built (it imports from
