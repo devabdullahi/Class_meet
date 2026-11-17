@@ -30,6 +30,8 @@ function group(overrides: Partial<GroupSummary>): GroupSummary {
     location: 'Library 412',
     maxMembers: 6,
     memberCount: 2,
+    chatLink: null,
+    hasChatLink: false,
     viewerRole: 'none',
     viewerRequestStatus: null,
     ...overrides,

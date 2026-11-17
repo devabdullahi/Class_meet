@@ -7,6 +7,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, type Course, type EnrolledCourse, type GroupDetails, type GroupFormat } from '../api';
+import { MAX_CHAT_LINK_LENGTH } from '../chatLink';
 import {
   DEFAULT_GROUP_SIZE,
   GROUP_FORM_FIELD_ORDER,
@@ -38,6 +39,7 @@ const FIELD_IDS: Record<GroupFormField, string> = {
   meetingTime: 'group-time',
   format: 'group-format-in-person',
   location: 'group-location',
+  chatLink: 'group-chat-link',
   groupSize: 'group-size',
 };
 
@@ -64,6 +66,7 @@ function emptyValues(presetCourse: Course | null): GroupFormValues {
     format: 'in_person',
     location: '',
     groupSize: String(DEFAULT_GROUP_SIZE),
+    chatLink: '',
   };
 }
 
@@ -284,6 +287,25 @@ export function GroupForm(props: GroupFormProps): ReactNode {
             placeholder={online ? 'https://teams.microsoft.com/…' : 'Example: Central Library, second floor'}
             maxLength={MAX_LOCATION_LENGTH}
             required
+          />
+        )}
+      </FormField>
+
+      <FormField
+        id={FIELD_IDS.chatLink}
+        label="Group chat link (optional, members only)"
+        hint="An invite link from GroupMe, Discord, WhatsApp or Microsoft Teams."
+        error={errors.chatLink}
+      >
+        {(control) => (
+          <input
+            {...control}
+            className="cm-input"
+            type="url"
+            value={values.chatLink}
+            onChange={(event) => update('chatLink', event.target.value)}
+            placeholder="https://groupme.com/join_group/…"
+            maxLength={MAX_CHAT_LINK_LENGTH}
           />
         )}
       </FormField>

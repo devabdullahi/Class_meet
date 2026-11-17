@@ -18,6 +18,7 @@ const VALID: GroupFormValues = {
   format: 'in_person',
   location: ' Library 412 ',
   groupSize: '6',
+  chatLink: '',
 };
 
 test('a complete form has no errors and becomes a trimmed request', () => {
@@ -31,6 +32,7 @@ test('a complete form has no errors and becomes a trimmed request', () => {
     format: 'in_person',
     location: 'Library 412',
     maxMembers: 6,
+    chatLink: null,
   });
 });
 
@@ -66,6 +68,7 @@ test('the edit form starts from the group as it is, and saves without a course',
     format: 'online',
     location: 'https://zoom.us/j/1',
     maxMembers: 6,
+    chatLink: null,
   } as GroupDetails;
   const values = groupFormValuesFrom(group);
   expect(values).toEqual({
@@ -77,6 +80,7 @@ test('the edit form starts from the group as it is, and saves without a course',
     format: 'online',
     location: 'https://zoom.us/j/1',
     groupSize: '6',
+    chatLink: '',
   });
   expect(validateGroupForm(values).name).toBe('Give the group a name.');
   expect(toGroupSettings({ ...values, name: 'Crew' })).not.toHaveProperty('courseId');
@@ -92,4 +96,17 @@ test('an online group needs an https link, like the server requires', () => {
     'Paste the full link, starting with https://',
   );
   expect(validateGroupForm({ ...online, location: 'javascript:alert(1)' }).location).toBeDefined();
+});
+
+test('a group chat link is optional, and a blank one is sent as none', () => {
+  expect(validateGroupForm({ ...VALID, chatLink: '   ' })).toEqual({});
+  expect(toGroupSettings({ ...VALID, chatLink: '   ' }).chatLink).toBeNull();
+  expect(toGroupSettings({ ...VALID, chatLink: ' https://discord.gg/abc ' }).chatLink).toBe('https://discord.gg/abc');
+});
+
+test.each([
+  ['https://bit.ly/3xKq9Zt', 'Use an invite link from GroupMe, Discord, WhatsApp or Microsoft Teams. Shortened links can’t be checked.'],
+  ['http://discord.gg/abc', 'Paste the full invite link, starting with https://'],
+])('a chat link of %j is refused', (chatLink, message) => {
+  expect(validateGroupForm({ ...VALID, chatLink })).toEqual({ chatLink: message });
 });

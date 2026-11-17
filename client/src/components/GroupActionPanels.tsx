@@ -8,11 +8,12 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { GroupDetails, PendingJoinRequest } from '../api';
 import { buildIcs, googleCalendarUrl, icsFileName, type CalendarEventInput } from '../calendar';
+import { chatPlatform } from '../chatLink';
 import { downloadTextFile } from '../download';
 import { isGroupFull, meetingPlatform, seatsLeft } from '../groupFormat';
 import { Avatar } from './Avatar';
 import { InlineConfirm } from './InlineConfirm';
-import { AlertIcon, CalendarIcon, ChevronDownIcon, ExternalLinkIcon } from './icons';
+import { AlertIcon, CalendarIcon, ChatIcon, ChevronDownIcon, ExternalLinkIcon } from './icons';
 
 function ActionError({ message }: { message: string | null }): ReactNode {
   if (message === null) return null;
@@ -137,6 +138,24 @@ function CalendarOptions({ group }: { group: GroupDetails }): ReactNode {
   );
 }
 
+/** The panel's primary action when the group has a chat: the chat is where members talk between meetings. */
+function OpenGroupChat({ link }: { link: string }): ReactNode {
+  const platform = chatPlatform(link);
+  return (
+    <>
+      <a className="cm-btn cm-btn--primary cm-btn--block" href={link} target="_blank" rel="noopener noreferrer">
+        <ChatIcon />
+        Open group chat
+        <ExternalLinkIcon />
+      </a>
+      <p className="cm-hint">
+        Opens {platform === null ? 'the group chat' : `the group’s ${platform}`} in a new tab. Only members see
+        this link.
+      </p>
+    </>
+  );
+}
+
 interface YourMeetingPanelProps {
   group: GroupDetails;
   /** Members only; the leader cannot leave the group they lead. */
@@ -146,18 +165,26 @@ interface YourMeetingPanelProps {
 }
 
 /**
- * For members and the leader: how to get to the meeting, the calendar, and a
- * way out: Leave group for a member, Delete group for the leader (who cannot
- * leave, and needs this to ever remove the course).
+ * For members and the leader: how to get to the meeting, the group chat when
+ * there is one, the calendar, and a way out: Leave group for a member, Delete
+ * group for the leader (who cannot leave, and needs this to ever remove the
+ * course). The panel keeps one primary button: Open group chat when the group
+ * has a chat, otherwise Join meeting for an online group.
  */
 export function YourMeetingPanel({ group, onLeave, onDelete }: YourMeetingPanelProps): ReactNode {
   const leader = group.viewerRole === 'leader';
+  const hasChat = group.chatLink !== null;
   return (
     <section className="cm-panel cm-action" aria-labelledby="your-meeting-heading">
       <h2 id="your-meeting-heading">{leader ? 'Your meeting' : 'You are in this group'}</h2>
       {group.format === 'online' && group.location !== null ? (
         <>
-          <a className="cm-btn cm-btn--primary cm-btn--block" href={group.location} target="_blank" rel="noopener noreferrer">
+          <a
+            className={hasChat ? 'cm-btn cm-btn--secondary cm-btn--block' : 'cm-btn cm-btn--primary cm-btn--block'}
+            href={group.location}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             Join meeting
             <ExternalLinkIcon />
           </a>
@@ -168,6 +195,7 @@ export function YourMeetingPanel({ group, onLeave, onDelete }: YourMeetingPanelP
           Meet at <strong>{group.location}</strong>
         </p>
       )}
+      {group.chatLink !== null && <OpenGroupChat link={group.chatLink} />}
       <CalendarOptions group={group} />
       {leader ? (
         <InlineConfirm
