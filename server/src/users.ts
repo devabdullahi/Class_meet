@@ -10,15 +10,21 @@
  * came from. Both columns are provider-neutral names on purpose: the first
  * iteration of this schema said `google_sub` and had to be rewritten.
  *
- * The email is stored for display and for the course-roster features later. It
- * is never the key — Microsoft's guidance is explicit that human-readable
- * fields change and get reused, so "your application mustn't use human-readable
- * data to identify a user".
+ * For a Microsoft sign-in the email is stored for display, and is never the
+ * key — Microsoft's guidance is explicit that human-readable fields change and
+ * get reused, so "your application mustn't use human-readable data to identify
+ * a user".
+ *
+ * Email sign-in is the exception, by necessity: there the address is the only
+ * identity proven, so an emailed code finds its account by `email` (UNIQUE).
+ * Its SQL lives with the rest of email sign-in, in
+ * `email-login/repository.ts`, and its rows carry provider_tenant_id 'email'
+ * (see migration 008).
  */
 import { query } from './db/pool.js';
 
 /** Shape of a `users` row as Postgres returns it. */
-interface UserRow {
+export interface UserRow {
   id: string;
   provider_tenant_id: string;
   provider_object_id: string;
@@ -37,7 +43,7 @@ export interface PublicUser {
   lastLoginAt: string;
 }
 
-function toPublicUser(row: UserRow): PublicUser {
+export function toPublicUser(row: UserRow): PublicUser {
   return {
     id: row.id,
     email: row.email,
