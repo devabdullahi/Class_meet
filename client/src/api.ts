@@ -66,6 +66,10 @@ export interface CourseSearchResult extends Course {
 
 export interface EnrolledCourse extends Course {
   groupCount: number;
+  /** Groups with a seat left. */
+  openGroupCount: number;
+  /** Groups the student leads or belongs to. */
+  joinedGroupCount: number;
 }
 
 export interface GroupSummary {

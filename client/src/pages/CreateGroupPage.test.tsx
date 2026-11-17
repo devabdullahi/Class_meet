@@ -20,7 +20,14 @@ vi.mock('../api', async (importOriginal) => {
 const fetchMyCourses = vi.mocked(api.fetchMyCourses);
 const createGroup = vi.mocked(api.createGroup);
 
-const COURSE = { id: 'c1', code: 'CSE 3311', title: 'Object Oriented Software Engineering', groupCount: 0 };
+const COURSE = {
+  id: 'c1',
+  code: 'CSE 3311',
+  title: 'Object Oriented Software Engineering',
+  groupCount: 0,
+  openGroupCount: 0,
+  joinedGroupCount: 0,
+};
 const CREATED = { id: 'g1', courseId: 'c1' } as GroupDetails;
 
 beforeEach(() => {

@@ -1,15 +1,53 @@
 /**
- * The signed-in main screen: the student's courses, each with a way into its
+ * The signed-in main screen: the student's courses, each leading to its
  * study groups, plus the two actions that start something (add a course,
  * create a group).
  */
 import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api';
+import { api, type EnrolledCourse } from '../api';
 import { AddCourseForm } from '../components/AddCourseForm';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { AlertIcon, PlusIcon } from '../components/icons';
 import { useApiData } from '../hooks/useApiData';
+
+/** "6 groups · 4 open", so a busy course looks different from an empty one. */
+function GroupCounts({ course }: { course: EnrolledCourse }): ReactNode {
+  if (course.groupCount === 0) {
+    return <p className="cm-card__muted">No groups yet — start one</p>;
+  }
+  return (
+    <p className="cm-card__muted">
+      {course.groupCount} {course.groupCount === 1 ? 'group' : 'groups'}
+      {course.openGroupCount > 0 && (
+        <>
+          {' · '}
+          <strong className="cm-course-card__open">{course.openGroupCount} open</strong>
+        </>
+      )}
+    </p>
+  );
+}
+
+/** The whole card is one link, named by the course title. */
+function CourseCard({ course }: { course: EnrolledCourse }): ReactNode {
+  return (
+    <article className="cm-card cm-course-card">
+      <span className="cm-code">{course.code}</span>
+      <h2 className="cm-card__title">
+        <Link className="cm-card__link" to={`/groups/${course.id}`}>
+          {course.title}
+        </Link>
+      </h2>
+      <div className="cm-card__foot">
+        <GroupCounts course={course} />
+        {course.joinedGroupCount > 0 && (
+          <span className="cm-pill cm-pill--member">You&rsquo;re in {course.joinedGroupCount}</span>
+        )}
+      </div>
+    </article>
+  );
+}
 
 export function MyCoursesPage(): ReactNode {
   const { data, error, loading, reload } = useApiData(
@@ -40,9 +78,12 @@ export function MyCoursesPage(): ReactNode {
             <PlusIcon />
             Add Course
           </button>
-          <Link className="cm-btn cm-btn--primary" to="/groups/create">
-            Create Group
-          </Link>
+          {/* A group needs a course, so Create Group appears once there is one. */}
+          {courses.length > 0 && (
+            <Link className="cm-btn cm-btn--primary" to="/groups/create">
+              Create Group
+            </Link>
+          )}
         </div>
       </header>
 
@@ -77,18 +118,7 @@ export function MyCoursesPage(): ReactNode {
       {courses.length > 0 && (
         <section className="cm-card-grid" aria-label="Your courses">
           {courses.map((course) => (
-            <article className="cm-card" key={course.id}>
-              <span className="cm-code">{course.code}</span>
-              <h2 className="cm-card__title">{course.title}</h2>
-              <div className="cm-card__foot">
-                <span className="cm-card__muted">
-                  {course.groupCount} {course.groupCount === 1 ? 'study group' : 'study groups'}
-                </span>
-                <Link className="cm-btn cm-btn--secondary cm-btn--sm" to={`/groups/${course.id}`}>
-                  View groups
-                </Link>
-              </div>
-            </article>
+            <CourseCard key={course.id} course={course} />
           ))}
         </section>
       )}

@@ -66,7 +66,7 @@ class FakeRepository implements GroupRepository {
     return [{ ...COURSE, enrolled: false }];
   }
   async listMyCourses(): Promise<EnrolledCourse[]> {
-    return [{ ...COURSE, groupCount: 2 }];
+    return [{ ...COURSE, groupCount: 2, openGroupCount: 1, joinedGroupCount: 1 }];
   }
   async enrollInCourse(viewerId: string, courseId: string): Promise<void> {
     this.enrolled.push({ viewerId, courseId });
@@ -199,6 +199,8 @@ test('GET /api/me/courses lists the student\'s courses with group counts', async
   const { status, json } = await send('GET', '/api/me/courses');
   assert.equal(status, 200);
   assert.equal(json.courses[0].groupCount, 2);
+  assert.equal(json.courses[0].openGroupCount, 1);
+  assert.equal(json.courses[0].joinedGroupCount, 1);
 });
 
 test('POST /api/me/courses adds the course for the signed-in student', async () => {

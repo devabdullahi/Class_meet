@@ -138,7 +138,7 @@
 .cm-pagehead {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4) var(--space-6);
 }
@@ -181,6 +181,11 @@
 
 .cm-card__muted {
   color: var(--text-muted);
+}
+
+.cm-course-card__open {
+  color: var(--success);
+  font-weight: 600;
 }
 
 /* ---- Study groups: filters and cards ---------------------------------- */

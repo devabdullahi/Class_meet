@@ -26,6 +26,10 @@ export interface CourseSearchResult extends Course {
 
 export interface EnrolledCourse extends Course {
   groupCount: number;
+  /** Groups with a seat left. */
+  openGroupCount: number;
+  /** Groups the viewer leads or belongs to. */
+  joinedGroupCount: number;
 }
 
 export type ViewerRole = 'leader' | 'member' | 'none';
@@ -155,9 +159,19 @@ export const postgresGroupRepository: GroupRepository = {
   },
 
   async listMyCourses(viewerId) {
-    const rows = await query<Course & { group_count: string }>(
+    const rows = await query<
+      Course & { group_count: string; open_group_count: string; joined_group_count: string }
+    >(
       `SELECT c.id, c.code, c.title,
-              (SELECT count(*) FROM study_groups g WHERE g.course_id = c.id) AS group_count
+              (SELECT count(*) FROM study_groups g WHERE g.course_id = c.id) AS group_count,
+              (SELECT count(*) FROM study_groups g
+                WHERE g.course_id = c.id
+                  AND (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) < g.max_members
+              ) AS open_group_count,
+              (SELECT count(*) FROM study_groups g
+                 JOIN group_members m ON m.group_id = g.id AND m.user_id = $1
+                WHERE g.course_id = c.id
+              ) AS joined_group_count
          FROM course_enrollments e
          JOIN courses c ON c.id = e.course_id
         WHERE e.user_id = $1
@@ -169,6 +183,8 @@ export const postgresGroupRepository: GroupRepository = {
       code: row.code,
       title: row.title,
       groupCount: Number(row.group_count),
+      openGroupCount: Number(row.open_group_count),
+      joinedGroupCount: Number(row.joined_group_count),
     }));
   },
 

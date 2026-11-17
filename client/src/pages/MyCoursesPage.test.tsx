@@ -26,8 +26,23 @@ const fetchMyCourses = vi.mocked(api.fetchMyCourses);
 const searchCourses = vi.mocked(api.searchCourses);
 const enrollInCourse = vi.mocked(api.enrollInCourse);
 
-const OOSE = { id: 'c1', code: 'CSE 3311', title: 'Object Oriented Software Engineering', groupCount: 2 };
-const AI = { id: 'c2', code: 'CSE 4308', title: 'Artificial Intelligence', groupCount: 1 };
+const OOSE = {
+  id: 'c1',
+  code: 'CSE 3311',
+  title: 'Object Oriented Software Engineering',
+  groupCount: 6,
+  openGroupCount: 4,
+  joinedGroupCount: 1,
+};
+const AI = {
+  id: 'c2',
+  code: 'CSE 4308',
+  title: 'Artificial Intelligence',
+  groupCount: 1,
+  openGroupCount: 0,
+  joinedGroupCount: 0,
+};
+const OS = { id: 'c3', code: 'CSE 3320', title: 'Operating Systems', groupCount: 0, openGroupCount: 0, joinedGroupCount: 0 };
 
 afterEach(() => {
   cleanup();
@@ -47,28 +62,33 @@ function renderPage() {
   return userEvent.setup();
 }
 
-test('shows the student\'s courses with group counts', async () => {
-  fetchMyCourses.mockResolvedValue({ courses: [OOSE, AI] });
+test('shows each course with how many groups are open and how many the student is in', async () => {
+  fetchMyCourses.mockResolvedValue({ courses: [OOSE, AI, OS] });
   renderPage();
   expect(await screen.findByText('Object Oriented Software Engineering')).toBeTruthy();
-  expect(screen.getByText('2 study groups')).toBeTruthy();
-  expect(screen.getByText('1 study group')).toBeTruthy();
+  expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent === '6 groups · 4 open')).toBeTruthy();
+  expect(screen.getByText('You’re in 1')).toBeTruthy();
+  expect(screen.getByText('1 group')).toBeTruthy();
+  expect(screen.getByText('No groups yet — start one')).toBeTruthy();
+  expect(screen.getAllByText(/You’re in/)).toHaveLength(1);
   expect(screen.getByRole('heading', { level: 1, name: 'My Courses' })).toBeTruthy();
   expect(screen.getByText('dev.student@mavs.uta.edu')).toBeTruthy();
 });
 
-test('each course links to its study groups by course id', async () => {
+test('each course card is one link to its study groups', async () => {
   fetchMyCourses.mockResolvedValue({ courses: [OOSE] });
   const user = renderPage();
-  await user.click(await screen.findByRole('link', { name: /View groups/ }));
+  await user.click(await screen.findByRole('link', { name: 'Object Oriented Software Engineering' }));
   expect(screen.getByRole('heading', { name: 'Groups page' })).toBeTruthy();
 });
 
-test('invites the student to add a course when they have none', async () => {
+test('with no courses, the one primary action is adding the first course', async () => {
   fetchMyCourses.mockResolvedValue({ courses: [] });
   renderPage();
   expect(await screen.findByRole('heading', { name: 'No courses yet' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Add your first course' })).toBeTruthy();
+  // Create Group would be a dead end without a course; only the sidebar link remains.
+  expect(screen.getAllByRole('link', { name: 'Create Group' })).toHaveLength(1);
 });
 
 test('says plainly when the courses cannot be loaded, without server details', async () => {
