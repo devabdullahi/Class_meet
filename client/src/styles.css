@@ -566,8 +566,8 @@ select.cm-input {
 }
 
 .cm-dialog__header h2 {
-  font-size: var(--font-heading);
-  font-weight: 700;
+  font-size: var(--font-title);
+  font-weight: 600;
 }
 
 .cm-dialog__footer {

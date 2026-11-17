@@ -183,6 +183,11 @@
   color: var(--text-muted);
 }
 
+.cm-card__muted strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 
 /* ---- Study groups: filters and cards ---------------------------------- */
 

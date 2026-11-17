@@ -104,7 +104,12 @@ client/                  Vite + React + TypeScript single-page app
                          dev bypass is reachable before Entra is registered
     App.tsx              routes: /login and / (guarded)
     api.ts               the only place that calls fetch; AuthUser type
-    styles.css           all styling, tokens in :root
+    styles.css           the design system: one dark token set on :root (two
+                         hues: blue for actions, red for errors), type and
+                         spacing scales, buttons, form controls, cards, dialog
+    screens.css          layout of the shell and each screen, using those tokens
+    groupForm.ts         Create Group's field rules (pure, unit-tested)
+    groupFormat.ts       meeting times, seats left, next-meeting order
     auth/
       msal.ts            the MSAL instance: authority, redirect URI, cache
       auth-context.ts    the context object and its value type
@@ -114,7 +119,10 @@ client/                  Vite + React + TypeScript single-page app
     components/
       EntraSignInButton.tsx  an ordinary button — MSAL ships no widget
       Avatar.tsx         profile picture with an initials fallback
-      EmptyState.tsx     honest "not built yet" block
+      ClassMeetLayout.tsx  the signed-in shell: sidebar, or top and tab bars on phones
+      CreateGroupForm.tsx  the Create Group fields, inline errors and submit
+      FormField.tsx      label, control, then hint or error, wired with aria
+      GroupActionPanels.tsx  Group Details' state-driven action panel
       Wordmark.tsx       inline-SVG logo
       FullPageSpinner.tsx
       icons.tsx
@@ -138,6 +146,7 @@ server/                  Express + TypeScript API
     users.ts             the users table: upsert and lookup
     groups/
       validation.ts      rules for creating a group (pure, unit-tested)
+      visibility.ts      what outsiders may see: no online meeting links
       repository.ts      all SQL for courses and groups, behind an interface
     dev-login.ts         development sign-in bypass — remove before the pilot
     db/pool.ts           pg Pool, TLS, and the deliberate "no database" path
@@ -147,7 +156,8 @@ server/                  Express + TypeScript API
       error-handler.ts   one JSON error shape, 404 handler
     routes/auth.ts       POST /api/auth/entra, GET /me, POST /logout, GET /config
     routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
-    routes/groups.ts     POST /api/groups, GET /api/groups/:id              (sign-in required)
+    routes/groups.ts     POST /api/groups, GET /api/groups/:id, join requests
+                         (ask, withdraw your own, leader decides)            (sign-in required)
     scripts/migrate.ts   the migration runner
 ```
 
