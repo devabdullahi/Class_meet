@@ -91,6 +91,10 @@ export interface GroupSummary {
   location: string | null;
   maxMembers: number;
   memberCount: number;
+  /** The group chat's invite link. Null when there is none, or for a viewer outside the group: the server shares it with members only. */
+  chatLink: string | null;
+  /** Whether the group has a chat at all, which anyone may know. */
+  hasChatLink: boolean;
   viewerRole: 'leader' | 'member' | 'none';
   viewerRequestStatus: 'pending' | 'declined' | null;
 }
@@ -159,6 +163,8 @@ export interface GroupSettings {
   format: GroupFormat;
   location: string;
   maxMembers: number;
+  /** Null for no group chat; an edit sending null takes an existing link away. */
+  chatLink: string | null;
 }
 
 /** A group's course is fixed when it is created, so only creating names one. */

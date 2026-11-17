@@ -12,7 +12,7 @@ import {
   type JoinDecision,
   type MeetingDay,
 } from './validation.js';
-import { visibleLocation } from './visibility.js';
+import { visibleChatLink, visibleLocation } from './visibility.js';
 import { groupByRelationship, type MyGroups } from './my-groups.js';
 import { toStudentProfile, type ProfileColumns } from '../profiles/repository.js';
 import type { StudentProfile } from '../profiles/validation.js';
@@ -53,6 +53,10 @@ export interface GroupSummary {
   location: string | null;
   maxMembers: number;
   memberCount: number;
+  /** The group chat's invite link. Null when there is none or the viewer may not see it (see visibility.ts). */
+  chatLink: string | null;
+  /** Whether the group has a chat, which anyone may know; the link itself is for members. */
+  hasChatLink: boolean;
   /** The viewing student's relationship to the group. */
   viewerRole: ViewerRole;
   /** The viewer's own request, if any. Declined requests may be sent again. */
@@ -159,6 +163,7 @@ interface GroupRow {
   location: string;
   max_members: number;
   member_count: string;
+  chat_link: string | null;
   viewer_role: ViewerRole;
   viewer_request_status: 'pending' | 'declined' | null;
 }
@@ -166,7 +171,7 @@ interface GroupRow {
 /** Selects a GroupRow from `study_groups g`. $2 must be the viewing student's id. */
 const GROUP_SUMMARY_COLUMNS = `g.id, g.course_id, g.name, g.goal, g.meeting_day,
        to_char(g.meeting_time, 'HH24:MI') AS meeting_time,
-       g.format, g.location, g.max_members,
+       g.format, g.location, g.max_members, g.chat_link,
        (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count,
        CASE
          WHEN g.leader_id = $2 THEN 'leader'
@@ -181,8 +186,8 @@ const MAX_COURSE_SEARCH_RESULTS = 50;
 
 /**
  * Every group the API returns (course lists, My groups, Group Details) is
- * built here, so the meeting-link rule in visibility.ts is applied in one
- * place and no route can forget it.
+ * built here, so the meeting-link and chat-link rules in visibility.ts are
+ * applied in one place and no route can forget them.
  */
 function toGroupSummary(row: GroupRow): GroupSummary {
   return {
@@ -197,6 +202,8 @@ function toGroupSummary(row: GroupRow): GroupSummary {
     maxMembers: row.max_members,
     // count(*) comes back from pg as a string (bigint).
     memberCount: Number(row.member_count),
+    chatLink: visibleChatLink(row.chat_link, row.viewer_role),
+    hasChatLink: row.chat_link !== null,
     viewerRole: row.viewer_role,
     viewerRequestStatus: row.viewer_request_status,
   };
@@ -416,8 +423,8 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
               FOR SHARE
          ), new_group AS (
            INSERT INTO study_groups
-             (course_id, leader_id, name, goal, meeting_day, meeting_time, format, location, max_members)
-           SELECT $1::uuid, $2::uuid, $3::text, $4::text, $5::text, $6::time, $7::text, $8::text, $9::integer
+             (course_id, leader_id, name, goal, meeting_day, meeting_time, format, location, max_members, chat_link)
+           SELECT $1::uuid, $2::uuid, $3::text, $4::text, $5::text, $6::time, $7::text, $8::text, $9::integer, $10::text
              FROM enrollment
            RETURNING id, leader_id
          ), leader_membership AS (
@@ -435,6 +442,7 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
           input.format,
           input.location,
           input.maxMembers,
+          input.chatLink,
         ],
       );
       const row = rows[0];
@@ -522,7 +530,7 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
         await query(
           `UPDATE study_groups
               SET name = $2, goal = $3, meeting_day = $4, meeting_time = $5,
-                  format = $6, location = $7, max_members = $8
+                  format = $6, location = $7, max_members = $8, chat_link = $9
             WHERE id = $1`,
           [
             groupId,
@@ -533,6 +541,7 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
             settings.format,
             settings.location,
             settings.maxMembers,
+            settings.chatLink,
           ],
         );
         return 'updated';

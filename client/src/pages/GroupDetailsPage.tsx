@@ -3,11 +3,20 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, type GroupDetails, type JoinDecision } from '../api';
 import { useAuth } from '../auth/useAuth';
 import { MEETING_DURATION_MINUTES, nextOccurrence } from '../calendar';
+import { chatPlatform } from '../chatLink';
 import { Avatar } from '../components/Avatar';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { JoinPanel, JoinRequestsPanel, YourMeetingPanel } from '../components/GroupActionPanels';
 import { SeatCount, TimeTile } from '../components/groupParts';
-import { AlertIcon, CheckCircleIcon, ChevronLeftIcon, PeopleIcon, PinIcon, VideoIcon } from '../components/icons';
+import {
+  AlertIcon,
+  ChatIcon,
+  CheckCircleIcon,
+  ChevronLeftIcon,
+  PeopleIcon,
+  PinIcon,
+  VideoIcon,
+} from '../components/icons';
 import { groupGoalLine, groupTitle, isGroupFull, meetingPlaceLabel } from '../groupFormat';
 import { describeError, useApiData } from '../hooks/useApiData';
 import { usePendingRequests } from '../pending-requests/usePendingRequests';
@@ -26,6 +35,54 @@ function nextMeetingLabel(group: GroupDetails): string {
   const next = nextOccurrence(group.meetingDay, group.meetingTime, new Date());
   const date = next.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   return `Next: ${date}`;
+}
+
+/**
+ * The group chat line of the Meeting panel. Members see which app it is (the
+ * button itself is in the action panel); a student outside the group learns
+ * only that a chat exists, as the server sends them no link; a leader whose
+ * group has none is pointed at Edit group to add one.
+ */
+function GroupChatRow({ group }: { group: GroupDetails }): ReactNode {
+  if (group.chatLink !== null) {
+    const platform = chatPlatform(group.chatLink);
+    const leader = group.members.find((member) => member.isLeader);
+    const addedBy = group.viewerRole === 'leader' ? 'you' : leader?.name;
+    return (
+      <div className="cm-info__row">
+        <ChatIcon />
+        <div>
+          <strong>{platform === null ? 'Group chat' : `Group chat · ${platform}`}</strong>
+          {addedBy !== undefined && <span className="cm-info__label">Added by {addedBy}</span>}
+        </div>
+      </div>
+    );
+  }
+  if (group.hasChatLink) {
+    return (
+      <div className="cm-info__row">
+        <ChatIcon />
+        <div>
+          <strong>Group chat</strong>
+          <span className="cm-info__label">The link is shared with members.</span>
+        </div>
+      </div>
+    );
+  }
+  if (group.viewerRole === 'leader') {
+    return (
+      <div className="cm-info__row">
+        <ChatIcon />
+        <div>
+          <strong>No group chat yet</strong>
+          <Link className="cm-info__action" to={`/groups/${group.courseId}/${group.id}/edit`}>
+            Add a group chat link
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
 
 function MeetingPanel({ group }: { group: GroupDetails }): ReactNode {
@@ -69,6 +126,7 @@ function MeetingPanel({ group }: { group: GroupDetails }): ReactNode {
           <PeopleIcon />
           <SeatCount taken={group.memberCount} max={group.maxMembers} />
         </div>
+        <GroupChatRow group={group} />
       </div>
     </section>
   );

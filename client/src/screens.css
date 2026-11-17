@@ -540,6 +540,16 @@
   font-size: var(--font-small);
 }
 
+/* A follow-up under a Meeting panel line, such as the leader's "Add a group chat link". */
+/* Its own line, sized to its text so the click target ends where the words do. */
+.cm-info__action {
+  display: block;
+  width: fit-content;
+  margin-top: 2px;
+  font-size: var(--font-small);
+  font-weight: 600;
+}
+
 .cm-members {
   list-style: none;
   margin: 0;

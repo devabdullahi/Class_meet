@@ -113,6 +113,7 @@ client/                  Vite + React + TypeScript single-page app
     groupForm.ts         Create Group's field rules (pure, unit-tested)
     groupFormat.ts       meeting times, seats left, next-meeting order
     courseLink.ts        course links (/join/CSE-3311): the code with its space as a hyphen
+    chatLink.ts          which group chat links the form accepts (mirrors the server's list)
     auth/
       msal.ts            the MSAL instance: authority, redirect URI, cache
       auth-context.ts    the context object and its value type
@@ -171,6 +172,7 @@ server/                  Express + TypeScript API
     004_add_group_name.sql  study_groups.name (NULL for groups made before it; the goal is shown instead)
     005_create_student_profiles.sql  student_profiles: major, year, where they can meet,
                          up to two study styles; no row = no profile
+    006_add_group_chat_link.sql  study_groups.chat_link (optional; members only)
     007_add_reports_and_moderators.sql  users.is_moderator, reports (one open
                          per student per target), removed_groups
   src/
@@ -185,7 +187,9 @@ server/                  Express + TypeScript API
     users.ts             the users table: upsert and lookup
     groups/
       validation.ts      rules for creating and editing a group (pure, unit-tested)
-      visibility.ts      what outsiders may see: no online meeting links
+      visibility.ts      what outsiders may see: no online meeting links, no group chat links
+      chat-link.ts       the group chat link allowlist: https invite links from GroupMe,
+                         Discord, WhatsApp and Microsoft Teams only, no shorteners
       my-groups.ts       sorts a student's groups into led / member / requested (pure, unit-tested)
       repository.ts      all SQL for courses and groups, behind an interface
                          (tested against PGlite in repository.test.ts); a

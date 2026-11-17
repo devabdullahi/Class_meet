@@ -210,6 +210,7 @@ test('an in-person group is sent to the API and the student lands on the new gro
     format: 'in_person',
     location: 'Central Library',
     maxMembers: 4,
+    chatLink: null,
   });
   expect(await screen.findByRole('heading', { name: 'Group page (created)' })).toBeTruthy();
 });
@@ -241,4 +242,17 @@ test.each([/Back to my courses/, /^Cancel$/])('%s returns to My Courses', async 
   await screen.findByRole('option', { name: /CSE 3311/ });
   await user.click(screen.getByRole('link', { name }));
   expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
+});
+
+test('a new group can start with a group chat link', async () => {
+  const user = renderPage();
+  await fillDetails(user);
+  await user.type(
+    screen.getByLabelText('Group chat link (optional, members only)'),
+    'https://groupme.com/join_group/12345678/AbCdEf',
+  );
+  await submit(user);
+  expect(createGroup).toHaveBeenCalledWith(
+    expect.objectContaining({ chatLink: 'https://groupme.com/join_group/12345678/AbCdEf' }),
+  );
 });

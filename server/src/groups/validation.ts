@@ -4,6 +4,7 @@
  * mirror them.
  */
 import { HttpError } from '../errors.js';
+import { chatLinkProblem } from './chat-link.js';
 
 export const MEETING_DAYS = [
   'Monday',
@@ -38,6 +39,8 @@ export interface GroupSettings {
   format: GroupFormat;
   location: string;
   maxMembers: number;
+  /** An invite link to the group's chat, shared with members only. Null when there is none. */
+  chatLink: string | null;
 }
 
 /** A group's course is fixed when it is created, so only creating names one. */
@@ -149,7 +152,23 @@ function parseGroupSettings(fields: Record<string, unknown>): GroupSettings {
     format,
     location,
     maxMembers,
+    chatLink: readChatLink(fields),
   };
+}
+
+/**
+ * Optional. Left out, null or blank all mean "no chat link"; as with every
+ * other setting, an edit that leaves it out clears it.
+ */
+function readChatLink(fields: Record<string, unknown>): string | null {
+  const value = fields['chatLink'];
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') throw invalid('chatLink', 'The chat link must be text.');
+  const link = value.trim();
+  if (link === '') return null;
+  const problem = chatLinkProblem(link);
+  if (problem !== null) throw invalid('chatLink', problem);
+  return link;
 }
 
 export type JoinDecision = 'approve' | 'decline';

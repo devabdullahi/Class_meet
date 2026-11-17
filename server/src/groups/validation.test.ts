@@ -106,6 +106,23 @@ for (const link of ['not-a-link', 'http://zoom.us/j/1', 'ftp://example.com/room'
   });
 }
 
+test('a group chat link is optional: left out, null or blank all mean none', () => {
+  assert.equal(parseCreateGroupInput(validBody()).chatLink, null);
+  assert.equal(parseCreateGroupInput(validBody({ chatLink: null })).chatLink, null);
+  assert.equal(parseCreateGroupInput(validBody({ chatLink: '   ' })).chatLink, null);
+});
+
+test('a group chat link from an allowed host is kept, trimmed', () => {
+  const input = parseCreateGroupInput(validBody({ chatLink: '  https://discord.gg/abc123 ' }));
+  assert.equal(input.chatLink, 'https://discord.gg/abc123');
+});
+
+test('a shortened, plain-http or non-text chat link is rejected', () => {
+  assert.equal(rejectionCode(validBody({ chatLink: 'https://bit.ly/3xKq9Zt' })), 'invalid_chatLink');
+  assert.equal(rejectionCode(validBody({ chatLink: 'http://discord.gg/abc123' })), 'invalid_chatLink');
+  assert.equal(rejectionCode(validBody({ chatLink: 42 })), 'invalid_chatLink');
+});
+
 test('an edit is checked by the same rules, and takes no course', () => {
   const { courseId: _courseId, ...settings } = validBody();
   const input = parseUpdateGroupInput(settings);
@@ -113,6 +130,7 @@ test('an edit is checked by the same rules, and takes no course', () => {
   assert.equal('courseId' in input, false);
   assert.throws(() => parseUpdateGroupInput({ ...settings, maxMembers: 1 }), { code: 'invalid_maxMembers' });
   assert.throws(() => parseUpdateGroupInput({ ...settings, name: ' ' }), { code: 'invalid_name' });
+  assert.throws(() => parseUpdateGroupInput({ ...settings, chatLink: 'https://bit.ly/x' }), { code: 'invalid_chatLink' });
   assert.throws(() => parseUpdateGroupInput(null), { code: 'invalid_body' });
 });
 

@@ -52,6 +52,8 @@ const GROUP: GroupDetails = {
   location: 'Library',
   maxMembers: 6,
   memberCount: 1,
+  chatLink: null,
+  hasChatLink: false,
   members: [{ userId: VIEWER_ID, name: 'Real Student', isLeader: true }],
   viewerRole: 'leader',
   viewerRequestStatus: null,
@@ -480,6 +482,32 @@ test('PATCH /api/groups/:id rejects invalid settings before reaching the reposit
   const { status, json } = await send('PATCH', `/api/groups/${GROUP_ID}`, { ...validSettings, goal: '' });
   assert.equal(status, 400);
   assert.equal(json.error.code, 'invalid_goal');
+  assert.equal(repository.updates.length, before);
+});
+
+test('a leader sets the group chat link when creating or editing, and an empty one clears it', async () => {
+  const link = 'https://chat.whatsapp.com/GxQ5Rk1aBcD';
+  const created = await send('POST', '/api/groups', { ...validGroupBody, chatLink: link });
+  assert.equal(created.status, 201);
+
+  await send('PATCH', `/api/groups/${GROUP_ID}`, { ...validSettings, chatLink: link });
+  assert.equal(repository.updates.at(-1)?.settings.chatLink, link);
+  await send('PATCH', `/api/groups/${GROUP_ID}`, { ...validSettings, chatLink: '' });
+  assert.equal(repository.updates.at(-1)?.settings.chatLink, null);
+});
+
+test('a shortened chat link is refused with the message the form shows', async () => {
+  const before = repository.updates.length;
+  const { status, json } = await send('PATCH', `/api/groups/${GROUP_ID}`, {
+    ...validSettings,
+    chatLink: 'https://bit.ly/3xKq9Zt',
+  });
+  assert.equal(status, 400);
+  assert.equal(json.error.code, 'invalid_chatLink');
+  assert.equal(
+    json.error.message,
+    'Use an invite link from GroupMe, Discord, WhatsApp or Microsoft Teams. Shortened links can’t be checked.',
+  );
   assert.equal(repository.updates.length, before);
 });
 

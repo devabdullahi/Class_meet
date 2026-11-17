@@ -16,6 +16,8 @@ function group(overrides: Partial<LedGroupSummary>): LedGroupSummary {
     location: 'Library',
     maxMembers: 6,
     memberCount: 2,
+    chatLink: null,
+    hasChatLink: false,
     viewerRole: 'none',
     viewerRequestStatus: null,
     pendingRequestCount: 0,

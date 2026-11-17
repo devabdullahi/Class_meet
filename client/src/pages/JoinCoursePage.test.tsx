@@ -37,6 +37,8 @@ function group(overrides: Partial<GroupSummary>): GroupSummary {
     memberCount: 3,
     viewerRole: 'none',
     viewerRequestStatus: null,
+    chatLink: null,
+    hasChatLink: false,
     ...overrides,
   };
 }

@@ -31,6 +31,8 @@ const GROUP: GroupDetails = {
   location: 'Library 412',
   maxMembers: 6,
   memberCount: 3,
+  chatLink: null,
+  hasChatLink: false,
   members: [
     { userId: 'u9', name: 'Alex Rivera', isLeader: true },
     { userId: 'u7', name: 'Jo Kim', isLeader: false },
@@ -107,6 +109,7 @@ test('saving sends every setting and returns to the group, which says the change
     format: 'in_person',
     location: 'Library 412',
     maxMembers: 6,
+    chatLink: null,
   });
   expect(await screen.findByRole('heading', { name: 'Group page (saved)' })).toBeTruthy();
 });
@@ -176,4 +179,42 @@ test('a server failure offers Try again', async () => {
   renderPage();
   expect((await screen.findByRole('alert')).textContent).toContain('We could not load this group.');
   expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+});
+
+// ---- Group chat link -------------------------------------------------------
+
+const CHAT_LABEL = 'Group chat link (optional, members only)';
+
+test('a leader adds a group chat link, which is saved with the other settings', async () => {
+  const user = renderPage();
+  await screen.findByRole('heading', { level: 1, name: 'Edit group' });
+  expect(valueOf(CHAT_LABEL)).toBe('');
+  await user.type(screen.getByLabelText(CHAT_LABEL), ' https://discord.gg/abc123 ');
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(updateGroup).toHaveBeenCalledWith('g1', expect.objectContaining({ chatLink: 'https://discord.gg/abc123' }));
+});
+
+test('a shortened chat link is refused beside the field, focused, and nothing is saved', async () => {
+  const user = renderPage();
+  await screen.findByRole('heading', { level: 1, name: 'Edit group' });
+  await user.type(screen.getByLabelText(CHAT_LABEL), 'https://bit.ly/3xKq9Zt');
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(messageFor(CHAT_LABEL)).toBe(
+    'Use an invite link from GroupMe, Discord, WhatsApp or Microsoft Teams. Shortened links can’t be checked.',
+  );
+  expect(screen.getByLabelText(CHAT_LABEL).getAttribute('aria-invalid')).toBe('true');
+  expect(document.activeElement).toBe(screen.getByLabelText(CHAT_LABEL));
+  expect(updateGroup).not.toHaveBeenCalled();
+});
+
+test('the form starts from the group\'s chat link, and emptying it takes the link away', async () => {
+  fetchGroup.mockResolvedValue({
+    group: { ...GROUP, chatLink: 'https://chat.whatsapp.com/GxQ5Rk1aBcD', hasChatLink: true },
+  });
+  const user = renderPage();
+  await screen.findByRole('heading', { level: 1, name: 'Edit group' });
+  expect(valueOf(CHAT_LABEL)).toBe('https://chat.whatsapp.com/GxQ5Rk1aBcD');
+  await user.clear(screen.getByLabelText(CHAT_LABEL));
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(updateGroup).toHaveBeenCalledWith('g1', expect.objectContaining({ chatLink: null }));
 });

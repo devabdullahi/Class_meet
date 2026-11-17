@@ -54,6 +54,8 @@ const BASE: GroupDetails = {
   location: 'Library 412',
   maxMembers: 6,
   memberCount: 2,
+  chatLink: null,
+  hasChatLink: false,
   members: [
     { userId: 'u9', name: 'Alex Rivera', isLeader: true },
     { userId: 'u7', name: 'Jo Kim', isLeader: false },
@@ -531,4 +533,79 @@ test('the leader who confirms Delete group lands on the course\'s groups', async
   await user.click(within(question).getByRole('button', { name: 'Delete group' }));
   expect(deleteGroup).toHaveBeenCalledWith('g1');
   expect(await screen.findByRole('heading', { name: 'Groups page' })).toBeTruthy();
+});
+
+// ---- Group chat ------------------------------------------------------------
+
+const CHAT_LINK = 'https://groupme.com/join_group/12345678/AbCdEf';
+
+test('a member gets Open group chat as the main action, opening in a new tab', async () => {
+  fetchGroup.mockResolvedValue({ group: { ...AS_MEMBER, chatLink: CHAT_LINK, hasChatLink: true } });
+  renderPage();
+  const chat = await screen.findByRole('link', { name: /Open group chat/ });
+  expect(chat.getAttribute('href')).toBe(CHAT_LINK);
+  expect(chat.getAttribute('target')).toBe('_blank');
+  expect(chat.getAttribute('rel')).toContain('noopener');
+  expect(chat.className).toContain('cm-btn--primary');
+  expect(within(actionPanel()).getByText(/Opens the group’s GroupMe in a new tab\. Only members see this link\./)).toBeTruthy();
+  expect(screen.getByText('Group chat · GroupMe')).toBeTruthy();
+  expect(screen.getByText('Added by Alex Rivera')).toBeTruthy();
+});
+
+test('in an online group with a chat, the chat is the one primary action and Join meeting steps back', async () => {
+  fetchGroup.mockResolvedValue({
+    group: {
+      ...AS_MEMBER,
+      format: 'online',
+      location: 'https://zoom.us/j/1234567890',
+      chatLink: 'https://discord.gg/abc123',
+      hasChatLink: true,
+    },
+  });
+  renderPage();
+  const chat = await screen.findByRole('link', { name: /Open group chat/ });
+  expect(chat.className).toContain('cm-btn--primary');
+  expect(screen.getByRole('link', { name: /Join meeting/ }).className).toContain('cm-btn--secondary');
+  expect(actionPanel().querySelectorAll('.cm-btn--primary')).toHaveLength(1);
+});
+
+for (const [who, group] of [
+  ['a student outside the group', { ...BASE, chatLink: null, hasChatLink: true }],
+  ['a student whose request is pending', { ...BASE, viewerRequestStatus: 'pending', chatLink: null, hasChatLink: true }],
+] as const) {
+  test(`${who} learns a chat exists, with no link to it`, async () => {
+    fetchGroup.mockResolvedValue({ group });
+    renderPage();
+    expect(await screen.findByText('The link is shared with members.')).toBeTruthy();
+    expect(screen.getByText('Group chat')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /Open group chat/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Add a group chat link' })).toBeNull();
+  });
+}
+
+test('a group without a chat shows no chat line to members', async () => {
+  fetchGroup.mockResolvedValue({ group: AS_MEMBER });
+  renderPage();
+  await screen.findByRole('heading', { level: 1 });
+  expect(screen.queryByText(/Group chat/)).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Add a group chat link' })).toBeNull();
+});
+
+test('a leader whose group has no chat is offered Add a group chat link, which opens Edit group', async () => {
+  fetchGroup.mockResolvedValue({ group: { ...BASE, viewerRole: 'leader' } });
+  const user = renderPage();
+  expect(await screen.findByText('No group chat yet')).toBeTruthy();
+  await user.click(screen.getByRole('link', { name: 'Add a group chat link' }));
+  expect(screen.getByRole('heading', { name: 'Edit page' })).toBeTruthy();
+});
+
+test('a leader whose group has a chat sees it as theirs, not a prompt to add one', async () => {
+  fetchGroup.mockResolvedValue({
+    group: { ...BASE, viewerRole: 'leader', chatLink: 'https://chat.whatsapp.com/GxQ5Rk1aBcD', hasChatLink: true },
+  });
+  renderPage();
+  expect(await screen.findByText('Group chat · WhatsApp')).toBeTruthy();
+  expect(screen.getByText('Added by you')).toBeTruthy();
+  expect(screen.getByRole('link', { name: /Open group chat/ })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Add a group chat link' })).toBeNull();
 });

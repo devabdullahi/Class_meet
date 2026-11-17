@@ -5,6 +5,7 @@
  * request is sent, not to replace the server's checks.
  */
 import type { CreateGroupRequest, GroupDetails, GroupFormat, GroupSettings, MeetingDay } from './api';
+import { chatLinkError } from './chatLink';
 
 export const MEETING_DAYS: MeetingDay[] = [
   'Monday',
@@ -35,6 +36,8 @@ export interface GroupFormValues {
   location: string;
   /** Kept as typed, so a half-typed number is not silently changed. */
   groupSize: string;
+  /** Optional; '' means the group has no chat. */
+  chatLink: string;
 }
 
 export type GroupFormField = keyof GroupFormValues;
@@ -49,6 +52,7 @@ export const GROUP_FORM_FIELD_ORDER: GroupFormField[] = [
   'meetingTime',
   'format',
   'location',
+  'chatLink',
   'groupSize',
 ];
 
@@ -96,6 +100,9 @@ export function validateGroupForm(values: GroupFormValues, memberCount = 0): Gro
   if (values.meetingTime === '') errors.meetingTime = 'Choose a time.';
   const location = locationError(values.format, values.location);
   if (location !== undefined) errors.location = location;
+  const chatLink = values.chatLink.trim();
+  const chatLinkProblem = chatLink === '' ? undefined : chatLinkError(chatLink);
+  if (chatLinkProblem !== undefined) errors.chatLink = chatLinkProblem;
   const groupSize = groupSizeError(values.groupSize, memberCount);
   if (groupSize !== undefined) errors.groupSize = groupSize;
   return errors;
@@ -114,6 +121,8 @@ export function groupFormValuesFrom(group: GroupDetails): GroupFormValues {
     // The leader always sees the location; '' only satisfies the type.
     location: group.location ?? '',
     groupSize: String(group.maxMembers),
+    // The leader always gets the link; null means the group has none yet.
+    chatLink: group.chatLink ?? '',
   };
 }
 
@@ -132,5 +141,6 @@ export function toGroupSettings(values: GroupFormValues): GroupSettings {
     format: values.format,
     location: values.location.trim(),
     maxMembers: Number(values.groupSize),
+    chatLink: values.chatLink.trim() === '' ? null : values.chatLink.trim(),
   };
 }

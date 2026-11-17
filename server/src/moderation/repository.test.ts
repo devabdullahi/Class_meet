@@ -85,6 +85,7 @@ async function groupLedBy(leaderId: string, name = 'Midterm 2 answer key'): Prom
     format: 'online',
     location: 'https://example.com/meet',
     maxMembers: 10,
+    chatLink: null,
   });
   assert.equal(result.outcome, 'created');
   return result.outcome === 'created' ? result.groupId : '';

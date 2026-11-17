@@ -52,6 +52,8 @@ const GROUP: GroupDetails = {
   ],
   viewerRole: 'none',
   viewerRequestStatus: null,
+  chatLink: null,
+  hasChatLink: false,
   pendingRequests: [],
 };
 
