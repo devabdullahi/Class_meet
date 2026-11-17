@@ -117,6 +117,17 @@ describe('the API next to the built client', () => {
     const body = (await response.json()) as { error: { code: string } };
     assert.equal(body.error.code, 'not_found');
   });
+
+  // A course link's sign-in page names the course before anyone signs in;
+  // everything else about the course stays behind sign-in. The code checked
+  // here is too long to be one, so neither request reaches the database.
+  test('looks up a course link without sign-in, but nothing else about the course', async () => {
+    const longCode = 'A'.repeat(41);
+    const publicLookup = await fetch(`${baseUrl}/api/course-links/${longCode}`);
+    assert.equal(publicLookup.status, 400);
+    const signedInLookup = await fetch(`${baseUrl}/api/courses/by-code/${longCode}`);
+    assert.equal(signedInLookup.status, 401);
+  });
 });
 
 describe('security headers', () => {

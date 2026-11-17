@@ -27,6 +27,7 @@ const COURSE = {
   groupCount: 0,
   openGroupCount: 0,
   joinedGroupCount: 0,
+  classmateCount: 0,
 };
 const CREATED = { id: 'g1', courseId: 'c1' } as GroupDetails;
 

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HttpError } from '../errors.js';
-import { courseSearchPatterns, parseCreateGroupInput, parseUpdateGroupInput } from './validation.js';
+import { courseSearchPatterns, parseCourseLinkCode, parseCreateGroupInput, parseUpdateGroupInput } from './validation.js';
 
 const COURSE_ID = '3f2b8c1e-5d4a-4c0e-9b7a-1a2b3c4d5e6f';
 
@@ -123,4 +123,20 @@ test('course search also matches a code typed without its space', () => {
 
 test('course search escapes LIKE wildcards in what the student typed', () => {
   assert.deepEqual(courseSearchPatterns('100%_x'), { text: '%100\\%\\_x%', compact: '%100\\%\\_x%' });
+});
+
+test('a course link code reads the same in any case, with its space written as a hyphen or a space', () => {
+  for (const raw of ['CSE-3311', 'cse-3311', 'CSE 3311', '  cse   3311 ']) {
+    assert.equal(parseCourseLinkCode(raw), 'CSE-3311', raw);
+  }
+});
+
+test('a course link code that is empty or longer than any course code is refused', () => {
+  for (const raw of ['', '   ', 'A'.repeat(41)]) {
+    assert.throws(
+      () => parseCourseLinkCode(raw),
+      (error: unknown) => error instanceof HttpError && error.status === 400 && error.code === 'invalid_course_code',
+    );
+  }
+  assert.equal(parseCourseLinkCode('A'.repeat(40)), 'A'.repeat(40));
 });

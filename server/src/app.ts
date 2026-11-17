@@ -2,6 +2,7 @@ import express, { type Express } from 'express';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './routes/auth.js';
 import { createCoursesRouter } from './routes/courses.js';
+import { createCourseLinksRouter } from './routes/course-links.js';
 import { createGroupsRouter } from './routes/groups.js';
 import { createMeRouter } from './routes/me.js';
 import { createProfileRouter } from './routes/profile.js';
@@ -77,6 +78,7 @@ export function createApp(options: AppOptions = {}): Express {
 
   app.use('/api/auth', authRouter);
   app.use('/api/me/profile', requireAuth, createProfileRouter(postgresProfileRepository));
+  app.use('/api/course-links', createCourseLinksRouter(postgresGroupRepository));
   app.use('/api/me', requireAuth, createMeRouter(postgresGroupRepository));
   app.use('/api/courses', requireAuth, createCoursesRouter(postgresGroupRepository));
   app.use('/api/groups', requireAuth, createGroupsRouter(postgresGroupRepository));

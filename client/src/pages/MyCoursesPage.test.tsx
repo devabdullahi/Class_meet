@@ -40,6 +40,7 @@ const OOSE = {
   groupCount: 6,
   openGroupCount: 4,
   joinedGroupCount: 1,
+  classmateCount: 40,
 };
 const AI = {
   id: 'c2',
@@ -48,8 +49,17 @@ const AI = {
   groupCount: 1,
   openGroupCount: 0,
   joinedGroupCount: 0,
+  classmateCount: 12,
 };
-const OS = { id: 'c3', code: 'CSE 3320', title: 'Operating Systems', groupCount: 0, openGroupCount: 0, joinedGroupCount: 0 };
+const OS = {
+  id: 'c3',
+  code: 'CSE 3320',
+  title: 'Operating Systems',
+  groupCount: 0,
+  openGroupCount: 0,
+  joinedGroupCount: 0,
+  classmateCount: 0,
+};
 
 afterEach(() => {
   cleanup();
@@ -80,6 +90,21 @@ test('shows each course with how many groups are open and how many the student i
   expect(screen.getAllByText(/You’re in/)).toHaveLength(1);
   expect(screen.getByRole('heading', { level: 1, name: 'My courses' })).toBeTruthy();
   expect(screen.getByText('dev.student@mavs.uta.edu')).toBeTruthy();
+});
+
+test('a course with no groups yet says how many classmates have added it', async () => {
+  fetchMyCourses.mockResolvedValue({
+    courses: [
+      { ...OS, classmateCount: 38 },
+      { ...AI, id: 'c4', code: 'CSE 4310', title: 'Computer Vision', groupCount: 0, classmateCount: 1 },
+    ],
+  });
+  renderPage();
+  const byText = (text: string) => (_: string, element: Element | null) =>
+    element?.tagName === 'P' && element.textContent === text;
+  expect(await screen.findByText(byText('No groups · 38 classmates'))).toBeTruthy();
+  expect(screen.getByText('38', { selector: 'strong' })).toBeTruthy();
+  expect(screen.getByText(byText('No groups · 1 classmate'))).toBeTruthy();
 });
 
 test('each course card is one link to its study groups', async () => {

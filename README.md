@@ -112,6 +112,7 @@ client/                  Vite + React + TypeScript single-page app
     screens.css          layout of the shell and each screen, using those tokens
     groupForm.ts         Create Group's field rules (pure, unit-tested)
     groupFormat.ts       meeting times, seats left, next-meeting order
+    courseLink.ts        course links (/join/CSE-3311): the code with its space as a hyphen
     auth/
       msal.ts            the MSAL instance: authority, redirect URI, cache
       auth-context.ts    the context object and its value type
@@ -132,12 +133,17 @@ client/                  Vite + React + TypeScript single-page app
       GroupActionPanels.tsx  Group Details' state-driven action panel
       RequesterProfile.tsx  a join request as the leader sees it: name and profile lines
       InlineConfirm.tsx  asks in place before leaving a group or removing a course
+      ShareCourseLinkDialog.tsx  a course's link, ready to copy
+      CopyLinkField.tsx  a link with Copy link; selects it for Ctrl+C where the clipboard is unavailable
+      dialogKeys.ts      Tab stays inside a dialog; Escape closes it
       Wordmark.tsx       inline-SVG logo
       FullPageSpinner.tsx
       icons.tsx
     pages/
       LoginPage.tsx      sign-in screen
       MyGroupsPage.tsx   groups you lead, are in and asked to join; what needs you first
+      JoinCoursePage.tsx what a course link opens: the course, its classmates and soonest
+                         groups, and Add <code> to my courses
       EditGroupPage.tsx  the leader edits a group, using GroupForm
       ProfilePage.tsx    Your profile: the form beside "What leaders see"
       HomePage.tsx       signed-in landing page
@@ -185,7 +191,11 @@ server/                  Express + TypeScript API
                          withdraws your requests to its groups), GET /api/me/groups,
                          GET /api/me/groups/pending-request-count             (sign-in required)
     routes/profile.ts    GET/PUT /api/me/profile, your own profile only     (sign-in required)
-    routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
+    routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups (with the
+                         classmate count), GET /api/courses/by-code/:code (a course
+                         link: the course, added or not, classmates, groups)  (sign-in required)
+    routes/course-links.ts  GET /api/course-links/:code — a course link's code and
+                         title only, for its sign-in page               (no sign-in)
     routes/groups.ts     POST /api/groups, GET /api/groups/:id, PATCH and DELETE /api/groups/:id (leader), join requests
                          (ask, withdraw your own, leader decides),
                          DELETE /api/groups/:id/members/me (leave)           (sign-in required)

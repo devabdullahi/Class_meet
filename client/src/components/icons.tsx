@@ -156,3 +156,21 @@ export function CheckIcon(): ReactNode {
     </svg>
   );
 }
+
+export function LinkIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1" {...STROKE} />
+      <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" {...STROKE} />
+    </svg>
+  );
+}
+
+export function CopyIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2" {...STROKE} />
+      <path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" {...STROKE} />
+    </svg>
+  );
+}

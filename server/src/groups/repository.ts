@@ -34,6 +34,8 @@ export interface EnrolledCourse extends Course {
   openGroupCount: number;
   /** Groups the viewer leads or belongs to. */
   joinedGroupCount: number;
+  /** See GroupRepository.countClassmates. */
+  classmateCount: number;
 }
 
 export type ViewerRole = 'leader' | 'member' | 'none';
@@ -111,6 +113,15 @@ export interface GroupRepository {
    */
   removeCourse(viewerId: string, courseId: string): Promise<RemoveCourseOutcome>;
   findCourse(courseId: string): Promise<Course | null>;
+  /** The course a course link names; `code` comes from parseCourseLinkCode. */
+  findCourseByLinkCode(code: string): Promise<Course | null>;
+  isEnrolled(viewerId: string, courseId: string): Promise<boolean>;
+  /**
+   * How many students other than the viewer have added the course. A count
+   * only: who they are is never shared, since adding a course is not joining
+   * anything and nobody agreed to be listed.
+   */
+  countClassmates(courseId: string, viewerId: string): Promise<number>;
   listGroupsForCourse(courseId: string, viewerId: string): Promise<GroupSummary[]>;
   /** Groups the viewer leads, belongs to, or has a pending or declined request for. */
   listMyGroups(viewerId: string): Promise<MyGroups>;
@@ -211,7 +222,12 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
 
     async listMyCourses(viewerId) {
       const rows = await query<
-        Course & { group_count: string; open_group_count: string; joined_group_count: string }
+        Course & {
+          group_count: string;
+          open_group_count: string;
+          joined_group_count: string;
+          classmate_count: string;
+        }
       >(
         `SELECT c.id, c.code, c.title,
                 (SELECT count(*) FROM study_groups g WHERE g.course_id = c.id) AS group_count,
@@ -222,7 +238,10 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
                 (SELECT count(*) FROM study_groups g
                    JOIN group_members m ON m.group_id = g.id AND m.user_id = $1
                   WHERE g.course_id = c.id
-                ) AS joined_group_count
+                ) AS joined_group_count,
+                (SELECT count(*) FROM course_enrollments other
+                  WHERE other.course_id = c.id AND other.user_id <> $1
+                ) AS classmate_count
            FROM course_enrollments e
            JOIN courses c ON c.id = e.course_id
           WHERE e.user_id = $1
@@ -236,6 +255,7 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
         groupCount: Number(row.group_count),
         openGroupCount: Number(row.open_group_count),
         joinedGroupCount: Number(row.joined_group_count),
+        classmateCount: Number(row.classmate_count),
       }));
     },
 
@@ -303,6 +323,34 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
     async findCourse(courseId) {
       const rows = await query<Course>('SELECT id, code, title FROM courses WHERE id = $1', [courseId]);
       return rows[0] ?? null;
+    },
+
+    async findCourseByLinkCode(code) {
+      // Each catalog code converted the way a link spells it (parseCourseLinkCode):
+      // each run of spaces as one hyphen, in upper case. Codes are UNIQUE and
+      // written "SUBJECT NUMBER", so at most one course matches.
+      const rows = await query<Course>(
+        `SELECT id, code, title FROM courses
+          WHERE upper(regexp_replace(code, '[[:space:]]+', '-', 'g')) = $1`,
+        [code],
+      );
+      return rows[0] ?? null;
+    },
+
+    async isEnrolled(viewerId, courseId) {
+      const rows = await query<{ enrolled: boolean }>(
+        'SELECT EXISTS (SELECT 1 FROM course_enrollments WHERE user_id = $1 AND course_id = $2) AS enrolled',
+        [viewerId, courseId],
+      );
+      return rows[0]?.enrolled === true;
+    },
+
+    async countClassmates(courseId, viewerId) {
+      const rows = await query<{ count: string }>(
+        'SELECT count(*) AS count FROM course_enrollments WHERE course_id = $1 AND user_id <> $2',
+        [courseId, viewerId],
+      );
+      return Number(rows[0]?.count ?? 0);
     },
 
     async listGroupsForCourse(courseId, viewerId) {

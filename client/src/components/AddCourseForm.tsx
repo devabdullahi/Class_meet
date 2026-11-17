@@ -1,35 +1,13 @@
-import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { api, type CourseSearchResult } from '../api';
 import { describeError } from '../hooks/useApiData';
+import { handleDialogKeys } from './dialogKeys';
 import { AlertIcon, CheckIcon, CloseIcon } from './icons';
 
 interface AddCourseFormProps {
   onClose: () => void;
   /** Called after a course is added, so the page behind the dialog can refresh. */
   onAdded?: () => void;
-}
-
-/** Keeps Tab and Shift+Tab inside the dialog, and closes it on Escape. */
-function handleDialogKeys(event: KeyboardEvent<HTMLElement>, onClose: () => void): void {
-  if (event.key === 'Escape') {
-    event.stopPropagation();
-    onClose();
-    return;
-  }
-  if (event.key !== 'Tab') return;
-
-  const controls = event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)');
-  const first = controls[0];
-  const last = controls[controls.length - 1];
-  if (first === undefined || last === undefined) return;
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
 }
 
 export function AddCourseForm({ onClose, onAdded }: AddCourseFormProps): ReactNode {

@@ -1,9 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { api } from '../api';
 import { useAuth } from '../auth/useAuth';
 import { EntraSignInButton } from '../components/EntraSignInButton';
 import { FullPageSpinner } from '../components/FullPageSpinner';
 import { Wordmark } from '../components/Wordmark';
+import { courseCodeFromLinkCode, linkCodeFromPath } from '../courseLink';
+import { useApiData } from '../hooks/useApiData';
 
 /**
  * Where to go after signing in: the page RequireAuth remembered, if it is a
@@ -20,6 +23,15 @@ export function LoginPage(): ReactNode {
   const { status, error, config, signIn, devSignIn, clearError } = useAuth();
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
+  // Arriving from a course link (/join/CSE-3311), the page invites the
+  // student to that course. Signing in still returns them to the link.
+  const linkCode = status === 'signed-out' ? linkCodeFromPath(returnPath(location.state)) : null;
+  // A failed lookup is left unreported on purpose: without the title the
+  // page names the course by the code in the link, which reads just as well.
+  const linkedCourse = useApiData(
+    () => (linkCode === null ? Promise.resolve(null) : api.fetchCourseLinkTitle(linkCode)),
+    [linkCode],
+  ).data?.course;
 
   if (status === 'loading') {
     return <FullPageSpinner label="Checking your session" />;
@@ -45,18 +57,31 @@ export function LoginPage(): ReactNode {
   // enforces it, so the copy cannot promise something the policy does not.
   const tenantCopy =
     config !== null
-      ? `Sign in with the account you use for email and Canvas at ${config.tenantDisplayName}.`
-      : 'Sign in with your university account.';
+      ? `Use the account you use for email and Canvas at ${config.tenantDisplayName}.`
+      : 'Use your university account.';
+  const linkedCourseCode = linkedCourse?.code ?? (linkCode === null ? null : courseCodeFromLinkCode(linkCode));
 
   return (
     <main className="cm-login">
       <section className="cm-login__card">
         <Wordmark />
-        <h1 className="cm-login__title">Find a study group for the course you&rsquo;re actually in.</h1>
-        <p className="cm-login__subtitle">
-          Class Meet lists the open study groups for your courses: day, time, place and seats left.
-          You do not need an invite.
-        </p>
+        {linkedCourseCode === null ? (
+          <>
+            <h1 className="cm-login__title">Find a study group for the course you&rsquo;re actually in.</h1>
+            <p className="cm-login__subtitle">
+              Class Meet lists the open study groups for your courses: day, time, place and seats left.
+              You do not need an invite.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="cm-login__title">Join the {linkedCourseCode} study groups</h1>
+            <p className="cm-login__subtitle">
+              Sign in to see the study groups for {linkedCourse?.title ?? linkedCourseCode} and add the course in
+              one tap.
+            </p>
+          </>
+        )}
 
         <div className="cm-login__action">
           <EntraSignInButton onClick={handleSignIn} busy={submitting} ready={config !== null} />

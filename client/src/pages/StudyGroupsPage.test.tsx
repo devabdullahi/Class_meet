@@ -1,8 +1,9 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 import { api, ApiError, type GroupSummary } from '../api';
+import type { CourseLinkOutcome } from '../courseLink';
 import { StudyGroupsPage } from './StudyGroupsPage';
 
 vi.mock('../auth/useAuth', () => ({
@@ -47,7 +48,7 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
-function renderPage(state?: { deletedGroupTitle?: string }) {
+function renderPage(state?: { deletedGroupTitle?: string; courseLinkOutcome?: CourseLinkOutcome }) {
   render(
     <MemoryRouter initialEntries={[{ pathname: '/groups/c1', state }]}>
       <Routes>
@@ -61,7 +62,7 @@ function renderPage(state?: { deletedGroupTitle?: string }) {
 }
 
 test('shows the course and its groups with time, place and seats', async () => {
-  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: GROUPS });
   renderPage();
   expect(await screen.findByRole('heading', { level: 1, name: 'CSE 3311 study groups' })).toBeTruthy();
   expect(fetchCourseGroups).toHaveBeenCalledWith('c1');
@@ -75,6 +76,7 @@ test('shows the course and its groups with time, place and seats', async () => {
 test('online groups show the platform, never the raw link, and only Online when the link is withheld', async () => {
   fetchCourseGroups.mockResolvedValue({
     course: COURSE,
+    classmateCount: 12,
     groups: [
       group({ id: 'g4', goal: 'Members only', format: 'online', location: null }),
       group({ id: 'g5', goal: 'Mine', format: 'online', location: 'https://zoom.us/j/1', viewerRole: 'member' }),
@@ -92,6 +94,7 @@ test('lists groups by their next meeting, soonest first', async () => {
   vi.setSystemTime(new Date(2026, 10, 4, 17, 0));
   fetchCourseGroups.mockResolvedValue({
     course: COURSE,
+    classmateCount: 12,
     groups: [
       group({ id: 'a', goal: 'Tuesday morning', meetingDay: 'Tuesday', meetingTime: '09:00' }),
       group({ id: 'b', goal: 'Friday lunch', meetingDay: 'Friday', meetingTime: '12:30' }),
@@ -108,6 +111,7 @@ test('lists groups by their next meeting, soonest first', async () => {
 test('each card says how the viewer is related to the group', async () => {
   fetchCourseGroups.mockResolvedValue({
     course: COURSE,
+    classmateCount: 12,
     groups: [
       group({ id: 'l', goal: 'Led by me', viewerRole: 'leader' }),
       group({ id: 'm', goal: 'I am in', viewerRole: 'member' }),
@@ -124,7 +128,7 @@ test('each card says how the viewer is related to the group', async () => {
 });
 
 test('filters by format', async () => {
-  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: GROUPS });
   const user = renderPage();
   await screen.findByText('Review SOLID');
   await user.selectOptions(screen.getByLabelText('Format'), 'Online');
@@ -133,7 +137,7 @@ test('filters by format', async () => {
 });
 
 test('filters by day and by availability', async () => {
-  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: GROUPS });
   const user = renderPage();
   await screen.findByText('Review SOLID');
   await user.selectOptions(screen.getByLabelText('Availability'), 'Full');
@@ -146,27 +150,80 @@ test('filters by day and by availability', async () => {
 });
 
 test('says when the filters match nothing', async () => {
-  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: GROUPS });
   const user = renderPage();
   await screen.findByText('Review SOLID');
   await user.selectOptions(screen.getByLabelText('Day'), 'Monday');
   expect(screen.getByRole('heading', { name: 'No groups match these filters' })).toBeTruthy();
 });
 
-test('with no groups, offers one way to create the first and hides the filters', async () => {
-  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: [] });
+const COURSE_LINK = `${window.location.origin}/join/CSE-3311`;
+
+test('with no groups, the classmates who have the course are the reason to start the first one', async () => {
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 38, groups: [] });
   renderPage();
-  expect(await screen.findByRole('heading', { name: 'No study groups yet' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: '38 classmates in CSE 3311 use Class Meet' })).toBeTruthy();
+  expect(screen.getByText(/None of them has started a study group yet/)).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Create the first group' }).getAttribute('href')).toBe(
     '/groups/create?course=c1',
   );
+  expect(screen.getByRole('button', { name: 'Share course link' })).toBeTruthy();
   expect(screen.queryByLabelText('Day')).toBeNull();
   // Only the sidebar's Create Group remains; the page has a single call to action.
   expect(screen.getAllByRole('link', { name: 'Create group' })).toHaveLength(1);
 });
 
+test('one classmate is counted in the singular', async () => {
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 1, groups: [] });
+  renderPage();
+  expect(await screen.findByRole('heading', { name: '1 classmate in CSE 3311 uses Class Meet' })).toBeTruthy();
+  expect(screen.getByText(/They have not started a study group yet/)).toBeTruthy();
+});
+
+test('the first student in a course is offered the course link to share, and a group anyway', async () => {
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 0, groups: [] });
+  const user = renderPage();
+  expect(await screen.findByRole('heading', { name: 'You’re the first CSE 3311 student here' })).toBeTruthy();
+  expect((screen.getByRole('textbox', { name: 'Course link' }) as HTMLInputElement).value).toBe(COURSE_LINK);
+  expect(screen.getByRole('link', { name: 'Create a group anyway' }).getAttribute('href')).toBe(
+    '/groups/create?course=c1',
+  );
+  expect(screen.queryByRole('link', { name: 'Create the first group' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Share course link' })).toBeNull();
+
+  await user.click(screen.getByRole('button', { name: 'Copy link' }));
+  expect(await navigator.clipboard.readText()).toBe(COURSE_LINK);
+  expect(screen.getByRole('button', { name: 'Copied' })).toBeTruthy();
+});
+
+test('Share course link opens the link to copy, and closing it returns to the button', async () => {
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: GROUPS });
+  const user = renderPage();
+  const share = await screen.findByRole('button', { name: 'Share course link' });
+  await user.click(share);
+
+  const dialog = screen.getByRole('dialog', { name: 'Share CSE 3311' });
+  expect(within(dialog).getByText(/can add CSE 3311 in one tap/)).toBeTruthy();
+  expect((within(dialog).getByLabelText('Course link') as HTMLInputElement).value).toBe(COURSE_LINK);
+  const copy = within(dialog).getByRole('button', { name: 'Copy link' });
+  expect(document.activeElement).toBe(copy);
+
+  await user.click(copy);
+  expect(await navigator.clipboard.readText()).toBe(COURSE_LINK);
+  expect(within(dialog).getByRole('status').textContent).toBe('Link copied.');
+
+  await user.click(within(dialog).getByRole('button', { name: 'Done' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(share);
+
+  await user.click(share);
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(share);
+});
+
 test('opens a group from its card, which is one link named by the goal when the group has no name', async () => {
-  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: GROUPS });
   const user = renderPage();
   await user.click(await screen.findByRole('link', { name: 'Review SOLID' }));
   expect(screen.getByRole('heading', { name: 'Details page' })).toBeTruthy();
@@ -175,6 +232,7 @@ test('opens a group from its card, which is one link named by the goal when the 
 test('a named group is titled by its name, with the goal on the line under it', async () => {
   fetchCourseGroups.mockResolvedValue({
     course: COURSE,
+    classmateCount: 12,
     groups: [group({ id: 'g7', name: 'Midterm crew', goal: 'Review SOLID' })],
   });
   renderPage();
@@ -193,15 +251,29 @@ test('an unknown course gets a way back, not filters or Create Group', async () 
   expect(screen.getByRole('heading', { name: 'My Courses page' })).toBeTruthy();
 });
 
+test('a course just added from its link says so', async () => {
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: GROUPS });
+  renderPage({ courseLinkOutcome: 'added' });
+  expect((await screen.findByRole('status')).textContent).toBe('CSE 3311 was added to your courses.');
+});
+
+test('a course link to a course the student already has says why they are here', async () => {
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: GROUPS });
+  renderPage({ courseLinkOutcome: 'already_added' });
+  expect((await screen.findByRole('status')).textContent).toBe(
+    'CSE 3311 is already in your courses, so the link brought you straight to its groups.',
+  );
+});
+
 test('Back returns to My Courses', async () => {
-  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: [] });
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: [] });
   const user = renderPage();
   await user.click(await screen.findByRole('link', { name: /Back to my courses/ }));
   expect(screen.getByRole('heading', { name: 'My Courses page' })).toBeTruthy();
 });
 
 test('after its leader deletes a group, the course\'s groups say it was deleted', async () => {
-  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, classmateCount: 12, groups: GROUPS });
   renderPage({ deletedGroupTitle: 'Pattern crew' });
   expect((await screen.findByRole('status')).textContent).toBe('Pattern crew was deleted.');
 });

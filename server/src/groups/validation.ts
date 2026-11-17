@@ -184,3 +184,21 @@ export function courseSearchPatterns(search: string): { text: string; compact: s
     compact: `%${escape(search.replace(/\s+/g, ''))}%`,
   };
 }
+
+/** Longer than any course code in the catalog; anything past it is not a code. */
+export const MAX_COURSE_LINK_CODE_LENGTH = 40;
+
+/**
+ * The course code from a course link, /join/CSE-3311, in the form the
+ * repository compares it in. A link spells the code's space as a hyphen, so
+ * the path stays readable without %20; one typed by hand with a space (which
+ * reaches us decoded) means the same course, and so does any letter case.
+ * The catalog side is converted the same way (see findCourseByLinkCode).
+ */
+export function parseCourseLinkCode(raw: unknown): string {
+  const code = typeof raw === 'string' ? raw.trim().replace(/\s+/g, '-').toUpperCase() : '';
+  if (code === '' || code.length > MAX_COURSE_LINK_CODE_LENGTH) {
+    throw HttpError.badRequest('invalid_course_code', 'That is not a course code.');
+  }
+  return code;
+}
