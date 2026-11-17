@@ -126,6 +126,13 @@ export function ClassMeetLayout({ children }: ClassMeetLayoutProps): ReactNode {
                   </p>
                 </div>
               </div>
+              <Link
+                to="/profile"
+                className="cm-btn cm-btn--quiet cm-btn--sm"
+                aria-current={pathname === '/profile' ? 'page' : undefined}
+              >
+                Your profile
+              </Link>
               <button
                 type="button"
                 className="cm-btn cm-btn--quiet cm-btn--sm"

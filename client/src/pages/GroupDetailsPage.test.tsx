@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, expect, test, vi } from 'vitest';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { api, ApiError, type GroupDetails } from '../api';
 import { downloadTextFile } from '../download';
 import { PendingRequestsProvider } from '../pending-requests/PendingRequestsProvider';
@@ -26,6 +26,7 @@ vi.mock('../api', async (importOriginal) => {
       leaveGroup: vi.fn(),
       deleteGroup: vi.fn(),
       fetchPendingRequestCount: vi.fn(),
+      fetchProfile: vi.fn(),
     },
   };
 });
@@ -37,6 +38,7 @@ const decideJoinRequest = vi.mocked(api.decideJoinRequest);
 const leaveGroup = vi.mocked(api.leaveGroup);
 const deleteGroup = vi.mocked(api.deleteGroup);
 const fetchPendingRequestCount = vi.mocked(api.fetchPendingRequestCount);
+const fetchProfile = vi.mocked(api.fetchProfile);
 
 /** Seen by Sam, who is not in it. */
 const BASE: GroupDetails = {
@@ -68,10 +70,20 @@ const AS_MEMBER: GroupDetails = {
   members: [...BASE.members, { userId: 'u8', name: 'Sam Lee', isLeader: false }],
 };
 
+beforeEach(() => {
+  fetchProfile.mockResolvedValue({ profile: null });
+});
+
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
 });
+
+/** Stands in for the profile page, showing where saving would return to. */
+function ProfileRoute() {
+  const { state } = useLocation();
+  return <h1>Profile page, back to {(state as { returnTo?: string } | null)?.returnTo}</h1>;
+}
 
 function renderPage(state?: { created?: boolean; saved?: boolean }, path = '/groups/c1/g1') {
   render(
@@ -80,6 +92,7 @@ function renderPage(state?: { created?: boolean; saved?: boolean }, path = '/gro
         <Route path="/groups/:courseId/:groupId" element={<GroupDetailsPage />} />
         <Route path="/groups/:courseId/:groupId/edit" element={<h1>Edit page</h1>} />
         <Route path="/groups/:courseId" element={<h1>Groups page</h1>} />
+        <Route path="/profile" element={<ProfileRoute />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -193,6 +206,37 @@ test('a declined student can ask again, as a secondary action', async () => {
   expect(screen.getByText(/Alex Rivera declined your last request/)).toBeTruthy();
 });
 
+test('a student without a profile is told the leader will see only their name, and can add one', async () => {
+  fetchGroup.mockResolvedValue({ group: BASE });
+  const user = renderPage();
+  const note = await within(await screen.findByRole('region', { name: '4 seats left' })).findByText(
+    /The leader will see only your name\./,
+  );
+  expect(note.textContent).toBe(
+    'The leader will see only your name. Add a profile so they know your major and how you study.',
+  );
+  await user.click(screen.getByRole('link', { name: 'Add a profile' }));
+  expect(await screen.findByRole('heading', { name: 'Profile page, back to /groups/c1/g1' })).toBeTruthy();
+});
+
+test('a student who has a profile, or whose request is already sent, gets no note about it', async () => {
+  fetchProfile.mockResolvedValue({
+    profile: { major: 'Physics', year: null, meetingPreference: null, studyStyles: [] },
+  });
+  fetchGroup.mockResolvedValue({ group: BASE });
+  renderPage();
+  await screen.findByRole('button', { name: 'Request to join' });
+  await waitFor(() => expect(fetchProfile).toHaveBeenCalled());
+  expect(screen.queryByText(/Add a profile/)).toBeNull();
+
+  cleanup();
+  fetchProfile.mockResolvedValue({ profile: null });
+  fetchGroup.mockResolvedValue({ group: { ...BASE, viewerRequestStatus: 'pending' } });
+  renderPage();
+  await screen.findByRole('heading', { name: 'Request sent' });
+  expect(screen.queryByText(/Add a profile/)).toBeNull();
+});
+
 test('a full group says so and points to the course\'s other groups, with no button', async () => {
   fetchGroup.mockResolvedValue({ group: { ...BASE, memberCount: 6 } });
   const user = renderPage();
@@ -239,13 +283,43 @@ test('a member can add the weekly meeting to their calendar', async () => {
 
 test('the leader sees a created notice, the join requests with a count, and the calendar', async () => {
   fetchGroup.mockResolvedValue({
-    group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe' }] },
+    group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe', profile: null }] },
   });
   renderPage({ created: true });
   expect((await screen.findByRole('status')).textContent).toMatch(/Group created\. You lead it/);
   expect(screen.getByRole('heading', { name: 'Join requests (1)' })).toBeTruthy();
   expect(screen.getByText('Pat Doe')).toBeTruthy();
   expect(screen.getByRole('button', { name: /Add to calendar/ })).toBeTruthy();
+});
+
+test('the leader sees what each waiting student\'s profile says, or that they have not added one', async () => {
+  fetchGroup.mockResolvedValue({
+    group: {
+      ...BASE,
+      viewerRole: 'leader',
+      pendingRequests: [
+        {
+          id: 'r1',
+          userId: 'u5',
+          name: 'Jordan Reyes',
+          profile: {
+            major: 'Computer Science',
+            year: 'sophomore',
+            meetingPreference: 'either',
+            studyStyles: ['practice_problems', 'talking_it_through'],
+          },
+        },
+        { id: 'r2', userId: 'u6', name: 'Lena Fischer', profile: null },
+      ],
+    },
+  });
+  renderPage();
+  const requests = within(await screen.findByRole('region', { name: 'Join requests (2)' })).getAllByRole('listitem');
+  expect(within(requests[0]!).getByText('Jordan Reyes')).toBeTruthy();
+  expect(requests[0]!.textContent).toContain('Computer Science · Sophomore · Online or on campus');
+  expect(within(requests[0]!).getByText('Studies by practice problems and talking it through')).toBeTruthy();
+  expect(within(requests[1]!).getByText('Has not added a profile yet')).toBeTruthy();
+  expect(within(requests[1]!).getByRole('button', { name: 'Approve Lena Fischer' })).toBeTruthy();
 });
 
 test('the leader can open Edit group; members and other students cannot', async () => {
@@ -330,7 +404,7 @@ test('if leaving fails, the question stays open with the reason', async () => {
 test('the leader can approve a request, and the list refreshes', async () => {
   fetchGroup
     .mockResolvedValueOnce({
-      group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe' }] },
+      group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe', profile: null }] },
     })
     .mockResolvedValue({ group: { ...BASE, viewerRole: 'leader', memberCount: 3 } });
   decideJoinRequest.mockResolvedValue({ group: BASE });
@@ -344,7 +418,7 @@ test('the leader can approve a request, and the list refreshes', async () => {
 
 test('answering a request updates the waiting count on My groups in the navigation', async () => {
   fetchGroup.mockResolvedValue({
-    group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe' }] },
+    group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe', profile: null }] },
   });
   fetchPendingRequestCount.mockResolvedValueOnce({ pendingRequestCount: 2 }).mockResolvedValue({ pendingRequestCount: 1 });
   decideJoinRequest.mockResolvedValue({ group: BASE });
@@ -365,7 +439,7 @@ test('answering a request updates the waiting count on My groups in the navigati
 
 test('the leader can decline a request', async () => {
   fetchGroup.mockResolvedValue({
-    group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe' }] },
+    group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe', profile: null }] },
   });
   decideJoinRequest.mockResolvedValue({ group: BASE });
   const user = renderPage();
@@ -423,7 +497,7 @@ test('when withdrawing fails because the leader already approved, the page shows
 test('when an answer fails because the request was withdrawn, the list drops it', async () => {
   const LEADING = { ...BASE, viewerRole: 'leader' as const };
   fetchGroup
-    .mockResolvedValueOnce({ group: { ...LEADING, pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe' }] } })
+    .mockResolvedValueOnce({ group: { ...LEADING, pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe', profile: null }] } })
     .mockResolvedValue({ group: LEADING });
   decideJoinRequest.mockRejectedValue(
     new ApiError(404, 'request_not_found', 'That request does not exist or was already answered.'),

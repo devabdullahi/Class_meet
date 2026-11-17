@@ -103,6 +103,8 @@ export interface PendingJoinRequest {
   id: string;
   userId: string;
   name: string;
+  /** What the student chose to tell leaders; null when they have not added a profile. */
+  profile: StudentProfile | null;
 }
 
 export interface GroupDetails extends GroupSummary {
@@ -149,6 +151,25 @@ export interface CreateGroupRequest extends GroupSettings {
 }
 
 export type JoinDecision = 'approve' | 'decline';
+
+// ---- Student profile (mirrors server/src/profiles/validation.ts) ----------
+
+export type StudentYear = 'freshman' | 'sophomore' | 'junior' | 'senior' | 'graduate';
+export type MeetingPreference = 'on_campus' | 'online' | 'either';
+export type StudyStyle =
+  | 'practice_problems'
+  | 'talking_it_through'
+  | 'quiet_focused_work'
+  | 'teaching_each_other'
+  | 'exam_cramming';
+
+/** Every field is optional. Shown only to leaders of groups the student asks to join. */
+export interface StudentProfile {
+  major: string | null;
+  year: StudentYear | null;
+  meetingPreference: MeetingPreference | null;
+  studyStyles: StudyStyle[];
+}
 
 /** An API failure with a message that is safe and useful to display. */
 export class ApiError extends Error {
@@ -298,6 +319,17 @@ export const api = {
   /** Join requests waiting across every group the student leads. */
   fetchPendingRequestCount: (): Promise<{ pendingRequestCount: number }> =>
     request<{ pendingRequestCount: number }>('/api/me/groups/pending-request-count'),
+
+  /** The signed-in student's own profile; null when they have not added one. */
+  fetchProfile: (): Promise<{ profile: StudentProfile | null }> =>
+    request<{ profile: StudentProfile | null }>('/api/me/profile'),
+
+  /** Saves the whole profile. An empty one is removed, and comes back as null. */
+  saveProfile: (profile: StudentProfile): Promise<{ profile: StudentProfile | null }> =>
+    request<{ profile: StudentProfile | null }>('/api/me/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profile),
+    }),
 
   fetchCourseGroups: (courseId: string): Promise<{ course: Course; groups: GroupSummary[] }> =>
     request<{ course: Course; groups: GroupSummary[] }>(`/api/courses/${courseId}/groups`),

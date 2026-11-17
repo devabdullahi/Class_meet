@@ -565,22 +565,50 @@
   padding: 0;
 }
 
-/* avatar · name · Approve · Decline, 52px tall. */
+/* A join request: initials, the name, then up to two short lines from the
+   student's profile. Approve and Decline sit under the text rather than
+   beside it, so the narrow panel never squeezes the name. */
 .cm-request {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 52px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-4) 0;
   border-top: 1px solid var(--border);
 }
 
 .cm-request:first-child {
+  padding-top: var(--space-1);
   border-top: none;
 }
 
+.cm-request:last-child {
+  padding-bottom: 0;
+}
+
 .cm-request__name {
+  font-weight: 600;
+  line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+.cm-request__line {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* "Computer Science · Junior · On campus" wraps between facts, not inside
+   one, unless a single fact is longer than the line. */
+.cm-request__fact {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.cm-request__actions {
+  grid-column: 2;
+  display: flex;
+  gap: var(--space-2);
 }
 
 .cm-calendar {
@@ -820,6 +848,116 @@
 
 .cm-form__submit {
   min-width: 160px;
+}
+
+/* ---- Your profile ----------------------------------------------------- */
+
+/* The form, and beside it the request exactly as a leader will see it. */
+.cm-profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) 320px;
+  gap: var(--space-5);
+  align-items: start;
+  margin-top: var(--space-6);
+}
+
+.cm-profile-layout .cm-create-form {
+  margin-top: 0;
+}
+
+/* Year is a short choice; where you can meet needs room for three options. */
+.cm-profile-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+.cm-profile-preview {
+  position: sticky;
+  top: var(--space-6);
+}
+
+.cm-profile-preview .cm-requests {
+  margin-top: var(--space-1);
+}
+
+.cm-profile-preview .cm-hint {
+  margin-top: var(--space-4);
+}
+
+/* Several-of-a-few choices drawn as pills. A chosen pill is blue, as a chosen
+   option is everywhere, and also carries a check, so colour is not the only
+   signal. The real checkboxes stay in the page for keyboard and screen readers. */
+.cm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cm-chip {
+  position: relative;
+  display: inline-flex;
+}
+
+.cm-chip input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cm-chip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  font-weight: 600;
+}
+
+.cm-chip svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cm-chip input:checked + span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.cm-chip input:focus-visible + span {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Two are already chosen: the rest wait, outlined more faintly, until one
+   is unchosen. Their names stay readable so the student can still compare. */
+.cm-chip input:disabled {
+  cursor: not-allowed;
+}
+
+.cm-chip input:disabled + span {
+  border-color: var(--border);
+}
+
+@media (max-width: 960px) {
+  .cm-profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cm-profile-preview {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .cm-profile-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ---- Add course dialog ------------------------------------------------ */

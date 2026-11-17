@@ -5,13 +5,14 @@
  * for an answer, someone declined, a full group, a member, or the leader.
  */
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import type { GroupDetails, PendingJoinRequest } from '../api';
+import { Link, useLocation } from 'react-router-dom';
+import { api, type GroupDetails, type PendingJoinRequest } from '../api';
 import { buildIcs, googleCalendarUrl, icsFileName, type CalendarEventInput } from '../calendar';
 import { downloadTextFile } from '../download';
 import { isGroupFull, meetingPlatform, seatsLeft } from '../groupFormat';
-import { Avatar } from './Avatar';
+import { useApiData } from '../hooks/useApiData';
 import { InlineConfirm } from './InlineConfirm';
+import { RequesterProfile } from './RequesterProfile';
 import { AlertIcon, CalendarIcon, ChevronDownIcon, ExternalLinkIcon } from './icons';
 
 function ActionError({ message }: { message: string | null }): ReactNode {
@@ -26,6 +27,27 @@ function ActionError({ message }: { message: string | null }): ReactNode {
 
 function leaderName(group: GroupDetails): string {
   return group.members.find((member) => member.isLeader)?.name ?? 'The leader';
+}
+
+/**
+ * Under Request to join, for a student with no profile: the leader would see
+ * only their name. Saving the profile brings them back to this group. If
+ * the profile cannot be loaded the note is simply left out; it is advice,
+ * and the request works the same either way.
+ */
+function AddProfileNote(): ReactNode {
+  const { pathname } = useLocation();
+  const { data } = useApiData(() => api.fetchProfile(), []);
+  if (data === null || data.profile !== null) return null;
+  return (
+    <p className="cm-hint">
+      The leader will see only your name.{' '}
+      <Link to="/profile" state={{ returnTo: pathname }}>
+        Add a profile
+      </Link>{' '}
+      so they know your major and how you study.
+    </p>
+  );
 }
 
 interface JoinPanelProps {
@@ -84,6 +106,7 @@ export function JoinPanel({ group, busy, error, onRequest, onWithdraw }: JoinPan
       >
         {declined ? 'Ask again' : 'Request to join'}
       </button>
+      <AddProfileNote />
       <ActionError message={error} />
     </section>
   );
@@ -199,7 +222,7 @@ interface JoinRequestsPanelProps {
   onDecide: (requestId: string, decision: 'approve' | 'decline') => void;
 }
 
-/** For the leader: who is waiting, each with Approve and Decline. */
+/** For the leader: who is waiting, with what their profile says, each with Approve and Decline. */
 export function JoinRequestsPanel({ requests, busy, error, onDecide }: JoinRequestsPanelProps): ReactNode {
   return (
     <section className="cm-panel cm-action" aria-labelledby="requests-heading">
@@ -210,26 +233,27 @@ export function JoinRequestsPanel({ requests, busy, error, onDecide }: JoinReque
         <ul className="cm-requests">
           {requests.map((request) => (
             <li key={request.id} className="cm-request">
-              <Avatar name={request.name} size={32} />
-              <span className="cm-request__name">{request.name}</span>
-              <button
-                type="button"
-                className="cm-btn cm-btn--secondary cm-btn--sm"
-                disabled={busy}
-                aria-label={`Approve ${request.name}`}
-                onClick={() => onDecide(request.id, 'approve')}
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                className="cm-btn cm-btn--quiet cm-btn--sm"
-                disabled={busy}
-                aria-label={`Decline ${request.name}`}
-                onClick={() => onDecide(request.id, 'decline')}
-              >
-                Decline
-              </button>
+              <RequesterProfile name={request.name} profile={request.profile} />
+              <div className="cm-request__actions">
+                <button
+                  type="button"
+                  className="cm-btn cm-btn--secondary cm-btn--sm"
+                  disabled={busy}
+                  aria-label={`Approve ${request.name}`}
+                  onClick={() => onDecide(request.id, 'approve')}
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  className="cm-btn cm-btn--quiet cm-btn--sm"
+                  disabled={busy}
+                  aria-label={`Decline ${request.name}`}
+                  onClick={() => onDecide(request.id, 'decline')}
+                >
+                  Decline
+                </button>
+              </div>
             </li>
           ))}
         </ul>

@@ -62,6 +62,14 @@ test('the account button says whether its menu is open, and Escape closes it', a
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
 });
 
+test('Your profile sits with the account details and is the current page at /profile', () => {
+  renderAt('/profile');
+  expect(current()).toEqual(['Your profile']);
+  const link = screen.getByRole('link', { name: 'Your profile' });
+  expect(link.closest('.cm-account__panel')).not.toBeNull();
+  expect(link.getAttribute('href')).toBe('/profile');
+});
+
 test('My Groups is the current page at /my-groups', () => {
   renderAt('/my-groups');
   expect(current()).toEqual(['My groups']);

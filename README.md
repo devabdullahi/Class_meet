@@ -125,11 +125,12 @@ client/                  Vite + React + TypeScript single-page app
       usePendingRequests.ts  the hook the layout and Group Details use
     components/
       EntraSignInButton.tsx  an ordinary button — MSAL ships no widget
-      Avatar.tsx         profile picture with an initials fallback
+      Avatar.tsx         initials in a circle (there is no profile picture)
       ClassMeetLayout.tsx  the signed-in shell: sidebar, or top and tab bars on phones
       GroupForm.tsx      the group fields, inline errors and submit; creates a group or edits one
       FormField.tsx      label, control, then hint or error, wired with aria
       GroupActionPanels.tsx  Group Details' state-driven action panel
+      RequesterProfile.tsx  a join request as the leader sees it: name and profile lines
       InlineConfirm.tsx  asks in place before leaving a group or removing a course
       Wordmark.tsx       inline-SVG logo
       FullPageSpinner.tsx
@@ -138,6 +139,7 @@ client/                  Vite + React + TypeScript single-page app
       LoginPage.tsx      sign-in screen
       MyGroupsPage.tsx   groups you lead, are in and asked to join; what needs you first
       EditGroupPage.tsx  the leader edits a group, using GroupForm
+      ProfilePage.tsx    Your profile: the form beside "What leaders see"
       HomePage.tsx       signed-in landing page
     types/
       vite-env.d.ts      typings for the VITE_ variables
@@ -148,6 +150,8 @@ server/                  Express + TypeScript API
     002_create_courses_and_groups.sql  courses, study_groups, group_members (+ 3 starter courses)
     003_create_enrollments_and_join_requests.sql  course_enrollments, group_join_requests
     004_add_group_name.sql  study_groups.name (NULL for groups made before it; the goal is shown instead)
+    005_create_student_profiles.sql  student_profiles: major, year, where they can meet,
+                         up to two study styles; no row = no profile
   src/
     index.ts             listen, startup warnings, graceful shutdown
     app.ts               middleware wiring and route mounting; in production
@@ -163,7 +167,11 @@ server/                  Express + TypeScript API
       visibility.ts      what outsiders may see: no online meeting links
       my-groups.ts       sorts a student's groups into led / member / requested (pure, unit-tested)
       repository.ts      all SQL for courses and groups, behind an interface
-                         (tested against PGlite in repository.test.ts)
+                         (tested against PGlite in repository.test.ts); a
+                         requester's profile reaches only that group's leader
+    profiles/
+      validation.ts      the profile's fields and their allowed values (pure, unit-tested)
+      repository.ts      the signed-in student's own profile: read, save, clear
     dev-login.ts         development sign-in bypass — remove before the pilot
     db/pool.ts           pg Pool, TLS, and the deliberate "no database" path
     middleware/
@@ -176,6 +184,7 @@ server/                  Express + TypeScript API
                          (refused while you lead or are in one of its groups;
                          withdraws your requests to its groups), GET /api/me/groups,
                          GET /api/me/groups/pending-request-count             (sign-in required)
+    routes/profile.ts    GET/PUT /api/me/profile, your own profile only     (sign-in required)
     routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
     routes/groups.ts     POST /api/groups, GET /api/groups/:id, PATCH and DELETE /api/groups/:id (leader), join requests
                          (ask, withdraw your own, leader decides),
@@ -490,7 +499,9 @@ npm test
   `groups/repository.test.ts`, which runs the real SQL against
   [PGlite](https://pglite.dev) (Postgres compiled to WebAssembly, in-process)
   with the project's migrations applied: the seat cap, leaving, deleting a
-  group, the remove-course rule, My groups and meeting-link privacy.
+  group, the remove-course rule, My groups, meeting-link privacy, and that a
+  student's profile is shown to the leader of a group they asked to join
+  and to no one else.
 - **Client** (Vitest, jsdom, Testing Library, `client/src/**/*.test.ts(x)`):
   form rules, calendar export, each page's states and actions, the
   navigation badge, and the sign-in redirect when a session expires.

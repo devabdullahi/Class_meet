@@ -16,8 +16,9 @@ export interface AvatarProps {
  * Initials, always. Entra ID issues no picture URL in its tokens — a profile
  * photo lives behind a Microsoft Graph call (`/me/photo/$value`) that needs its
  * own permission and its own error handling. Sign-in does not need a photo, so
- * there is no image path here to go wrong. F2 (student profile) is where a
- * real picture belongs.
+ * there is no image path here to go wrong. The student profile has no picture
+ * either: a leader decides on a request from what the student studies, not
+ * how they look.
  */
 export function Avatar({ name, size = 40 }: AvatarProps): ReactNode {
   const dimension = `${String(size)}px`;
