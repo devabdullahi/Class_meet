@@ -95,6 +95,8 @@ export type LeaveGroupOutcome = 'left' | 'group_not_found' | 'is_leader' | 'not_
 
 export type RemoveCourseOutcome = 'removed' | 'not_enrolled' | 'leads_group' | 'in_group';
 
+export type DeleteGroupOutcome = 'deleted' | 'group_not_found' | 'not_leader';
+
 export interface GroupRepository {
   listCourses(search: string, viewerId: string): Promise<CourseSearchResult[]>;
   listMyCourses(viewerId: string): Promise<EnrolledCourse[]>;
@@ -115,6 +117,8 @@ export interface GroupRepository {
   findGroup(groupId: string, viewerId: string): Promise<GroupDetails | null>;
   /** Leader only. The size may not drop below the members already in the group. */
   updateGroup(groupId: string, viewerId: string, settings: GroupSettings): Promise<UpdateGroupOutcome>;
+  /** Leader only. Its memberships and join requests are deleted with it. */
+  deleteGroup(groupId: string, viewerId: string): Promise<DeleteGroupOutcome>;
   /** Only a student who has added the group's course may ask to join it. */
   requestToJoin(groupId: string, viewerId: string): Promise<JoinRequestOutcome>;
   /** A member gives up their seat. The leader cannot leave the group they lead. */
@@ -459,6 +463,30 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
       if (group === undefined) return 'group_not_found';
       if (group.leader_id !== viewerId) return 'not_leader';
       return group.updated ? 'updated' : 'size_below_member_count';
+    },
+
+    async deleteGroup(groupId, viewerId) {
+      // One statement, so it is one transaction: group_members and
+      // group_join_requests reference the group ON DELETE CASCADE, so the
+      // memberships and requests go in the same delete. Locking the row
+      // first, as approving does, means an approval in flight finishes
+      // before the group goes, and one that comes after finds no group.
+      const rows = await query<{ leader_id: string; deleted: boolean }>(
+        `WITH target AS (
+           SELECT id, leader_id FROM study_groups WHERE id = $1 FOR UPDATE
+         ), deleted_group AS (
+           DELETE FROM study_groups g
+            USING target t
+            WHERE g.id = t.id AND t.leader_id = $2
+            RETURNING g.id
+         )
+         SELECT t.leader_id, EXISTS (SELECT 1 FROM deleted_group) AS deleted
+           FROM target t`,
+        [groupId, viewerId],
+      );
+      const group = rows[0];
+      if (group === undefined) return 'group_not_found';
+      return group.deleted ? 'deleted' : 'not_leader';
     },
 
     async requestToJoin(groupId, viewerId) {

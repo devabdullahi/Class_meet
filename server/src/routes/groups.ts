@@ -2,6 +2,7 @@
  *   POST /api/groups                                       create a group; the creator becomes leader and first member
  *   GET  /api/groups/:id                                   one group, its members, and the viewer's relationship to it
  *   PATCH /api/groups/:id                                  leader changes the group's settings (all of them, not the course)
+ *   DELETE /api/groups/:id                                 leader deletes the group, with its members and requests
  *   POST /api/groups/:id/join-requests                     ask to join
  *   DELETE /api/groups/:id/members/me                      leave a group you are in (not one you lead)
  *   DELETE /api/groups/:id/join-requests/mine              withdraw your own pending request
@@ -77,6 +78,20 @@ export function createGroupsRouter(repository: GroupRepository): Router {
           'invalid_maxMembers',
           'Group size cannot be less than the number of members already in the group.',
         );
+    }
+  });
+
+  router.delete('/:groupId', async (req: Request, res: Response) => {
+    const groupId = requireGroupId(req.params['groupId']);
+    const outcome = await repository.deleteGroup(groupId, requireViewerId(req));
+    switch (outcome) {
+      case 'deleted':
+        res.status(204).end();
+        return;
+      case 'group_not_found':
+        throw HttpError.notFound('group_not_found', 'That group does not exist.');
+      case 'not_leader':
+        throw HttpError.forbidden('not_leader', 'Only the group leader can delete the group.');
     }
   });
 

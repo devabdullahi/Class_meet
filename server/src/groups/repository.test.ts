@@ -333,3 +333,24 @@ test('a student must have added the course to ask to join one of its groups', as
   assert.equal(await repository.requestToJoin(groupId, student), 'not_enrolled');
   assert.equal(await repository.countPendingRequestsForLeader(leader), 0);
 });
+
+// ---- Deleting a group --------------------------------------------------------
+
+test('a leader deletes their group, its members and requests go with it, and the course can then be removed', async () => {
+  const leader = await addStudent('Alex');
+  const member = await addStudent('Jo');
+  const waiting = await addStudent('Sam');
+  const groupId = await groupLedBy(leader, cse3311);
+  await joinGroup(groupId, cse3311, leader, member);
+  await repository.enrollInCourse(waiting, cse3311);
+  await repository.requestToJoin(groupId, waiting);
+
+  assert.equal(await repository.deleteGroup(groupId, member), 'not_leader');
+  assert.equal(await repository.deleteGroup(groupId, leader), 'deleted');
+
+  assert.equal(await repository.findGroup(groupId, leader), null);
+  assert.deepEqual(await repository.listMyGroups(member), { leading: [], member: [], requested: [] });
+  assert.deepEqual(await repository.listMyGroups(waiting), { leading: [], member: [], requested: [] });
+  assert.equal(await repository.removeCourse(leader, cse3311), 'removed');
+  assert.equal(await repository.deleteGroup(groupId, leader), 'group_not_found');
+});

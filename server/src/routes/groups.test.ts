@@ -18,6 +18,7 @@ import type {
   LeaveGroupOutcome,
   RemoveCourseOutcome,
   UpdateGroupOutcome,
+  DeleteGroupOutcome,
   WithdrawOutcome,
 } from '../groups/repository.js';
 import type { GroupSettings } from '../groups/validation.js';
@@ -70,6 +71,8 @@ class FakeRepository implements GroupRepository {
   updateOutcome: UpdateGroupOutcome = 'updated';
   updates: Array<{ groupId: string; viewerId: string; settings: GroupSettings }> = [];
   leaveOutcome: LeaveGroupOutcome = 'left';
+  deleteOutcome: DeleteGroupOutcome = 'deleted';
+  deletions: Array<{ groupId: string; viewerId: string }> = [];
   removeCourseOutcome: RemoveCourseOutcome = 'removed';
   removedCourses: Array<{ viewerId: string; courseId: string }> = [];
   departures: Array<{ groupId: string; viewerId: string }> = [];
@@ -119,6 +122,10 @@ class FakeRepository implements GroupRepository {
   }
   async requestToJoin(): Promise<JoinRequestOutcome> {
     return this.joinOutcome;
+  }
+  async deleteGroup(groupId: string, viewerId: string): Promise<DeleteGroupOutcome> {
+    this.deletions.push({ groupId, viewerId });
+    return this.deleteOutcome;
   }
   async leaveGroup(groupId: string, viewerId: string): Promise<LeaveGroupOutcome> {
     this.departures.push({ groupId, viewerId });
@@ -178,6 +185,7 @@ beforeEach(() => {
   repository.decisionOutcome = 'decided';
   repository.withdrawOutcome = 'withdrawn';
   repository.updateOutcome = 'updated';
+  repository.deleteOutcome = 'deleted';
   repository.leaveOutcome = 'left';
   repository.removeCourseOutcome = 'removed';
 });
@@ -419,6 +427,34 @@ test('editing rejects a malformed group id', async () => {
   const { status, json } = await send('PATCH', '/api/groups/nope', validSettings);
   assert.equal(status, 400);
   assert.equal(json.error.code, 'invalid_groupId');
+});
+
+// ---- deleting a group -------------------------------------------------
+
+test('DELETE /api/groups/:id deletes the group for its signed-in leader', async () => {
+  const { status } = await send('DELETE', `/api/groups/${GROUP_ID}`);
+  assert.equal(status, 204);
+  assert.deepEqual(repository.deletions.at(-1), { groupId: GROUP_ID, viewerId: VIEWER_ID });
+});
+
+const deleteFailures: Array<[DeleteGroupOutcome, number, string]> = [
+  ['group_not_found', 404, 'group_not_found'],
+  ['not_leader', 403, 'not_leader'],
+];
+for (const [outcome, expectedStatus, expectedCode] of deleteFailures) {
+  test(`deleting answers ${expectedStatus} ${expectedCode} when the outcome is ${outcome}`, async () => {
+    repository.deleteOutcome = outcome;
+    const { status, json } = await send('DELETE', `/api/groups/${GROUP_ID}`);
+    assert.equal(status, expectedStatus);
+    assert.equal(json.error.code, expectedCode);
+  });
+}
+
+test('deleting rejects a malformed group id', async () => {
+  const before = repository.deletions.length;
+  const { status } = await send('DELETE', '/api/groups/nope');
+  assert.equal(status, 400);
+  assert.equal(repository.deletions.length, before);
 });
 
 // ---- leaving a group --------------------------------------------------
