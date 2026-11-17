@@ -147,6 +147,7 @@ server/                  Express + TypeScript API
     groups/
       validation.ts      rules for creating a group (pure, unit-tested)
       visibility.ts      what outsiders may see: no online meeting links
+      my-groups.ts       sorts a student's groups into led / member / requested (pure, unit-tested)
       repository.ts      all SQL for courses and groups, behind an interface
     dev-login.ts         development sign-in bypass — remove before the pilot
     db/pool.ts           pg Pool, TLS, and the deliberate "no database" path
@@ -155,6 +156,8 @@ server/                  Express + TypeScript API
       csrf.ts            custom-header + Origin check on unsafe methods
       error-handler.ts   one JSON error shape, 404 handler
     routes/auth.ts       POST /api/auth/entra, GET /me, POST /logout, GET /config
+    routes/me.ts         GET/POST /api/me/courses, GET /api/me/groups,
+                         GET /api/me/groups/pending-request-count             (sign-in required)
     routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
     routes/groups.ts     POST /api/groups, GET /api/groups/:id, join requests
                          (ask, withdraw your own, leader decides)            (sign-in required)

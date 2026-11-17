@@ -12,6 +12,7 @@ import {
   type MeetingDay,
 } from './validation.js';
 import { visibleLocation } from './visibility.js';
+import { groupByRelationship, type MyGroups } from './my-groups.js';
 
 export interface Course {
   id: string;
@@ -83,6 +84,10 @@ export interface GroupRepository {
   enrollInCourse(viewerId: string, courseId: string): Promise<void>;
   findCourse(courseId: string): Promise<Course | null>;
   listGroupsForCourse(courseId: string, viewerId: string): Promise<GroupSummary[]>;
+  /** Groups the viewer leads, belongs to, or has a pending or declined request for. */
+  listMyGroups(viewerId: string): Promise<MyGroups>;
+  /** Pending join requests across every group the viewer leads. */
+  countPendingRequestsForLeader(viewerId: string): Promise<number>;
   createGroup(leaderId: string, input: CreateGroupInput): Promise<string>;
   findGroup(groupId: string, viewerId: string): Promise<GroupDetails | null>;
   requestToJoin(groupId: string, viewerId: string): Promise<JoinRequestOutcome>;
@@ -211,6 +216,45 @@ export const postgresGroupRepository: GroupRepository = {
       [courseId, viewerId],
     );
     return rows.map(toGroupSummary);
+  },
+
+  async listMyGroups(viewerId) {
+    // GROUP_SUMMARY_COLUMNS reads the viewer from $2; $1 is the same id, for the WHERE clause.
+    const rows = await query<
+      GroupRow & { course_code: string; course_title: string; pending_request_count: string }
+    >(
+      `SELECT ${GROUP_SUMMARY_COLUMNS}, c.code AS course_code, c.title AS course_title,
+              CASE WHEN g.leader_id = $1 THEN
+                (SELECT count(*) FROM group_join_requests r WHERE r.group_id = g.id AND r.status = 'pending')
+              ELSE 0 END AS pending_request_count
+         FROM study_groups g
+         JOIN courses c ON c.id = g.course_id
+        WHERE g.leader_id = $1
+           OR EXISTS (SELECT 1 FROM group_members m WHERE m.group_id = g.id AND m.user_id = $1)
+           OR EXISTS (SELECT 1 FROM group_join_requests r
+                       WHERE r.group_id = g.id AND r.user_id = $1 AND r.status IN ('pending', 'declined'))
+        ORDER BY c.code, g.created_at DESC`,
+      [viewerId, viewerId],
+    );
+    return groupByRelationship(
+      rows.map((row) => ({
+        ...toGroupSummary(row),
+        courseCode: row.course_code,
+        courseTitle: row.course_title,
+        pendingRequestCount: Number(row.pending_request_count),
+      })),
+    );
+  },
+
+  async countPendingRequestsForLeader(viewerId) {
+    const rows = await query<{ count: string }>(
+      `SELECT count(*) AS count
+         FROM group_join_requests r
+         JOIN study_groups g ON g.id = r.group_id
+        WHERE g.leader_id = $1 AND r.status = 'pending'`,
+      [viewerId],
+    );
+    return Number(rows[0]?.count ?? 0);
   },
 
   async createGroup(leaderId, input) {

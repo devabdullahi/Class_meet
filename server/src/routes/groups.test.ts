@@ -16,6 +16,7 @@ import type {
   JoinRequestOutcome,
   WithdrawOutcome,
 } from '../groups/repository.js';
+import type { MyGroups } from '../groups/my-groups.js';
 import { createCoursesRouter } from './courses.js';
 import { createGroupsRouter } from './groups.js';
 import { createMeRouter } from './me.js';
@@ -29,6 +30,7 @@ const GROUP_ID = '9a8b7c6d-1111-4222-8333-444455556666';
 const REQUEST_ID = '7e7e7e7e-1111-4222-8333-444455556666';
 const UNKNOWN_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const VIEWER_ID = '11111111-2222-4333-8444-555566667777';
+const OTHER_STUDENT_ID = '22222222-3333-4444-8555-666677778888';
 
 const GROUP: GroupDetails = {
   id: GROUP_ID,
@@ -60,6 +62,8 @@ class FakeRepository implements GroupRepository {
   withdrawOutcome: WithdrawOutcome = 'withdrawn';
   withdrawals: Array<{ groupId: string; viewerId: string }> = [];
   decisions: Array<{ requestId: string; decision: string; viewerId: string }> = [];
+  myGroupsByViewer = new Map<string, MyGroups>();
+  pendingRequestCountByViewer = new Map<string, number>();
 
   async listCourses(search: string, viewerId: string): Promise<CourseSearchResult[]> {
     this.searches.push({ search, viewerId });
@@ -77,6 +81,12 @@ class FakeRepository implements GroupRepository {
   async listGroupsForCourse(_courseId: string, viewerId: string): Promise<GroupSummary[]> {
     this.viewersOfCourseGroups.push(viewerId);
     return [GROUP];
+  }
+  async listMyGroups(viewerId: string): Promise<MyGroups> {
+    return this.myGroupsByViewer.get(viewerId) ?? { leading: [], member: [], requested: [] };
+  }
+  async countPendingRequestsForLeader(viewerId: string): Promise<number> {
+    return this.pendingRequestCountByViewer.get(viewerId) ?? 0;
   }
   async createGroup(leaderId: string): Promise<string> {
     this.createdBy.push(leaderId);
@@ -107,6 +117,11 @@ class FakeRepository implements GroupRepository {
 const repository = new FakeRepository();
 let session: SessionClaims = { userId: VIEWER_ID, providerObjectId: 'oid-1' };
 let server: Server;
+
+/** Each test starts signed in as VIEWER_ID (see beforeEach). */
+function signInAs(userId: string): void {
+  session = { userId, providerObjectId: `oid-${userId}` };
+}
 let baseUrl: string;
 
 before(async () => {
@@ -132,6 +147,7 @@ after(() => {
 });
 
 beforeEach(() => {
+  signInAs(VIEWER_ID);
   repository.joinOutcome = 'created';
   repository.decisionOutcome = 'decided';
   repository.withdrawOutcome = 'withdrawn';
@@ -214,6 +230,40 @@ test('POST /api/me/courses returns 404 for an unknown course and 400 for a bad i
   assert.equal((await send('POST', '/api/me/courses', { courseId: UNKNOWN_ID })).status, 404);
   assert.equal((await send('POST', '/api/me/courses', { courseId: 'nope' })).status, 400);
   assert.equal(repository.enrolled.length, before);
+});
+
+// ---- my groups --------------------------------------------------------
+
+const LED_GROUP = { ...GROUP, pendingRequestCount: 2 };
+const REQUESTED_GROUP = { ...GROUP, id: UNKNOWN_ID, viewerRole: 'none' as const, viewerRequestStatus: 'declined' as const };
+
+test('GET /api/me/groups lists the groups the student leads, is in and asked to join', async () => {
+  repository.myGroupsByViewer.set(VIEWER_ID, { leading: [LED_GROUP], member: [], requested: [REQUESTED_GROUP] });
+  const { status, json } = await send('GET', '/api/me/groups');
+  assert.equal(status, 200);
+  assert.equal(json.leading[0].pendingRequestCount, 2);
+  assert.deepEqual(json.member, []);
+  assert.equal(json.requested[0].viewerRequestStatus, 'declined');
+});
+
+test('GET /api/me/groups answers with the groups of the signed-in student only', async () => {
+  repository.myGroupsByViewer.set(VIEWER_ID, { leading: [LED_GROUP], member: [], requested: [] });
+  repository.myGroupsByViewer.set(OTHER_STUDENT_ID, { leading: [], member: [GROUP], requested: [] });
+  signInAs(OTHER_STUDENT_ID);
+  const { json } = await send('GET', '/api/me/groups');
+  assert.deepEqual(json.leading, []);
+  assert.equal(json.member[0].id, GROUP_ID);
+});
+
+test('GET /api/me/groups/pending-request-count counts requests in groups the signed-in student leads', async () => {
+  repository.pendingRequestCountByViewer.set(VIEWER_ID, 3);
+  const mine = await send('GET', '/api/me/groups/pending-request-count');
+  assert.equal(mine.status, 200);
+  assert.deepEqual(mine.json, { pendingRequestCount: 3 });
+
+  signInAs(OTHER_STUDENT_ID);
+  const theirs = await send('GET', '/api/me/groups/pending-request-count');
+  assert.deepEqual(theirs.json, { pendingRequestCount: 0 });
 });
 
 // ---- groups -----------------------------------------------------------

@@ -1,6 +1,8 @@
 /**
- *   GET  /api/me/courses    the signed-in student's courses
- *   POST /api/me/courses    add a course: { courseId }
+ *   GET  /api/me/courses                         the signed-in student's courses
+ *   POST /api/me/courses                         add a course: { courseId }
+ *   GET  /api/me/groups                          groups the student leads, is in, or asked to join
+ *   GET  /api/me/groups/pending-request-count    join requests waiting in groups the student leads
  */
 import { Router, type Request, type Response } from 'express';
 import { HttpError } from '../errors.js';
@@ -25,6 +27,17 @@ export function createMeRouter(repository: GroupRepository): Router {
     // Adding a course twice is harmless, so it is not an error.
     await repository.enrollInCourse(viewerId, courseId);
     res.status(200).json({ course });
+  });
+
+  router.get('/groups', async (req: Request, res: Response) => {
+    res.status(200).json(await repository.listMyGroups(requireViewerId(req)));
+  });
+
+  // Separate from GET /groups so the navigation badge, which every screen
+  // shows, costs one count instead of the whole My groups listing.
+  router.get('/groups/pending-request-count', async (req: Request, res: Response) => {
+    const pendingRequestCount = await repository.countPendingRequestsForLeader(requireViewerId(req));
+    res.status(200).json({ pendingRequestCount });
   });
 
   return router;
