@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { api, type CourseSearchResult } from '../api';
 import { describeError } from '../hooks/useApiData';
-import { AlertIcon, CheckCircleIcon, CloseIcon } from './icons';
+import { AlertIcon, CheckIcon, CloseIcon } from './icons';
 
 interface AddCourseFormProps {
   onClose: () => void;
@@ -155,7 +155,7 @@ export function AddCourseForm({ onClose, onAdded }: AddCourseFormProps): ReactNo
                 </span>
                 {course.enrolled ? (
                   <span id={`course-added-${course.id}`} className="cm-course-results__added" tabIndex={-1}>
-                    <CheckCircleIcon />
+                    <CheckIcon />
                     Added
                   </span>
                 ) : (

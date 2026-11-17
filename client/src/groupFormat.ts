@@ -34,11 +34,6 @@ export function sortByNextMeeting<Group extends Pick<GroupSummary, 'meetingDay' 
   return [...groups].sort((first, second) => startOf(first) - startOf(second));
 }
 
-/** Whether the viewer leads or belongs to the group: it is one of "your" meetings. */
-export function isViewersGroup(group: Pick<GroupSummary, 'viewerRole'>): boolean {
-  return group.viewerRole !== 'none';
-}
-
 const PLATFORM_NAMES: Record<string, string> = {
   'zoom.us': 'Zoom',
   'teams.microsoft.com': 'Microsoft Teams',

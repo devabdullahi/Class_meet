@@ -2,9 +2,9 @@ import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type GroupSummary } from '../api';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
-import { RelationshipChip, SeatMeter, StatusPill, TimeTile } from '../components/groupParts';
+import { RelationshipLabel, SeatCount, TimeTile } from '../components/groupParts';
 import { AlertIcon, ChevronLeftIcon, PinIcon, PlusIcon, VideoIcon } from '../components/icons';
-import { formatLabel, isGroupFull, isViewersGroup, meetingPlatform, sortByNextMeeting } from '../groupFormat';
+import { formatLabel, isGroupFull, meetingPlatform, sortByNextMeeting } from '../groupFormat';
 import { useApiData } from '../hooks/useApiData';
 
 const ANY_DAY = 'Any Day';
@@ -28,31 +28,23 @@ function placeLabel(group: GroupSummary): string {
 
 /** The whole card is one link, named by the group's goal. */
 function GroupCard({ group, courseId }: { group: GroupSummary; courseId: string }): ReactNode {
-  const full = isGroupFull(group);
   return (
     <article className="cm-card cm-group-card">
       <div className="cm-group-card__top">
-        <TimeTile
-          day={group.meetingDay}
-          time={group.meetingTime}
-          tone={isViewersGroup(group) ? 'yours' : full ? 'full' : 'open'}
-        />
+        <TimeTile day={group.meetingDay} time={group.meetingTime} full={isGroupFull(group)} />
         <h2 className="cm-card__title cm-group-card__title">
           <Link className="cm-card__link" to={`/groups/${courseId}/${group.id}`}>
             {group.goal}
           </Link>
         </h2>
       </div>
-      <div className="cm-group-card__body">
-        <p className="cm-group-card__place">
-          {group.format === 'online' ? <VideoIcon /> : <PinIcon />}
-          <span>{placeLabel(group)}</span>
-        </p>
-        <SeatMeter taken={group.memberCount} max={group.maxMembers} />
-      </div>
+      <p className="cm-group-card__place">
+        {group.format === 'online' ? <VideoIcon /> : <PinIcon />}
+        <span>{placeLabel(group)}</span>
+      </p>
       <div className="cm-group-card__foot">
-        <StatusPill full={full} />
-        <RelationshipChip group={group} />
+        <SeatCount taken={group.memberCount} max={group.maxMembers} />
+        <RelationshipLabel group={group} />
       </div>
     </article>
   );

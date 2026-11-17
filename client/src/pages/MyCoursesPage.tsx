@@ -22,7 +22,7 @@ function GroupCounts({ course }: { course: EnrolledCourse }): ReactNode {
       {course.openGroupCount > 0 && (
         <>
           {' · '}
-          <strong className="cm-course-card__open">{course.openGroupCount} open</strong>
+          <strong>{course.openGroupCount} open</strong>
         </>
       )}
     </p>
@@ -32,7 +32,7 @@ function GroupCounts({ course }: { course: EnrolledCourse }): ReactNode {
 /** The whole card is one link, named by the course title. */
 function CourseCard({ course }: { course: EnrolledCourse }): ReactNode {
   return (
-    <article className="cm-card cm-course-card">
+    <article className="cm-card">
       <span className="cm-code">{course.code}</span>
       <h2 className="cm-card__title">
         <Link className="cm-card__link" to={`/groups/${course.id}`}>
@@ -42,7 +42,7 @@ function CourseCard({ course }: { course: EnrolledCourse }): ReactNode {
       <div className="cm-card__foot">
         <GroupCounts course={course} />
         {course.joinedGroupCount > 0 && (
-          <span className="cm-pill cm-pill--member">You&rsquo;re in {course.joinedGroupCount}</span>
+          <span className="cm-tag">You&rsquo;re in {course.joinedGroupCount}</span>
         )}
       </div>
     </article>

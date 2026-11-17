@@ -68,7 +68,7 @@ test('shows the course and its groups with time, place and seats', async () => {
   expect(screen.getAllByText('2:30')).toHaveLength(3);
   expect(screen.getAllByText('Library 412')).toHaveLength(2);
   expect(screen.getAllByText('4 seats left')).toHaveLength(2);
-  expect(screen.getByText('All 6 seats taken')).toBeTruthy();
+  expect(screen.getByText('Full', { selector: 'strong' })).toBeTruthy();
 });
 
 test('online groups show the platform, never the raw link, and only Online when the link is withheld', async () => {

@@ -8,12 +8,13 @@
    reaches every screen at once.
 
    Rules:
+     - Two hues only. Blue is for things you can act on (buttons, links,
+       the current page, a chosen option); red is for errors. Everything
+       else is a grey from the ramp below.
+     - Meaning is carried by order, grouping and type weight before colour:
+       groups are listed soonest first, the seat count is the bold figure,
+       and a relationship ("You lead") is written out as a plain label.
      - One solid blue (primary) button per region: the action the region is for.
-     - Status is always written out, never colour alone. Colour vocabulary:
-         orange  = time, and the meetings that are yours
-         green   = open (seats left)
-         slate   = full or unavailable
-         blue    = action, and your membership
      - Text and UI boundaries meet WCAG AA: text 4.5:1, controls 3:1. Check
        new colour pairs before adding them.
    --------------------------------------------------------------------------- */
@@ -38,18 +39,7 @@
   --accent: #2a6df0;
   --accent-hover: #1f5bd6;
   --accent-text: #8ec0ff;
-  --accent-tint: rgba(42, 109, 240, 0.2);
   --focus: #9cc4ff;
-
-  --time: #f58025;
-  --on-time: #1a0f02;
-  --time-tint: rgba(245, 128, 37, 0.16);
-  --time-text: #ffb877;
-
-  --success: #6fdba3;
-  --success-tint: rgba(111, 219, 163, 0.1);
-  --success-line: rgba(111, 219, 163, 0.4);
-  --success-text: #c9f5de;
 
   --danger: #ff8a8a;
   --danger-tint: rgba(255, 120, 120, 0.1);
@@ -110,6 +100,17 @@ body {
   font-size: var(--font-body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Times, seat counts and totals keep their width as they change. Scoped to
+   these, because Inter's tabular set also widens hyphens in running text. */
+.cm-time,
+.cm-seats,
+.cm-toolbar__count,
+.cm-card__muted,
+.cm-info__label,
+.cm-action__headline {
+  font-variant-numeric: tabular-nums;
 }
 
 h1,
@@ -382,57 +383,22 @@ select.cm-input {
   color: var(--danger);
 }
 
-/* ---- Pills ------------------------------------------------------------ */
+/* ---- Labels -----------------------------------------------------------
+   Plain words, no fill: a course code, or the viewer's relationship to a
+   group ("You lead", "Requested"). Weight sets them apart, not colour. */
 
-.cm-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
-  border-radius: var(--radius-pill);
-  font-size: var(--font-small);
+.cm-tag {
+  font-size: var(--font-label);
   font-weight: 600;
+  color: var(--text);
   white-space: nowrap;
 }
 
-.cm-pill--open {
-  background: var(--success-tint);
-  color: var(--success);
-}
-
-.cm-pill--open::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--success);
-}
-
-.cm-pill--full {
-  background: var(--surface-3);
-  color: var(--text-muted);
-}
-
-/* Your relationship to a group: membership is blue, a request is outlined. */
-.cm-pill--member {
-  background: var(--accent-tint);
-  color: var(--accent-text);
-}
-
-.cm-pill--requested {
-  border: 1px solid var(--border-strong);
-  color: var(--text-muted);
-}
-
-/* Course code, e.g. "CSE 3311". */
 .cm-code {
-  align-self: flex-start;
-  padding: 2px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-tint);
-  color: var(--accent-text);
-  font-size: var(--font-small);
-  font-weight: 700;
+  font-size: var(--font-label);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
 }
 
 /* ---- Panels and cards ------------------------------------------------- */
@@ -508,8 +474,9 @@ select.cm-input {
   gap: var(--space-3);
   margin-top: var(--space-6);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  background: var(--surface-3);
 }
 
 .cm-notice svg {
@@ -529,11 +496,6 @@ select.cm-input {
   color: var(--danger-text);
 }
 
-.cm-notice--success {
-  background: var(--success-tint);
-  border-color: var(--success-line);
-  color: var(--success-text);
-}
 
 .cm-empty {
   display: flex;

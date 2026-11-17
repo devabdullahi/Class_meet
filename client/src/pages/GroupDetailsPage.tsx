@@ -6,13 +6,10 @@ import { MEETING_DURATION_MINUTES, nextOccurrence } from '../calendar';
 import { Avatar } from '../components/Avatar';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { JoinPanel, JoinRequestsPanel, YourMeetingPanel } from '../components/GroupActionPanels';
-import { SeatMeter, StatusPill, TimeTile } from '../components/groupParts';
+import { SeatCount, TimeTile } from '../components/groupParts';
 import { AlertIcon, CheckCircleIcon, ChevronLeftIcon, PeopleIcon, PinIcon, VideoIcon } from '../components/icons';
-import { isGroupFull, isViewersGroup, meetingPlatform } from '../groupFormat';
+import { isGroupFull, meetingPlatform } from '../groupFormat';
 import { describeError, useApiData } from '../hooks/useApiData';
-
-/** Goals longer than this get a smaller heading, so the title stays a title. */
-const LONG_GOAL_LENGTH = 80;
 
 function nextMeetingLabel(group: GroupDetails): string {
   const next = nextOccurrence(group.meetingDay, group.meetingTime, new Date());
@@ -21,18 +18,13 @@ function nextMeetingLabel(group: GroupDetails): string {
 }
 
 function MeetingPanel({ group }: { group: GroupDetails }): ReactNode {
-  const full = isGroupFull(group);
   const durationHours = MEETING_DURATION_MINUTES / 60;
   return (
     <section className="cm-panel" aria-labelledby="meeting-heading">
       <h2 id="meeting-heading">Meeting</h2>
       <div className="cm-info">
         <div className="cm-info__row">
-          <TimeTile
-            day={group.meetingDay}
-            time={group.meetingTime}
-            tone={isViewersGroup(group) ? 'yours' : full ? 'full' : 'open'}
-          />
+          <TimeTile day={group.meetingDay} time={group.meetingTime} full={isGroupFull(group)} />
           {/* The tile already says the day and time, so this says what it does not. */}
           <div>
             <strong>
@@ -63,7 +55,7 @@ function MeetingPanel({ group }: { group: GroupDetails }): ReactNode {
         </div>
         <div className="cm-info__row">
           <PeopleIcon />
-          <SeatMeter taken={group.memberCount} max={group.maxMembers} />
+          <SeatCount taken={group.memberCount} max={group.maxMembers} />
         </div>
       </div>
     </section>
@@ -84,7 +76,7 @@ function MembersPanel({ group, viewerId }: { group: GroupDetails; viewerId: stri
               {member.name}
               {member.userId === viewerId && <span className="cm-members__you"> (you)</span>}
             </span>
-            {member.isLeader && <span className="cm-pill cm-pill--member">Leader</span>}
+            {member.isLeader && <span className="cm-tag">Leader</span>}
           </li>
         ))}
       </ul>
@@ -165,11 +157,8 @@ export function GroupDetailsPage(): ReactNode {
       {group !== null && (
         <>
           <header className="cm-details-header">
-            <h1 className={group.goal.length > LONG_GOAL_LENGTH ? 'cm-details-title--long' : undefined}>
-              {group.goal}
-            </h1>
+            <h1>{group.goal}</h1>
             <div className="cm-details-head">
-              <StatusPill full={isGroupFull(group)} />
               <span>
                 {group.courseCode} · {group.courseTitle}
               </span>
@@ -178,7 +167,7 @@ export function GroupDetailsPage(): ReactNode {
           </header>
 
           {justCreated && (
-            <div className="cm-notice cm-notice--success" role="status">
+            <div className="cm-notice" role="status">
               <CheckCircleIcon />
               <span className="cm-notice__body">
                 Group created. You lead it, so join requests will appear here for you to answer.

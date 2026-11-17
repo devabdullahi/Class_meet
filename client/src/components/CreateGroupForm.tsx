@@ -179,7 +179,7 @@ export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroup
           )}
         </FormField>
 
-        <fieldset className="cm-form-field cm-segmented-field">
+        <fieldset className="cm-form-field">
           <legend className="cm-label">Format</legend>
           <div className="cm-segmented">
             <label>

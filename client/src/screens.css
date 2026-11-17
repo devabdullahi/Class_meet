@@ -183,10 +183,6 @@
   color: var(--text-muted);
 }
 
-.cm-course-card__open {
-  color: var(--success);
-  font-weight: 600;
-}
 
 /* ---- Study groups: filters and cards ---------------------------------- */
 
@@ -221,8 +217,8 @@
   margin-top: var(--space-3);
 }
 
-/* Three rows: tile and title, place and seats, status. The title is held to
-   two lines so the place and seat bars line up across a row of cards. */
+/* Three rows: tile and title; place; seats and your relationship. The
+   title is held to two lines so the rows line up across a row of cards. */
 .cm-group-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -241,12 +237,6 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-}
-
-.cm-group-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
 }
 
 .cm-group-card__place {
@@ -272,8 +262,9 @@
 .cm-group-card__foot {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
 }
 
 /* ---- Meeting tile and seats ------------------------------------------- */
@@ -287,27 +278,19 @@
   width: 68px;
   padding: var(--space-2) 0;
   border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text);
   line-height: 1.05;
 }
 
-.cm-time--yours {
-  background: var(--time);
-  color: var(--on-time);
-}
-
-.cm-time--open {
-  background: var(--time-tint);
-  color: var(--time-text);
-}
-
 .cm-time--full {
-  background: var(--surface-3);
   color: var(--text-muted);
 }
 
 .cm-time__day {
+  color: var(--text-muted);
   font-size: var(--font-small);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .cm-time__clock {
@@ -318,38 +301,18 @@
 }
 
 .cm-time__period {
+  color: var(--text-muted);
   font-size: var(--font-caption);
   font-weight: 600;
 }
 
 .cm-seats {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-}
-
-.cm-seats__bar {
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--border);
-  overflow: hidden;
+  color: var(--text-muted);
 }
 
 .cm-seats strong {
   color: var(--text);
   font-weight: 600;
-}
-
-.cm-seats__fill {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--accent-text);
-}
-
-.cm-seats--full .cm-seats__fill {
-  background: var(--text-muted);
 }
 
 /* ---- Group details ---------------------------------------------------- */
@@ -360,10 +323,6 @@
   line-height: 1.2;
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
-}
-
-.cm-details-header h1.cm-details-title--long {
-  font-size: var(--font-heading);
 }
 
 .cm-details-head {
@@ -653,7 +612,7 @@
 }
 
 .cm-course-chip .cm-code {
-  align-self: center;
+  color: var(--text);
 }
 
 /* Two radio buttons drawn as one switch. The real inputs stay in the page,
@@ -807,7 +766,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  color: var(--success);
+  color: var(--text-muted);
   font-size: var(--font-label);
   font-weight: 600;
 }
@@ -849,14 +808,15 @@
     flex-direction: column;
   }
 
-  /* Phones: a 56px top bar (wordmark, account menu) and a 56px tab bar
-     fixed to the bottom, instead of a sidebar that would wrap into rows. */
+  /* Phones: a 48px top bar (wordmark, account menu) and a 56px tab bar
+     fixed to the bottom, where thumbs reach, instead of a sidebar that
+     would wrap into rows. */
   .cm-sidebar {
     position: sticky;
     z-index: 20;
     width: auto;
     align-self: stretch;
-    height: 56px;
+    height: 48px;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;

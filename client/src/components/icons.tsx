@@ -148,3 +148,11 @@ export function CloseIcon(): ReactNode {
     </svg>
   );
 }
+
+export function CheckIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m5.5 12.5 4 4 9-9.5" {...STROKE} />
+    </svg>
+  );
+}
