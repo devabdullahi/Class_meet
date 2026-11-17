@@ -84,6 +84,7 @@ function groupInput(courseId: string, overrides: Partial<CreateGroupInput> = {})
     format: 'in_person',
     location: 'Library 412',
     maxMembers: 4,
+    chatLink: null,
     ...overrides,
   };
 }
@@ -360,4 +361,75 @@ test('a leader deletes their group, its members and requests go with it, and the
   assert.deepEqual(await repository.listMyGroups(waiting), { leading: [], member: [], requested: [] });
   assert.equal(await repository.removeCourse(leader, cse3311), 'removed');
   assert.equal(await repository.deleteGroup(groupId, leader), 'group_not_found');
+});
+
+// ---- Group chat link ---------------------------------------------------------
+
+const CHAT_LINK = 'https://groupme.com/join_group/12345678/AbCdEf';
+
+test('a group chat link reaches the leader and members, never an outsider or a student still asking', async () => {
+  const leader = await addStudent('Alex');
+  const member = await addStudent('Jo');
+  const outsider = await addStudent('Sam');
+  const requester = await addStudent('Kim');
+  const declined = await addStudent('Lee');
+  const groupId = await groupLedBy(leader, cse3311, { chatLink: CHAT_LINK });
+  await joinGroup(groupId, cse3311, leader, member);
+  for (const student of [outsider, requester, declined]) await repository.enrollInCourse(student, cse3311);
+  await repository.requestToJoin(groupId, requester);
+  await repository.requestToJoin(groupId, declined);
+  await repository.decideJoinRequest(groupId, await requestIdOf(groupId, declined), 'decline', leader);
+
+  // Group Details.
+  for (const insider of [leader, member]) {
+    assert.equal((await repository.findGroup(groupId, insider))?.chatLink, CHAT_LINK);
+  }
+  for (const stranger of [outsider, requester, declined]) {
+    const group = await repository.findGroup(groupId, stranger);
+    assert.equal(group?.chatLink, null);
+    assert.equal(group?.hasChatLink, true);
+  }
+
+  // A course's group list.
+  assert.equal((await repository.listGroupsForCourse(cse3311, member))[0]?.chatLink, CHAT_LINK);
+  for (const stranger of [outsider, requester, declined]) {
+    const [listed] = await repository.listGroupsForCourse(cse3311, stranger);
+    assert.equal(listed?.chatLink, null);
+    assert.equal(listed?.hasChatLink, true);
+  }
+
+  // My groups.
+  assert.equal((await repository.listMyGroups(leader)).leading[0]?.chatLink, CHAT_LINK);
+  assert.equal((await repository.listMyGroups(member)).member[0]?.chatLink, CHAT_LINK);
+  for (const stranger of [requester, declined]) {
+    const { requested } = await repository.listMyGroups(stranger);
+    assert.equal(requested[0]?.id, groupId);
+    assert.equal(requested[0]?.chatLink, null);
+  }
+
+  // Leaving the group takes the link away again.
+  await repository.leaveGroup(groupId, member);
+  assert.equal((await repository.findGroup(groupId, member))?.chatLink, null);
+});
+
+test('a leader adds, changes and removes the chat link by editing the group', async () => {
+  const leader = await addStudent('Alex');
+  const groupId = await groupLedBy(leader, cse3311);
+  const before = await repository.findGroup(groupId, leader);
+  assert.equal(before?.chatLink, null);
+  assert.equal(before?.hasChatLink, false);
+
+  const settings = groupInput(cse3311);
+  assert.equal(await repository.updateGroup(groupId, leader, { ...settings, chatLink: CHAT_LINK }), 'updated');
+  assert.equal((await repository.findGroup(groupId, leader))?.chatLink, CHAT_LINK);
+
+  assert.equal(await repository.updateGroup(groupId, leader, { ...settings, chatLink: null }), 'updated');
+  const after = await repository.findGroup(groupId, leader);
+  assert.equal(after?.chatLink, null);
+  assert.equal(after?.hasChatLink, false);
+});
+
+test('the database itself refuses a plain-http chat link', async () => {
+  const groupId = await groupLedBy(await addStudent('Alex'), cse3311);
+  await assert.rejects(sql('UPDATE study_groups SET chat_link = $2 WHERE id = $1', [groupId, 'http://discord.gg/abc']));
 });
