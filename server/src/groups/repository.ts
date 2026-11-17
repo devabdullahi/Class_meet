@@ -71,6 +71,8 @@ export type JoinRequestOutcome = 'created' | 'group_not_found' | 'already_member
 
 export type DecisionOutcome = 'decided' | 'group_not_found' | 'not_leader' | 'request_not_found' | 'group_full';
 
+export type WithdrawOutcome = 'withdrawn' | 'request_not_found';
+
 export interface GroupRepository {
   listCourses(search: string, viewerId: string): Promise<CourseSearchResult[]>;
   listMyCourses(viewerId: string): Promise<EnrolledCourse[]>;
@@ -80,6 +82,8 @@ export interface GroupRepository {
   createGroup(leaderId: string, input: CreateGroupInput): Promise<string>;
   findGroup(groupId: string, viewerId: string): Promise<GroupDetails | null>;
   requestToJoin(groupId: string, viewerId: string): Promise<JoinRequestOutcome>;
+  /** Removes the viewer's own request while it is still pending. */
+  withdrawJoinRequest(groupId: string, viewerId: string): Promise<WithdrawOutcome>;
   decideJoinRequest(
     groupId: string,
     requestId: string,
@@ -301,6 +305,18 @@ export const postgresGroupRepository: GroupRepository = {
       [groupId, viewerId],
     );
     return 'created';
+  },
+
+  async withdrawJoinRequest(groupId, viewerId) {
+    // Deleted rather than marked: a withdrawn request leaves nothing behind
+    // for the leader to see, and asking again simply inserts a new row.
+    const withdrawn = await query<{ id: string }>(
+      `DELETE FROM group_join_requests
+        WHERE group_id = $1 AND user_id = $2 AND status = 'pending'
+        RETURNING id`,
+      [groupId, viewerId],
+    );
+    return withdrawn.length > 0 ? 'withdrawn' : 'request_not_found';
   },
 
   async decideJoinRequest(groupId, requestId, decision, viewerId) {

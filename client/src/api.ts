@@ -254,6 +254,9 @@ export const api = {
   requestToJoin: (groupId: string): Promise<{ status: 'pending' }> =>
     request<{ status: 'pending' }>(`/api/groups/${groupId}/join-requests`, { method: 'POST' }),
 
+  withdrawJoinRequest: (groupId: string): Promise<null> =>
+    request<null>(`/api/groups/${groupId}/join-requests/mine`, { method: 'DELETE' }),
+
   /** Leader only. Returns the updated group. */
   decideJoinRequest: (
     groupId: string,

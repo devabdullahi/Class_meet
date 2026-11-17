@@ -2,6 +2,7 @@
  *   POST /api/groups                                       create a group; the creator becomes leader and first member
  *   GET  /api/groups/:id                                   one group, its members, and the viewer's relationship to it
  *   POST /api/groups/:id/join-requests                     ask to join
+ *   DELETE /api/groups/:id/join-requests/mine              withdraw your own pending request
  *   POST /api/groups/:id/join-requests/:requestId/decision leader approves or declines: { decision }
  */
 import { Router, type Request, type Response } from 'express';
@@ -56,6 +57,18 @@ export function createGroupsRouter(repository: GroupRepository): Router {
         throw HttpError.conflict('already_requested', 'You have already asked to join this group.');
       case 'group_full':
         throw HttpError.conflict('group_full', 'This group is full.');
+    }
+  });
+
+  router.delete('/:groupId/join-requests/mine', async (req: Request, res: Response) => {
+    const groupId = requireGroupId(req.params['groupId']);
+    const outcome = await repository.withdrawJoinRequest(groupId, requireViewerId(req));
+    switch (outcome) {
+      case 'withdrawn':
+        res.status(204).end();
+        return;
+      case 'request_not_found':
+        throw HttpError.notFound('request_not_found', 'You have no pending request for this group.');
     }
   });
 

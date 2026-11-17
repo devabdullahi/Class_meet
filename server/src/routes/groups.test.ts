@@ -14,6 +14,7 @@ import type {
   GroupRepository,
   GroupSummary,
   JoinRequestOutcome,
+  WithdrawOutcome,
 } from '../groups/repository.js';
 import { createCoursesRouter } from './courses.js';
 import { createGroupsRouter } from './groups.js';
@@ -56,6 +57,8 @@ class FakeRepository implements GroupRepository {
   viewersOfCourseGroups: string[] = [];
   joinOutcome: JoinRequestOutcome = 'created';
   decisionOutcome: DecisionOutcome = 'decided';
+  withdrawOutcome: WithdrawOutcome = 'withdrawn';
+  withdrawals: Array<{ groupId: string; viewerId: string }> = [];
   decisions: Array<{ requestId: string; decision: string; viewerId: string }> = [];
 
   async listCourses(search: string, viewerId: string): Promise<CourseSearchResult[]> {
@@ -85,6 +88,10 @@ class FakeRepository implements GroupRepository {
   }
   async requestToJoin(): Promise<JoinRequestOutcome> {
     return this.joinOutcome;
+  }
+  async withdrawJoinRequest(groupId: string, viewerId: string): Promise<WithdrawOutcome> {
+    this.withdrawals.push({ groupId, viewerId });
+    return this.withdrawOutcome;
   }
   async decideJoinRequest(
     _groupId: string,
@@ -127,6 +134,7 @@ after(() => {
 beforeEach(() => {
   repository.joinOutcome = 'created';
   repository.decisionOutcome = 'decided';
+  repository.withdrawOutcome = 'withdrawn';
 });
 
 async function send(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }> {
@@ -135,7 +143,8 @@ async function send(method: string, path: string, body?: unknown): Promise<{ sta
     headers: { 'content-type': 'application/json' },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  return { status: response.status, json: await response.json() };
+  const text = await response.text();
+  return { status: response.status, json: text === '' ? null : JSON.parse(text) };
 }
 
 const validGroupBody = {
@@ -268,6 +277,26 @@ for (const [outcome, expectedStatus, expectedCode] of joinFailures) {
 test('join request rejects a malformed group id', async () => {
   const { status } = await send('POST', '/api/groups/nope/join-requests');
   assert.equal(status, 400);
+});
+
+test('a student can withdraw their own pending request', async () => {
+  const { status } = await send('DELETE', `/api/groups/${GROUP_ID}/join-requests/mine`);
+  assert.equal(status, 204);
+  assert.deepEqual(repository.withdrawals.at(-1), { groupId: GROUP_ID, viewerId: VIEWER_ID });
+});
+
+test('withdrawing answers 404 when there is no pending request to withdraw', async () => {
+  repository.withdrawOutcome = 'request_not_found';
+  const { status, json } = await send('DELETE', `/api/groups/${GROUP_ID}/join-requests/mine`);
+  assert.equal(status, 404);
+  assert.equal(json.error.code, 'request_not_found');
+});
+
+test('withdrawing rejects a malformed group id', async () => {
+  const before = repository.withdrawals.length;
+  const { status } = await send('DELETE', '/api/groups/nope/join-requests/mine');
+  assert.equal(status, 400);
+  assert.equal(repository.withdrawals.length, before);
 });
 
 // ---- leader decisions -------------------------------------------------
