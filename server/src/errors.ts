@@ -6,12 +6,19 @@
 export class HttpError extends Error {
   readonly status: number;
   readonly code: string;
+  /**
+   * Only on a 429: how long to wait. The error handler sends it as the
+   * standard `Retry-After` header and in the body, where the sign-in page
+   * reads it to count down to "Resend code".
+   */
+  readonly retryAfterSeconds: number | undefined;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, retryAfterSeconds?: number) {
     super(message);
     this.name = 'HttpError';
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 
   static badRequest(code: string, message: string): HttpError {
@@ -32,6 +39,10 @@ export class HttpError extends Error {
 
   static notFound(code: string, message: string): HttpError {
     return new HttpError(404, code, message);
+  }
+
+  static tooManyRequests(code: string, message: string, retryAfterSeconds: number): HttpError {
+    return new HttpError(429, code, message, Math.max(1, Math.ceil(retryAfterSeconds)));
   }
 
   static serviceUnavailable(code: string, message: string): HttpError {

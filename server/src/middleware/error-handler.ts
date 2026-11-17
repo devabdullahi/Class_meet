@@ -2,7 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { HttpError, isHttpError } from '../errors.js';
 
 export interface ApiErrorBody {
-  error: { code: string; message: string };
+  /** `retryAfterSeconds` is present on a 429 only. */
+  error: { code: string; message: string; retryAfterSeconds?: number };
 }
 
 export function notFoundHandler(req: Request, res: Response): void {
@@ -44,8 +45,14 @@ export function errorHandler(
 
   const error = bodyParserError(caught) ?? caught;
   if (isHttpError(error)) {
+    const { retryAfterSeconds } = error;
+    if (retryAfterSeconds !== undefined) res.setHeader('Retry-After', String(retryAfterSeconds));
     res.status(error.status).json({
-      error: { code: error.code, message: error.message },
+      error: {
+        code: error.code,
+        message: error.message,
+        ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
+      },
     } satisfies ApiErrorBody);
     return;
   }

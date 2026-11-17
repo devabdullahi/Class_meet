@@ -19,6 +19,9 @@ before(async () => {
   app.post('/refused', () => {
     throw HttpError.conflict('group_full', 'This group is full.');
   });
+  app.post('/slow-down', () => {
+    throw HttpError.tooManyRequests('too_many_requests', 'Too many tries. Wait a minute.', 61);
+  });
   app.post('/broken', () => {
     throw new Error('database password is hunter2');
   });
@@ -33,19 +36,20 @@ after(() => {
   server.close();
 });
 
-async function post(path: string, body: string): Promise<{ status: number; json: any }> {
+async function post(path: string, body: string): Promise<{ status: number; json: any; retryAfter: string | null }> {
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body,
   });
-  return { status: response.status, json: await response.json() };
+  return { status: response.status, json: await response.json(), retryAfter: response.headers.get('retry-after') };
 }
 
 test('an HttpError is answered with its own status, code and message', async () => {
   assert.deepEqual(await post('/refused', '{}'), {
     status: 409,
     json: { error: { code: 'group_full', message: 'This group is full.' } },
+    retryAfter: null,
   });
 });
 
@@ -66,4 +70,12 @@ test('any other error is a generic 500 that reveals nothing about it', async () 
   assert.equal(status, 500);
   assert.equal(json.error.code, 'internal_error');
   assert.equal(JSON.stringify(json).includes('hunter2'), false);
+});
+
+test('a 429 says when to try again, in the Retry-After header and in the body', async () => {
+  assert.deepEqual(await post('/slow-down', '{}'), {
+    status: 429,
+    json: { error: { code: 'too_many_requests', message: 'Too many tries. Wait a minute.', retryAfterSeconds: 61 } },
+    retryAfter: '61',
+  });
 });
