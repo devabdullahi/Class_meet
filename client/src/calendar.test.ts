@@ -58,10 +58,18 @@ test('the event lasts the standard meeting length', () => {
   expect(buildIcs(EVENT, NOW)).toContain('DTEND:20261103T153000\r\n');
 });
 
+// String.raw keeps every backslash literal, so the expected text is exactly
+// what RFC 5545 requires on the line. (In a plain string '\;' is just ';',
+// which is how an unescaped semicolon once slipped past this test.)
 test('commas and semicolons in text are escaped', () => {
   const ics = buildIcs(EVENT, NOW);
-  expect(ics).toContain('DESCRIPTION:Review SOLID\\, patterns\; and UML\r\n');
-  expect(ics).toContain('LOCATION:Central Library\\, Room 412\r\n');
+  expect(ics).toContain(String.raw`DESCRIPTION:Review SOLID\, patterns\; and UML` + '\r\n');
+  expect(ics).toContain(String.raw`LOCATION:Central Library\, Room 412` + '\r\n');
+});
+
+test('backslashes and line breaks in text are escaped', () => {
+  const ics = buildIcs({ ...EVENT, goal: 'Chapter 4\\5\nthen chapter 6\r\nand 7' }, NOW);
+  expect(ics).toContain(String.raw`DESCRIPTION:Chapter 4\\5\nthen chapter 6\nand 7` + '\r\n');
 });
 
 test('long lines are folded at 75 octets with a leading space', () => {

@@ -98,7 +98,7 @@ function weeklyRule(event: CalendarEventInput): string {
 function escapeIcsText(text: string): string {
   return text
     .replace(/\\/g, '\\\\')
-    .replace(/;/g, '\;')
+    .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
     .replace(/\r?\n/g, '\\n');
 }
