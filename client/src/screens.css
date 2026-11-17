@@ -692,14 +692,65 @@
   align-items: center;
 }
 
-.cm-login__signin {
+/* The emailed-code form: fields read left to right on the centred card. */
+.cm-login__form {
   width: 100%;
-  max-width: 320px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  text-align: left;
 }
 
-.cm-login__note {
-  margin-top: var(--space-3);
+.cm-login__sent {
+  color: var(--text-muted);
+}
+
+/* A long address wraps rather than widening the card on a phone. */
+.cm-login__address {
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.cm-login__notice {
   font-size: var(--font-label);
+  color: var(--text-muted);
+}
+
+/* Six digits, spaced so they can be checked against the email at a glance.
+   The left padding balances the letter-spacing after the last digit. */
+.cm-login__code {
+  padding-left: calc(var(--space-3) + 0.4em);
+  font-size: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: 0.4em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-login__code-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.cm-login__countdown {
+  margin-left: 0.25em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Microsoft sign-in, when the server offers it: secondary to the code. */
+.cm-login__alternative {
+  width: 100%;
+  max-width: 340px;
+  margin-top: var(--space-5);
+}
+
+.cm-login__or {
+  margin-bottom: var(--space-3);
+  font-size: var(--font-small);
   color: var(--text-muted);
 }
 

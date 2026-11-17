@@ -1,5 +1,11 @@
 /**
- * The MSAL browser instance.
+ * The MSAL browser instance, and how to word its failures.
+ *
+ * Microsoft sign-in is off unless the server enables it (UTA's tenant needs
+ * an administrator to approve the app first), so this module and MSAL with it
+ * are imported dynamically by AuthProvider, only when the server says it is
+ * on. Nothing else may import it statically, or MSAL would be back in the
+ * main bundle for every visitor.
  *
  * Microsoft's flow for a single-page app is the OAuth 2.0 **authorization code
  * flow with PKCE**, not the ID-token flow the Google version of this app used.
@@ -27,9 +33,11 @@
  *   https://learn.microsoft.com/en-us/entra/identity-platform/scenario-spa-app-configuration
  */
 import {
+  AuthError,
   createStandardPublicClientApplication,
   type IPublicClientApplication,
 } from '@azure/msal-browser';
+import { entraClientId } from './entraClientId';
 
 /** Same default, and the same reasoning, as UTA_TENANT_ID on the server. */
 const UTA_TENANT_ID = '5cdc5b43-d7be-4caa-8173-729e3b0a62d9';
@@ -41,9 +49,6 @@ const UTA_TENANT_ID = '5cdc5b43-d7be-4caa-8173-729e3b0a62d9';
  * portal. It must match the registered redirect URI exactly.
  */
 export const REDIRECT_PATH = '/redirect.html';
-
-/** Empty when client/.env is missing. `main.tsx` turns that into a real message. */
-export const entraClientId: string = (import.meta.env.VITE_ENTRA_CLIENT_ID ?? '').trim();
 
 const entraTenantId: string =
   (import.meta.env.VITE_ENTRA_TENANT_ID ?? '').trim() || UTA_TENANT_ID;
@@ -74,4 +79,35 @@ export function createMsalInstance(): Promise<IPublicClientApplication> {
       cacheLocation: 'sessionStorage',
     },
   });
+}
+
+export function isMsalError(error: unknown): error is AuthError {
+  return error instanceof AuthError;
+}
+
+/**
+ * MSAL reports ordinary user behaviour as an error. Closing the popup is not
+ * something to shout about (null: say nothing); a blocked popup is, because
+ * the user has to do something about it.
+ */
+export function describeMsalFailure(error: AuthError): string | null {
+  switch (error.errorCode) {
+    case 'user_cancelled':
+      // They closed the window or pressed Back. Leave the page as it was.
+      return null;
+    case 'popup_window_error':
+    case 'empty_window_error':
+      return (
+        'Your browser blocked the Microsoft sign-in window. Allow pop-ups for this site and ' +
+        'try again.'
+      );
+    case 'interaction_in_progress':
+      return 'A sign-in is already open. Finish or close that window, then try again.';
+    default:
+      return (
+        error.errorMessage.length > 0
+          ? `Microsoft sign-in failed: ${error.errorMessage}`
+          : 'Microsoft sign-in failed. Please try again.'
+      );
+  }
 }

@@ -1,55 +1,36 @@
 /**
  * Holds the one piece of global state the app has: who is signed in.
  *
- * On mount it asks the server two things: who am I (`/api/auth/me`) and how do
- * I talk to Microsoft (`/api/auth/config`). There is no token in localStorage
- * to read — the Class Meet session lives in an httpOnly cookie the page cannot
+ * On mount it asks the server two things: who am I (`/api/auth/me`) and how
+ * may I sign in (`/api/auth/config`). There is no token in localStorage to
+ * read — the Class Meet session lives in an httpOnly cookie the page cannot
  * see — so the server is the only source of truth, which also means a session
  * revoked server-side is noticed on the next load rather than trusted forever.
  *
- * The Microsoft half of sign-in lives here rather than in the button, because
- * signing *out* needs MSAL too and one component should own that instance.
+ * Students sign in with a code emailed to their UTA address. Microsoft
+ * sign-in is kept for when UTA approves the app, and MSAL is loaded only if
+ * the server says it is on: until then no visitor downloads or initialises
+ * it. It lives here rather than in the button because signing *out* needs
+ * MSAL too, and one component should own that instance.
  */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useMsal } from '@azure/msal-react';
-import { AuthError } from '@azure/msal-browser';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { IPublicClientApplication } from '@azure/msal-browser';
 import { api, ApiError, setSessionExpiredHandler, type AuthConfigResponse, type AuthUser } from '../api';
 import { AuthContext, type AuthContextValue, type AuthStatus } from './auth-context';
-import { entraClientId } from './msal';
+import { entraClientId } from './entraClientId';
 
-/**
- * MSAL reports ordinary user behaviour as an error. Closing the popup is not
- * something to shout about; a blocked popup is, because the user has to do
- * something about it.
- */
-function describeMsalFailure(error: AuthError): string | null {
-  switch (error.errorCode) {
-    case 'user_cancelled':
-      // They closed the window or pressed Back. Leave the page as it was.
-      return null;
-    case 'popup_window_error':
-    case 'empty_window_error':
-      return (
-        'Your browser blocked the Microsoft sign-in window. Allow pop-ups for this site and ' +
-        'try again.'
-      );
-    case 'interaction_in_progress':
-      return 'A sign-in is already open. Finish or close that window, then try again.';
-    default:
-      return (
-        error.errorMessage.length > 0
-          ? `Microsoft sign-in failed: ${error.errorMessage}`
-          : 'Microsoft sign-in failed. Please try again.'
-      );
-  }
+interface MicrosoftClient {
+  msal: typeof import('./msal');
+  instance: IPublicClientApplication;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
-  const { instance } = useMsal();
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<AuthConfigResponse | null>(null);
+  // Null until the server enables Microsoft sign-in; then MSAL, loading.
+  const microsoftClient = useRef<Promise<MicrosoftClient> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,8 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
       if (authConfig.status === 'fulfilled') {
         setConfig(authConfig.value);
       } else {
-        // The login page renders a "cannot reach the server" state from
-        // config === null, so there is nothing to report twice.
+        // The email form still renders without it; asking for a code then
+        // reports that the server cannot be reached, where the student looks.
         console.warn('Could not load /api/auth/config:', authConfig.reason);
       }
 
@@ -87,6 +68,19 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     };
   }, []);
 
+  /**
+   * Starts loading MSAL as soon as the server offers Microsoft sign-in, not
+   * when the button is pressed: the popup must open while the click still
+   * counts as a user gesture, or the browser blocks it.
+   */
+  useEffect(() => {
+    if (config?.microsoftLoginEnabled !== true || entraClientId.length === 0) return;
+    if (microsoftClient.current !== null) return;
+    const loading = import('./msal').then(async (msal) => ({ msal, instance: await msal.createMsalInstance() }));
+    loading.catch((caught: unknown) => console.error('MSAL failed to initialise:', caught));
+    microsoftClient.current = loading;
+  }, [config]);
+
   useEffect(() => {
     setSessionExpiredHandler(() => {
       setUser(null);
@@ -95,21 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     return () => setSessionExpiredHandler(null);
   }, []);
 
-  const signIn = useCallback(async (): Promise<void> => {
+  const signInWithEmailCode = useCallback(async (email: string, code: string): Promise<void> => {
+    const { user: signedIn } = await api.verifyEmailCode(email, code);
+    setUser(signedIn);
+    setStatus('signed-in');
+    setError(null);
+  }, []);
+
+  const signInWithMicrosoft = useCallback(async (): Promise<void> => {
     setError(null);
 
-    if (config === null) {
-      setError(
-        'Could not reach the Class Meet server, so sign-in cannot start. Check that the API is ' +
-          'running and reload the page.',
-      );
-      return;
-    }
-    if (!config.configured) {
-      setError(
-        'The Class Meet server has no Entra app registration configured. Set ENTRA_CLIENT_ID in ' +
-          'server/.env and restart it.',
-      );
+    if (config === null || !config.microsoftLoginEnabled) {
+      setError('Microsoft sign-in is not available. Sign in with the code we email to your UTA address.');
       return;
     }
     // Catching this here turns the classic "the two client IDs drifted apart"
@@ -122,14 +113,30 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
       );
       return;
     }
+    const loading = microsoftClient.current;
+    if (loading === null) {
+      setError('Microsoft sign-in is still loading. Try again in a moment.');
+      return;
+    }
+
+    let microsoft: MicrosoftClient;
+    try {
+      microsoft = await loading;
+    } catch {
+      setError(
+        'Could not reach Microsoft sign-in. Check your connection, or that VITE_ENTRA_CLIENT_ID is ' +
+          'a client ID that exists, then reload.',
+      );
+      return;
+    }
 
     try {
       // Authorization code + PKCE, run entirely by MSAL. The scope is our own
       // API's, so the token that comes back is one this server will accept —
       // Microsoft's rule is that an API accepts only tokens whose `aud` is its
       // own, which an ID token or a Graph token would fail.
-      const result = await instance.loginPopup({ scopes: [config.apiScope] });
-      instance.setActiveAccount(result.account);
+      const result = await microsoft.instance.loginPopup({ scopes: [config.apiScope] });
+      microsoft.instance.setActiveAccount(result.account);
 
       const { user: signedIn } = await api.signInWithEntra(result.accessToken);
       setUser(signedIn);
@@ -145,17 +152,17 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
         setError(caught.message);
         return;
       }
-      if (caught instanceof AuthError) {
-        setError(describeMsalFailure(caught));
+      if (microsoft.msal.isMsalError(caught)) {
+        setError(microsoft.msal.describeMsalFailure(caught));
         return;
       }
       console.error('Unexpected sign-in failure:', caught);
       setError('Sign-in failed. Please try again.');
     }
-  }, [config, instance]);
+  }, [config]);
 
   /**
-   * DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT. No MSAL, no token,
+   * DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT. No code, no token,
    * no database: it asks the server for a session for its own fake student.
    * The server refuses unless it is explicitly enabled, so this failing with a
    * 403 is the expected outcome everywhere but a teammate's laptop.
@@ -185,27 +192,30 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
       // user is never stuck on a screen they asked to leave.
       console.warn('Logout request failed:', caught);
     } finally {
-      // Drops MSAL's cached tokens for this tab. Deliberately NOT
-      // `logoutPopup`: that ends the user's Microsoft session everywhere,
-      // which from a study-group app is a startling thing to do to someone's
-      // Outlook. Leaving Class Meet should leave Class Meet.
-      try {
-        await instance.clearCache();
-      } catch (caught) {
-        console.warn('Could not clear the MSAL cache:', caught);
+      // Drops MSAL's cached tokens for this tab, if MSAL was ever loaded.
+      // Deliberately NOT `logoutPopup`: that ends the user's Microsoft
+      // session everywhere, which from a study-group app is a startling thing
+      // to do to someone's Outlook. Leaving Class Meet should leave Class Meet.
+      const loading = microsoftClient.current;
+      if (loading !== null) {
+        try {
+          await (await loading).instance.clearCache();
+        } catch (caught) {
+          console.warn('Could not clear the MSAL cache:', caught);
+        }
       }
       setUser(null);
       setStatus('signed-out');
       setError(null);
     }
-  }, [instance]);
+  }, []);
 
   const clearError = useCallback((): void => setError(null), []);
 
   const value = useMemo<AuthContextValue>(
     // `devSignIn`: DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT.
-    () => ({ status, user, error, config, signIn, devSignIn, signOut, clearError }),
-    [status, user, error, config, signIn, devSignIn, signOut, clearError],
+    () => ({ status, user, error, config, signInWithEmailCode, signInWithMicrosoft, devSignIn, signOut, clearError }),
+    [status, user, error, config, signInWithEmailCode, signInWithMicrosoft, devSignIn, signOut, clearError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

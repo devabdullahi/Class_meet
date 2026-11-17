@@ -24,6 +24,13 @@ export interface SessionResponse {
  * the side that validates the tokens they produce.
  */
 export interface AuthConfigResponse {
+  /** Domains whose addresses may sign in with an emailed code, e.g. `mavs.uta.edu`. */
+  emailDomains: string[];
+  /**
+   * Whether to offer Microsoft sign-in, and so whether to load MSAL at all.
+   * Off unless the server has ENABLE_MICROSOFT_LOGIN=true and ENTRA_CLIENT_ID.
+   */
+  microsoftLoginEnabled: boolean;
   /** False until ENTRA_CLIENT_ID is set in server/.env. */
   configured: boolean;
   /** The server's copy of the Application (client) ID. Compared with ours. */
@@ -39,6 +46,14 @@ export interface AuthConfigResponse {
   devLoginEnabled: boolean;
 }
 
+/** Mirrors `POST /api/auth/email/start`: the code is on its way. */
+export interface CodeSentResponse {
+  /** The address as the server normalised it (lowercased, plus tag removed). */
+  email: string;
+  expiresInSeconds: number;
+  /** How long until another code may be sent to the same address. */
+  resendAfterSeconds: number;
+}
 
 // ---- Courses and study groups (mirror server/src/groups/repository.ts) ------
 
@@ -273,12 +288,15 @@ export interface ModerationReports {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** On a 429: how many seconds until trying again can work. Null otherwise. */
+  readonly retryAfterSeconds: number | null;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, retryAfterSeconds: number | null = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 
   get isUnauthenticated(): boolean {
@@ -294,7 +312,8 @@ function extractError(status: number, body: unknown): ApiError {
       const code = typeof record['code'] === 'string' ? record['code'] : 'unknown_error';
       const message =
         typeof record['message'] === 'string' ? record['message'] : 'The request failed.';
-      return new ApiError(status, code, message);
+      const retryAfter = record['retryAfterSeconds'];
+      return new ApiError(status, code, message, typeof retryAfter === 'number' ? retryAfter : null);
     }
   }
   return new ApiError(status, 'unknown_error', `The request failed (HTTP ${status}).`);
@@ -367,6 +386,24 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  /**
+   * Emails a sign-in code to a UTA address. Answers the same for every
+   * allowed address; 400 `email_not_allowed` for any other, 429
+   * `resend_too_soon` (with `retryAfterSeconds`) within a minute of the last.
+   */
+  startEmailSignIn: (email: string): Promise<CodeSentResponse> =>
+    request<CodeSentResponse>('/api/auth/email/start', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  /** Exchanges the emailed code for a Class Meet session cookie. */
+  verifyEmailCode: (email: string, code: string): Promise<SessionResponse> =>
+    request<SessionResponse>('/api/auth/email/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    }),
+
   /** Exchanges a Microsoft access token for a Class Meet session cookie. */
   signInWithEntra: (accessToken: string): Promise<SessionResponse> =>
     request<SessionResponse>('/api/auth/entra', {

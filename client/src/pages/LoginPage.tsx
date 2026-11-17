@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth/useAuth';
+import { EmailCodeSignIn } from '../components/EmailCodeSignIn';
 import { EntraSignInButton } from '../components/EntraSignInButton';
 import { FullPageSpinner } from '../components/FullPageSpinner';
 import { Wordmark } from '../components/Wordmark';
@@ -20,7 +21,7 @@ function returnPath(state: unknown): string {
 }
 
 export function LoginPage(): ReactNode {
-  const { status, error, config, signIn, devSignIn, clearError } = useAuth();
+  const { status, error, config, signInWithMicrosoft, devSignIn, clearError } = useAuth();
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
   // Arriving from a course link (/join/CSE-3311), the page invites the
@@ -44,10 +45,10 @@ export function LoginPage(): ReactNode {
     return <Navigate to={returnPath(location.state)} replace />;
   }
 
-  const handleSignIn = (): void => {
+  const handleMicrosoftSignIn = (): void => {
     clearError();
     setSubmitting(true);
-    void signIn().finally(() => setSubmitting(false));
+    void signInWithMicrosoft().finally(() => setSubmitting(false));
   };
 
   const handleDevSignIn = (): void => {
@@ -55,13 +56,6 @@ export function LoginPage(): ReactNode {
     setSubmitting(true);
     void devSignIn().finally(() => setSubmitting(false));
   };
-
-  // The organisation name comes from the server, which is also the side that
-  // enforces it, so the copy cannot promise something the policy does not.
-  const tenantCopy =
-    config !== null
-      ? `Use the account you use for email and Canvas at ${config.tenantDisplayName}.`
-      : 'Use your university account.';
 
   return (
     <main className="cm-login">
@@ -85,8 +79,13 @@ export function LoginPage(): ReactNode {
         )}
 
         <div className="cm-login__action">
-          <EntraSignInButton onClick={handleSignIn} busy={submitting} ready={config !== null} />
-          <p className="cm-login__note">{tenantCopy}</p>
+          <EmailCodeSignIn />
+          {config?.microsoftLoginEnabled === true && (
+            <div className="cm-login__alternative">
+              <p className="cm-login__or">or</p>
+              <EntraSignInButton onClick={handleMicrosoftSignIn} busy={submitting} />
+            </div>
+          )}
         </div>
 
         {error !== null && (
@@ -119,7 +118,7 @@ export function LoginPage(): ReactNode {
               Skip sign-in (development only)
             </button>
             <p className="cm-login__dev-note">
-              Signs you in as a demo student when Microsoft sign-in is not set up. Removed before
+              Signs you in as a demo student, with no email and no database. Removed before
               deployment.
             </p>
           </div>

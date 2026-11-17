@@ -6,9 +6,6 @@ import { useApiData } from '../hooks/useApiData';
 import { AuthProvider } from './AuthProvider';
 import { RequireAuth } from './RequireAuth';
 
-// Sign-in itself is not exercised here, so MSAL needs no real instance.
-vi.mock('@azure/msal-react', () => ({ useMsal: () => ({ instance: {} }) }));
-
 const USER = { id: 'u1', email: 'sam@mavs.uta.edu', name: 'Sam Lee', createdAt: '', lastLoginAt: '' };
 
 function reply(status: number, body: unknown): Response {
@@ -21,7 +18,7 @@ beforeEach(() => {
     'fetch',
     vi.fn(async (path: string) => {
       if (path === '/api/auth/me') return reply(200, { user: USER });
-      if (path === '/api/auth/config') return reply(200, { configured: false, devLoginEnabled: false });
+      if (path === '/api/auth/config') return reply(200, { emailDomains: ['mavs.uta.edu'], microsoftLoginEnabled: false, devLoginEnabled: false });
       return reply(401, { error: { code: 'not_authenticated', message: 'You are not signed in.' } });
     }),
   );

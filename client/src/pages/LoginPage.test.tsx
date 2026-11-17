@@ -86,3 +86,27 @@ test('signed out from anywhere else, the sign-in page is the usual one', () => {
   expect(screen.getByRole('heading', { level: 1, name: USUAL_HEADING })).toBeTruthy();
   expect(fetchCourseLinkTitle).not.toHaveBeenCalled();
 });
+
+const CONFIG = { emailDomains: ['mavs.uta.edu', 'uta.edu'], microsoftLoginEnabled: false, devLoginEnabled: false };
+
+test('signed out, the page asks for a UTA email and offers no Microsoft sign-in by default', () => {
+  auth.current = { ...SIGNED_OUT, config: CONFIG };
+  render(
+    <MemoryRouter initialEntries={['/login']}>
+      <LoginPage />
+    </MemoryRouter>,
+  );
+  expect(screen.getByLabelText('UTA email')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Email me a code' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Sign in with Microsoft' })).toBeNull();
+});
+
+test('when the server turns Microsoft sign-in on, it is offered under the email form', () => {
+  auth.current = { ...SIGNED_OUT, config: { ...CONFIG, microsoftLoginEnabled: true } };
+  render(
+    <MemoryRouter initialEntries={['/login']}>
+      <LoginPage />
+    </MemoryRouter>,
+  );
+  expect(screen.getByRole('button', { name: 'Sign in with Microsoft' })).toBeTruthy();
+});
