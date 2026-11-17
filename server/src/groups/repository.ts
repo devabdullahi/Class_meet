@@ -14,6 +14,8 @@ import {
 } from './validation.js';
 import { visibleLocation } from './visibility.js';
 import { groupByRelationship, type MyGroups } from './my-groups.js';
+import { toStudentProfile, type ProfileColumns } from '../profiles/repository.js';
+import type { StudentProfile } from '../profiles/validation.js';
 
 export interface Course {
   id: string;
@@ -65,6 +67,8 @@ export interface PendingJoinRequest {
   id: string;
   userId: string;
   name: string;
+  /** What the student chose to tell leaders about themselves; null when they have not added a profile. */
+  profile: StudentProfile | null;
 }
 
 export interface GroupDetails extends GroupSummary {
@@ -410,11 +414,17 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
         [groupId],
       );
 
+      // Who is waiting, with their profiles, goes to the leader alone: a
+      // student's profile is shown only to the leader of a group they have a
+      // pending request for, and never with their email.
       const pending = group.viewer_role === 'leader'
-        ? await query<{ id: string; user_id: string; name: string }>(
-            `SELECT r.id, r.user_id, u.name
+        ? await query<{ id: string; user_id: string; name: string; has_profile: boolean } & ProfileColumns>(
+            `SELECT r.id, r.user_id, u.name,
+                    p.user_id IS NOT NULL AS has_profile,
+                    p.major, p.year, p.meeting_preference, p.study_styles
                FROM group_join_requests r
                JOIN users u ON u.id = r.user_id
+               LEFT JOIN student_profiles p ON p.user_id = r.user_id
               WHERE r.group_id = $1 AND r.status = 'pending'
               ORDER BY r.created_at`,
             [groupId],
@@ -431,7 +441,12 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
           name: member.name,
           isLeader: member.is_leader,
         })),
-        pendingRequests: pending.map((row) => ({ id: row.id, userId: row.user_id, name: row.name })),
+        pendingRequests: pending.map((row) => ({
+          id: row.id,
+          userId: row.user_id,
+          name: row.name,
+          profile: row.has_profile ? toStudentProfile(row) : null,
+        })),
       };
     },
 

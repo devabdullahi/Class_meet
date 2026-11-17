@@ -4,7 +4,9 @@ import { authRouter } from './routes/auth.js';
 import { createCoursesRouter } from './routes/courses.js';
 import { createGroupsRouter } from './routes/groups.js';
 import { createMeRouter } from './routes/me.js';
+import { createProfileRouter } from './routes/profile.js';
 import { postgresGroupRepository } from './groups/repository.js';
+import { postgresProfileRepository } from './profiles/repository.js';
 import { requireAuth } from './middleware/require-auth.js';
 import { requireSameOriginRequest } from './middleware/csrf.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
@@ -74,6 +76,7 @@ export function createApp(options: AppOptions = {}): Express {
   });
 
   app.use('/api/auth', authRouter);
+  app.use('/api/me/profile', requireAuth, createProfileRouter(postgresProfileRepository));
   app.use('/api/me', requireAuth, createMeRouter(postgresGroupRepository));
   app.use('/api/courses', requireAuth, createCoursesRouter(postgresGroupRepository));
   app.use('/api/groups', requireAuth, createGroupsRouter(postgresGroupRepository));

@@ -18,12 +18,15 @@ import { PGlite, type Transaction } from '@electric-sql/pglite';
 import type { QueryResultRow } from 'pg';
 import type { Database, QueryRunner } from '../db/pool.js';
 import { createPostgresGroupRepository, type GroupRepository } from './repository.js';
+import { createPostgresProfileRepository, type ProfileRepository } from '../profiles/repository.js';
+import type { StudentProfile } from '../profiles/validation.js';
 import type { CreateGroupInput } from './validation.js';
 
 const MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../migrations');
 
 let pglite: PGlite;
 let repository: GroupRepository;
+let profiles: ProfileRepository;
 let cse3311: string;
 let cse4308: string;
 
@@ -50,6 +53,7 @@ before(async () => {
     await pglite.exec(await readFile(path.join(MIGRATIONS_DIR, file), 'utf8'));
   }
   repository = createPostgresGroupRepository(pgliteDatabase(pglite));
+  profiles = createPostgresProfileRepository(pgliteDatabase(pglite));
   const courses = await sql<{ id: string; code: string }>('SELECT id, code FROM courses');
   cse3311 = courses.find((course) => course.code === 'CSE 3311')!.id;
   cse4308 = courses.find((course) => course.code === 'CSE 4308')!.id;
@@ -60,7 +64,9 @@ after(async () => {
 });
 
 beforeEach(async () => {
-  await pglite.exec('TRUNCATE group_join_requests, group_members, study_groups, course_enrollments, users');
+  await pglite.exec(
+    'TRUNCATE group_join_requests, group_members, study_groups, course_enrollments, student_profiles, users',
+  );
 });
 
 let studentCount = 0;
@@ -360,4 +366,96 @@ test('a leader deletes their group, its members and requests go with it, and the
   assert.deepEqual(await repository.listMyGroups(waiting), { leading: [], member: [], requested: [] });
   assert.equal(await repository.removeCourse(leader, cse3311), 'removed');
   assert.equal(await repository.deleteGroup(groupId, leader), 'group_not_found');
+});
+
+// ---- Student profiles --------------------------------------------------------
+
+const JO_PROFILE: StudentProfile = {
+  major: 'Computer Science',
+  year: 'sophomore',
+  meetingPreference: 'either',
+  studyStyles: ['practice_problems', 'talking_it_through'],
+};
+const EMPTY_PROFILE: StudentProfile = { major: null, year: null, meetingPreference: null, studyStyles: [] };
+
+/** Jo and Kim ask to join Alex's group; Jo has a profile, Kim has not. */
+async function groupWithRequests() {
+  const leader = await addStudent('Alex');
+  const withProfile = await addStudent('Jo');
+  const withoutProfile = await addStudent('Kim');
+  const groupId = await groupLedBy(leader, cse3311);
+  await profiles.saveProfile(withProfile, JO_PROFILE);
+  for (const student of [withProfile, withoutProfile]) {
+    await repository.enrollInCourse(student, cse3311);
+    assert.equal(await repository.requestToJoin(groupId, student), 'created');
+  }
+  return { leader, withProfile, withoutProfile, groupId };
+}
+
+test('a student saves, changes and clears their own profile', async () => {
+  const student = await addStudent('Jo');
+  assert.equal(await profiles.findProfile(student), null);
+
+  const saved = await profiles.saveProfile(student, { ...JO_PROFILE, studyStyles: ['exam_cramming'] });
+  assert.deepEqual(saved, { ...JO_PROFILE, studyStyles: ['exam_cramming'] });
+  assert.deepEqual(await profiles.findProfile(student), saved);
+
+  const changed = await profiles.saveProfile(student, { ...EMPTY_PROFILE, major: 'Physics' });
+  assert.deepEqual(changed, { ...EMPTY_PROFILE, major: 'Physics' });
+
+  // Clearing every field is the same as never having added one.
+  assert.equal(await profiles.saveProfile(student, EMPTY_PROFILE), null);
+  assert.equal(await profiles.findProfile(student), null);
+  assert.deepEqual(await sql('SELECT user_id FROM student_profiles'), []);
+});
+
+test('the leader sees each waiting student’s profile, or that they have none, and never their email', async () => {
+  const { leader, withProfile, withoutProfile, groupId } = await groupWithRequests();
+  const requests = (await repository.findGroup(groupId, leader))?.pendingRequests ?? [];
+
+  assert.deepEqual(
+    requests.map((request) => [request.userId, request.profile]),
+    [
+      [withProfile, JO_PROFILE],
+      [withoutProfile, null],
+    ],
+  );
+  for (const request of requests) {
+    assert.deepEqual(Object.keys(request).sort(), ['id', 'name', 'profile', 'userId']);
+  }
+  assert.doesNotMatch(JSON.stringify(requests), /@mavs\.uta\.edu/);
+});
+
+test('no one but that leader sees a requester’s profile, anywhere groups are returned', async () => {
+  const { leader, withProfile, withoutProfile, groupId } = await groupWithRequests();
+  const member = await addStudent('Sam');
+  await joinGroup(groupId, cse3311, leader, member);
+  // Another leader in the same course, whose group Jo did not ask to join.
+  const otherLeader = await addStudent('Lee');
+  await groupLedBy(otherLeader, cse3311);
+
+  for (const viewer of [member, withProfile, withoutProfile, otherLeader]) {
+    const seen = JSON.stringify([
+      await repository.findGroup(groupId, viewer),
+      await repository.listGroupsForCourse(cse3311, viewer),
+      await repository.listMyGroups(viewer),
+    ]);
+    assert.doesNotMatch(seen, /Computer Science/);
+  }
+  // The leader sees it on the group's own pending requests only, not in lists.
+  const leaderLists = JSON.stringify([
+    await repository.listGroupsForCourse(cse3311, leader),
+    await repository.listMyGroups(leader),
+  ]);
+  assert.doesNotMatch(leaderLists, /Computer Science/);
+});
+
+test('once a request is answered, its profile is no longer shown to the leader', async () => {
+  const { leader, withProfile, withoutProfile, groupId } = await groupWithRequests();
+  await repository.decideJoinRequest(groupId, await requestIdOf(groupId, withProfile), 'approve', leader);
+  await repository.decideJoinRequest(groupId, await requestIdOf(groupId, withoutProfile), 'decline', leader);
+
+  const group = await repository.findGroup(groupId, leader);
+  assert.deepEqual(group?.pendingRequests, []);
+  assert.doesNotMatch(JSON.stringify(group), /Computer Science/);
 });
