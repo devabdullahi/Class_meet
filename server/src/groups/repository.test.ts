@@ -60,7 +60,9 @@ after(async () => {
 });
 
 beforeEach(async () => {
-  await pglite.exec('TRUNCATE group_join_requests, group_members, study_groups, course_enrollments, users');
+  // CASCADE also empties the tables of later features that refer to these
+  // (reports, for one), which Postgres would otherwise refuse to truncate around.
+  await pglite.exec('TRUNCATE group_join_requests, group_members, study_groups, course_enrollments, users CASCADE');
 });
 
 let studentCount = 0;
