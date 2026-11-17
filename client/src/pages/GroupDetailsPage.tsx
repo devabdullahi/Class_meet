@@ -18,7 +18,8 @@ function toCalendarEvent(group: GroupDetails): CalendarEventInput {
     meetingDay: group.meetingDay,
     meetingTime: group.meetingTime,
     format: group.format,
-    location: group.location,
+    // Only members see calendar options, and members always get the location.
+    location: group.location ?? '',
   };
 }
 
@@ -130,7 +131,9 @@ export function GroupDetailsPage(): ReactNode {
                   <div className="cm-info__row">
                     {group.format === 'online' ? <VideoIcon /> : <PinIcon />}
                     <div>
-                      {group.format === 'online' ? (
+                      {group.location === null ? (
+                        <strong>Online</strong>
+                      ) : group.format === 'online' ? (
                         <a href={group.location} target="_blank" rel="noopener noreferrer">
                           Open meeting link
                         </a>
@@ -138,8 +141,11 @@ export function GroupDetailsPage(): ReactNode {
                         <strong>{group.location}</strong>
                       )}
                       <span className="cm-info__label">
-                        {formatLabel(group.format)}
-                        {group.format === 'online' ? ` · ${linkHost(group.location)}` : ''}
+                        {group.location === null
+                          ? 'The meeting link is shared with members.'
+                          : group.format === 'online'
+                            ? `${formatLabel(group.format)} · ${linkHost(group.location)}`
+                            : formatLabel(group.format)}
                       </span>
                     </div>
                   </div>

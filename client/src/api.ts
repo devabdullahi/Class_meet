@@ -76,10 +76,15 @@ export interface GroupSummary {
   /** "HH:MM", 24-hour. */
   meetingTime: string;
   format: GroupFormat;
-  /** A place for in-person groups, a meeting link for online ones. */
-  location: string;
+  /**
+   * A place for in-person groups, a meeting link for online ones. Null for an
+   * online group the viewer is not in: the server shares links with members only.
+   */
+  location: string | null;
   maxMembers: number;
   memberCount: number;
+  viewerRole: 'leader' | 'member' | 'none';
+  viewerRequestStatus: 'pending' | 'declined' | null;
 }
 
 export interface GroupMember {
@@ -98,8 +103,6 @@ export interface GroupDetails extends GroupSummary {
   courseCode: string;
   courseTitle: string;
   members: GroupMember[];
-  viewerRole: 'leader' | 'member' | 'none';
-  viewerRequestStatus: 'pending' | 'declined' | null;
   /** Only filled in for the group's leader. */
   pendingRequests: PendingJoinRequest[];
 }

@@ -33,7 +33,8 @@ export function createCoursesRouter(repository: GroupRepository): Router {
     if (course === null) {
       throw HttpError.notFound('course_not_found', 'That course does not exist.');
     }
-    res.status(200).json({ course, groups: await repository.listGroupsForCourse(courseId) });
+    const groups = await repository.listGroupsForCourse(courseId, requireViewerId(req));
+    res.status(200).json({ course, groups });
   });
 
   return router;

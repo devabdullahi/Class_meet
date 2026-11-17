@@ -75,8 +75,17 @@ test('shows the meeting information and the members, leader first', async () => 
   expect(screen.getByText('Sam Lee')).toBeTruthy();
 });
 
-test('an online group links to its meeting link', async () => {
-  fetchGroup.mockResolvedValue({ group: { ...BASE, format: 'online', location: 'https://meet.example/room' } });
+test('a student outside an online group is told the link is for members', async () => {
+  fetchGroup.mockResolvedValue({ group: { ...BASE, format: 'online', location: null } });
+  renderPage();
+  expect(await screen.findByText('The meeting link is shared with members.')).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Open meeting link' })).toBeNull();
+});
+
+test('a member of an online group gets its meeting link', async () => {
+  fetchGroup.mockResolvedValue({
+    group: { ...BASE, viewerRole: 'member', format: 'online', location: 'https://meet.example/room' },
+  });
   renderPage();
   const link = await screen.findByRole('link', { name: 'Open meeting link' });
   expect(link.getAttribute('href')).toBe('https://meet.example/room');

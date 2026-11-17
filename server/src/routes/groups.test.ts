@@ -53,6 +53,7 @@ class FakeRepository implements GroupRepository {
   enrolled: Array<{ viewerId: string; courseId: string }> = [];
   searches: Array<{ search: string; viewerId: string }> = [];
   viewersOfGroup: string[] = [];
+  viewersOfCourseGroups: string[] = [];
   joinOutcome: JoinRequestOutcome = 'created';
   decisionOutcome: DecisionOutcome = 'decided';
   decisions: Array<{ requestId: string; decision: string; viewerId: string }> = [];
@@ -70,7 +71,8 @@ class FakeRepository implements GroupRepository {
   async findCourse(courseId: string): Promise<Course | null> {
     return courseId === COURSE.id ? COURSE : null;
   }
-  async listGroupsForCourse(): Promise<GroupSummary[]> {
+  async listGroupsForCourse(_courseId: string, viewerId: string): Promise<GroupSummary[]> {
+    this.viewersOfCourseGroups.push(viewerId);
     return [GROUP];
   }
   async createGroup(leaderId: string): Promise<string> {
@@ -161,11 +163,13 @@ test('GET /api/courses rejects an over-long search', async () => {
   assert.equal(json.error.code, 'invalid_search');
 });
 
-test('GET /api/courses/:id/groups returns the course and its groups', async () => {
+test('GET /api/courses/:id/groups returns the course and its groups as the viewer sees them', async () => {
   const { status, json } = await send('GET', `/api/courses/${COURSE.id}/groups`);
   assert.equal(status, 200);
   assert.equal(json.course.code, 'CSE 3311');
   assert.equal(json.groups.length, 1);
+  assert.equal(json.groups[0].viewerRole, 'leader');
+  assert.equal(repository.viewersOfCourseGroups.at(-1), VIEWER_ID);
 });
 
 test('GET /api/courses/:id/groups returns 404 for an unknown course', async () => {

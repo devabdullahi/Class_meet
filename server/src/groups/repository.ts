@@ -11,6 +11,7 @@ import {
   type JoinDecision,
   type MeetingDay,
 } from './validation.js';
+import { visibleLocation } from './visibility.js';
 
 export interface Course {
   id: string;
@@ -27,6 +28,8 @@ export interface EnrolledCourse extends Course {
   groupCount: number;
 }
 
+export type ViewerRole = 'leader' | 'member' | 'none';
+
 export interface GroupSummary {
   id: string;
   courseId: string;
@@ -34,9 +37,14 @@ export interface GroupSummary {
   meetingDay: MeetingDay;
   meetingTime: string;
   format: GroupFormat;
-  location: string;
+  /** A place, or a meeting link. Null when the viewer may not see it (see visibility.ts). */
+  location: string | null;
   maxMembers: number;
   memberCount: number;
+  /** The viewing student's relationship to the group. */
+  viewerRole: ViewerRole;
+  /** The viewer's own request, if any. Declined requests may be sent again. */
+  viewerRequestStatus: 'pending' | 'declined' | null;
 }
 
 export interface GroupMember {
@@ -51,16 +59,10 @@ export interface PendingJoinRequest {
   name: string;
 }
 
-export type ViewerRole = 'leader' | 'member' | 'none';
-
 export interface GroupDetails extends GroupSummary {
   courseCode: string;
   courseTitle: string;
   members: GroupMember[];
-  /** The viewing student's relationship to the group. */
-  viewerRole: ViewerRole;
-  /** The viewer's own request, if any. Declined requests may be sent again. */
-  viewerRequestStatus: 'pending' | 'declined' | null;
   /** Only filled in for the group's leader. */
   pendingRequests: PendingJoinRequest[];
 }
@@ -74,7 +76,7 @@ export interface GroupRepository {
   listMyCourses(viewerId: string): Promise<EnrolledCourse[]>;
   enrollInCourse(viewerId: string, courseId: string): Promise<void>;
   findCourse(courseId: string): Promise<Course | null>;
-  listGroupsForCourse(courseId: string): Promise<GroupSummary[]>;
+  listGroupsForCourse(courseId: string, viewerId: string): Promise<GroupSummary[]>;
   createGroup(leaderId: string, input: CreateGroupInput): Promise<string>;
   findGroup(groupId: string, viewerId: string): Promise<GroupDetails | null>;
   requestToJoin(groupId: string, viewerId: string): Promise<JoinRequestOutcome>;
@@ -96,12 +98,23 @@ interface GroupRow {
   location: string;
   max_members: number;
   member_count: string;
+  viewer_role: ViewerRole;
+  viewer_request_status: 'pending' | 'declined' | null;
 }
 
+/** Selects a GroupRow from `study_groups g`. $2 must be the viewing student's id. */
 const GROUP_SUMMARY_COLUMNS = `g.id, g.course_id, g.goal, g.meeting_day,
        to_char(g.meeting_time, 'HH24:MI') AS meeting_time,
        g.format, g.location, g.max_members,
-       (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count`;
+       (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count,
+       CASE
+         WHEN g.leader_id = $2 THEN 'leader'
+         WHEN EXISTS (SELECT 1 FROM group_members m WHERE m.group_id = g.id AND m.user_id = $2) THEN 'member'
+         ELSE 'none'
+       END AS viewer_role,
+       (SELECT r.status FROM group_join_requests r
+         WHERE r.group_id = g.id AND r.user_id = $2 AND r.status IN ('pending', 'declined')
+       ) AS viewer_request_status`;
 
 const MAX_COURSE_SEARCH_RESULTS = 50;
 
@@ -113,10 +126,12 @@ function toGroupSummary(row: GroupRow): GroupSummary {
     meetingDay: row.meeting_day,
     meetingTime: row.meeting_time,
     format: row.format,
-    location: row.location,
+    location: visibleLocation(row.format, row.location, row.viewer_role),
     maxMembers: row.max_members,
     // count(*) comes back from pg as a string (bigint).
     memberCount: Number(row.member_count),
+    viewerRole: row.viewer_role,
+    viewerRequestStatus: row.viewer_request_status,
   };
 }
 
@@ -167,13 +182,13 @@ export const postgresGroupRepository: GroupRepository = {
     return rows[0] ?? null;
   },
 
-  async listGroupsForCourse(courseId) {
+  async listGroupsForCourse(courseId, viewerId) {
     const rows = await query<GroupRow>(
       `SELECT ${GROUP_SUMMARY_COLUMNS}
          FROM study_groups g
         WHERE g.course_id = $1
         ORDER BY g.created_at DESC`,
-      [courseId],
+      [courseId, viewerId],
     );
     return rows.map(toGroupSummary);
   },
@@ -211,14 +226,12 @@ export const postgresGroupRepository: GroupRepository = {
   },
 
   async findGroup(groupId, viewerId) {
-    const groups = await query<
-      GroupRow & { course_code: string; course_title: string; leader_id: string }
-    >(
-      `SELECT ${GROUP_SUMMARY_COLUMNS}, g.leader_id, c.code AS course_code, c.title AS course_title
+    const groups = await query<GroupRow & { course_code: string; course_title: string }>(
+      `SELECT ${GROUP_SUMMARY_COLUMNS}, c.code AS course_code, c.title AS course_title
          FROM study_groups g
          JOIN courses c ON c.id = g.course_id
         WHERE g.id = $1`,
-      [groupId],
+      [groupId, viewerId],
     );
     const group = groups[0];
     if (group === undefined) return null;
@@ -233,16 +246,7 @@ export const postgresGroupRepository: GroupRepository = {
       [groupId],
     );
 
-    const isLeader = group.leader_id === viewerId;
-    const isMember = members.some((member) => member.user_id === viewerId);
-
-    const ownRequests = await query<{ status: 'pending' | 'approved' | 'declined' }>(
-      'SELECT status FROM group_join_requests WHERE group_id = $1 AND user_id = $2',
-      [groupId, viewerId],
-    );
-    const ownStatus = ownRequests[0]?.status;
-
-    const pending = isLeader
+    const pending = group.viewer_role === 'leader'
       ? await query<{ id: string; user_id: string; name: string }>(
           `SELECT r.id, r.user_id, u.name
              FROM group_join_requests r
@@ -263,8 +267,6 @@ export const postgresGroupRepository: GroupRepository = {
         name: member.name,
         isLeader: member.is_leader,
       })),
-      viewerRole: isLeader ? 'leader' : isMember ? 'member' : 'none',
-      viewerRequestStatus: ownStatus === 'pending' || ownStatus === 'declined' ? ownStatus : null,
       pendingRequests: pending.map((row) => ({ id: row.id, userId: row.user_id, name: row.name })),
     };
   },
