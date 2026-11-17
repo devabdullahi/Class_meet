@@ -3,6 +3,7 @@ import {
   formatLabel,
   formatMeetingTime,
   isGroupFull,
+  meetingPlaceLabel,
   meetingPlatform,
   seatsLeft,
   sortByNextMeeting,
@@ -54,4 +55,10 @@ test('sorts groups by their next meeting, counting from now', () => {
     { id: 'fri', meetingDay: 'Friday' as const, meetingTime: '12:30' },
   ];
   expect(sortByNextMeeting(groups, now).map((group) => group.id)).toEqual(['wed-later', 'fri', 'tue', 'wed-past']);
+});
+
+test('names the place, or the platform only when the meeting link is visible', () => {
+  expect(meetingPlaceLabel({ format: 'in_person', location: 'ERB 129' })).toBe('ERB 129');
+  expect(meetingPlaceLabel({ format: 'online', location: 'https://zoom.us/j/1' })).toBe('Online · Zoom');
+  expect(meetingPlaceLabel({ format: 'online', location: null })).toBe('Online');
 });

@@ -4,7 +4,7 @@ import { api, type GroupSummary } from '../api';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { RelationshipLabel, SeatCount, TimeTile } from '../components/groupParts';
 import { AlertIcon, ChevronLeftIcon, PinIcon, PlusIcon, VideoIcon } from '../components/icons';
-import { formatLabel, isGroupFull, meetingPlatform, sortByNextMeeting } from '../groupFormat';
+import { formatLabel, isGroupFull, meetingPlaceLabel, sortByNextMeeting } from '../groupFormat';
 import { useApiData } from '../hooks/useApiData';
 
 const ANY_DAY = 'Any day';
@@ -18,12 +18,6 @@ function matchesFilters(group: GroupSummary, day: string, format: string, availa
   const availabilityMatches =
     availability === ALL_GROUPS || (availability === 'Full' ? isGroupFull(group) : !isGroupFull(group));
   return dayMatches && formatMatches && availabilityMatches;
-}
-
-/** Where the group meets: the place, or the platform for an online group when you may see its link. */
-function placeLabel(group: GroupSummary): string {
-  if (group.format === 'in_person') return group.location ?? '';
-  return group.location === null ? 'Online' : `Online · ${meetingPlatform(group.location)}`;
 }
 
 /** The whole card is one link, named by the group's goal. */
@@ -40,7 +34,7 @@ function GroupCard({ group, courseId }: { group: GroupSummary; courseId: string 
       </div>
       <p className="cm-group-card__place">
         {group.format === 'online' ? <VideoIcon /> : <PinIcon />}
-        <span>{placeLabel(group)}</span>
+        <span>{meetingPlaceLabel(group)}</span>
       </p>
       <div className="cm-group-card__foot">
         <SeatCount taken={group.memberCount} max={group.maxMembers} />

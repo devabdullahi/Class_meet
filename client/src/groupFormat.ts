@@ -52,3 +52,9 @@ export function meetingPlatform(link: string): string {
   const known = Object.keys(PLATFORM_NAMES).find((domain) => host === domain || host.endsWith(`.${domain}`));
   return known === undefined ? host : (PLATFORM_NAMES[known] ?? host);
 }
+
+/** Where a group meets: the place, or the platform for an online group when the viewer may see its link. */
+export function meetingPlaceLabel(group: Pick<GroupSummary, 'format' | 'location'>): string {
+  if (group.format === 'in_person') return group.location ?? '';
+  return group.location === null ? 'Online' : `Online · ${meetingPlatform(group.location)}`;
+}
