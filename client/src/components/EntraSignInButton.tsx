@@ -26,13 +26,11 @@ export function EntraSignInButton({ onClick, busy, ready }: EntraSignInButtonPro
   return (
     <button
       type="button"
-      className="button button--signin"
+      className="cm-btn cm-btn--primary cm-login__signin"
       onClick={onClick}
       disabled={busy || !ready}
     >
-      <span className="button__icon">
-        <MicrosoftIcon />
-      </span>
+      <MicrosoftIcon />
       {busy ? 'Signing you in…' : 'Sign in with your UTA account'}
     </button>
   );

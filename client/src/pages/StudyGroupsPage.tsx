@@ -60,7 +60,7 @@ export function StudyGroupsPage(): ReactNode {
       <div className="cm-toolbar">
         <label className="cm-field">
           Day
-          <select value={day} onChange={(event) => setDay(event.target.value)}>
+          <select className="cm-input" value={day} onChange={(event) => setDay(event.target.value)}>
             {DAY_FILTERS.map((option) => (
               <option key={option}>{option}</option>
             ))}
@@ -69,7 +69,7 @@ export function StudyGroupsPage(): ReactNode {
 
         <label className="cm-field">
           Format
-          <select value={format} onChange={(event) => setFormat(event.target.value)}>
+          <select className="cm-input" value={format} onChange={(event) => setFormat(event.target.value)}>
             <option>{ANY_FORMAT}</option>
             <option>Online</option>
             <option>In Person</option>
@@ -78,7 +78,7 @@ export function StudyGroupsPage(): ReactNode {
 
         <label className="cm-field">
           Availability
-          <select value={availability} onChange={(event) => setAvailability(event.target.value)}>
+          <select className="cm-input" value={availability} onChange={(event) => setAvailability(event.target.value)}>
             <option value={ALL_GROUPS}>All Groups</option>
             <option value="Open">Open</option>
             <option value="Full">Full</option>

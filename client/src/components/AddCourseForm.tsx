@@ -61,9 +61,9 @@ export function AddCourseForm({
   }
 
   return (
-    <div className="modal-backdrop">
+    <div className="cm-dialog-backdrop">
       <section
-        className="modal"
+        className="cm-dialog"
         role="dialog"
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
@@ -93,11 +93,12 @@ export function AddCourseForm({
         aria-modal="true"
         aria-labelledby="add-course-title"
       >
-        <header className="modal__header">
+        <header className="cm-dialog__header">
           <h2 id="add-course-title">Add Course</h2>
 
           <button
             type="button"
+            className="cm-btn cm-btn--icon"
             onClick={onClose}
             aria-label="Close Add Course"
           >
@@ -105,14 +106,15 @@ export function AddCourseForm({
           </button>
         </header>
 
-        <form onSubmit={(event) => void handleSubmit(event)}>
-          <label htmlFor="course-search">
+        <form className="cm-form" onSubmit={(event) => void handleSubmit(event)}>
+          <label className="cm-label" htmlFor="course-search">
             Course name or code
           </label>
 
           <input
             autoFocus
             id="course-search"
+            className="cm-input"
             aria-invalid={error !== ''}
             aria-describedby={error ? 'course-search-error' : undefined}
             type="text"
@@ -125,27 +127,27 @@ export function AddCourseForm({
           />
 
           {error && (
-            <p id="course-search-error" className="alert alert--error" role="alert">
+            <p id="course-search-error" className="cm-field-error" role="alert">
               {error}
             </p>
           )}
 
           {results !== null && results.length === 0 && (
-            <p className="course-search-status" role="status">
+            <p className="cm-search-status" role="status">
               No courses match that search. Try a code like CSE 3311 or part of the title.
             </p>
           )}
 
           {results !== null && results.length > 0 && (
-            <ul className="course-results" aria-label="Search results">
+            <ul className="cm-course-results" aria-label="Search results">
               {results.map((course) => (
-                <li key={course.id} className="course-results__item">
+                <li key={course.id} className="cm-course-results__item">
                   <span>
                     <strong>{course.code}</strong> &mdash; {course.title}
                   </span>
                   <button
                     type="button"
-                    className="button"
+                    className="cm-btn cm-btn--secondary cm-btn--sm"
                     disabled={course.enrolled || addingCourseId === course.id}
                     aria-label={course.enrolled ? `${course.code} already added` : `Add ${course.code}`}
                     onClick={() => void handleAdd(course)}
@@ -157,14 +159,14 @@ export function AddCourseForm({
             </ul>
           )}
 
-          {addedMessage && <p className="course-search-status" role="status">{addedMessage}</p>}
+          {addedMessage && <p className="cm-search-status" role="status">{addedMessage}</p>}
 
-          <footer className="modal__footer">
-            <button type="button" className="button" onClick={onClose}>
+          <footer className="cm-dialog__footer">
+            <button type="button" className="cm-btn cm-btn--quiet" onClick={onClose}>
               Cancel
             </button>
 
-            <button type="submit" className="button" disabled={searching}>
+            <button type="submit" className="cm-btn cm-btn--primary" disabled={searching}>
               Search
             </button>
           </footer>

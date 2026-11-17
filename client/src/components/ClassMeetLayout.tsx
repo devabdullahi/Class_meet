@@ -4,7 +4,6 @@ import { useAuth } from '../auth/useAuth';
 import { Avatar } from './Avatar';
 import { BookIcon, LogoutIcon, PlusIcon } from './icons';
 import { Wordmark } from './Wordmark';
-import '../screens.css';
 
 interface ClassMeetLayoutProps {
   children: ReactNode;

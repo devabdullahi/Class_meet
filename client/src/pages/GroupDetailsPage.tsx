@@ -153,7 +153,7 @@ export function GroupDetailsPage(): ReactNode {
                     <li key={member.userId}>
                       <Avatar name={member.name} size={36} />
                       <span>{member.name}</span>
-                      {member.isLeader && <span className="cm-pill cm-pill--leader">Leader</span>}
+                      {member.isLeader && <span className="cm-pill cm-pill--member">Leader</span>}
                     </li>
                   ))}
                 </ul>

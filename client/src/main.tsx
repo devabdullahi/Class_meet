@@ -15,6 +15,7 @@ import { Wordmark } from './components/Wordmark';
 import { createMsalInstance, entraClientId } from './auth/msal';
 import '@fontsource-variable/inter/wght.css';
 import './styles.css';
+import './screens.css';
 
 const container = document.getElementById('root');
 if (container === null) {
@@ -29,12 +30,12 @@ const root = createRoot(container);
  */
 function StartupError({ title, body }: { title: string; body: ReactNode }): ReactNode {
   return (
-    <main className="login">
-      <section className="login__card">
+    <main className="cm-login">
+      <section className="cm-login__card">
         <Wordmark />
-        <h1 className="login__title">{title}</h1>
-        <div className="alert alert--error" role="alert">
-          <p className="alert__body">{body}</p>
+        <h1 className="cm-login__title">{title}</h1>
+        <div className="cm-notice cm-notice--error" role="alert">
+          <p className="cm-notice__body">{body}</p>
         </div>
       </section>
     </main>

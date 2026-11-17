@@ -37,25 +37,26 @@ export function LoginPage(): ReactNode {
       : 'Sign in with your university account.';
 
   return (
-    <main className="login">
-      <section className="login__card">
+    <main className="cm-login">
+      <section className="cm-login__card">
         <Wordmark />
-        <h1 className="login__title">Find a study group for the course you&rsquo;re actually in.</h1>
-        <p className="login__subtitle">
+        <h1 className="cm-login__title">Find a study group for the course you&rsquo;re actually in.</h1>
+        <p className="cm-login__subtitle">
           Class Meet lists the open study groups for your courses: day, time, place and seats left.
           You do not need an invite.
         </p>
 
-        <div className="login__action">
+        <div className="cm-login__action">
           <EntraSignInButton onClick={handleSignIn} busy={submitting} ready={config !== null} />
+          <p className="cm-login__note">{tenantCopy}</p>
         </div>
 
-        <p className="login__domain-note">{tenantCopy}</p>
-
         {error !== null && (
-          <div className="alert alert--error" role="alert">
-            <strong className="alert__title">Could not sign you in</strong>
-            <p className="alert__body">{error}</p>
+          <div className="cm-notice cm-notice--error" role="alert">
+            <div className="cm-notice__body">
+              <strong>Could not sign you in</strong>
+              <p>{error}</p>
+            </div>
           </div>
         )}
 
@@ -70,16 +71,16 @@ export function LoginPage(): ReactNode {
           `server/src/dev-login.ts` together.
         */}
         {config?.devLoginEnabled === true && (
-          <div className="login__dev">
+          <div className="cm-login__dev">
             <button
               type="button"
-              className="button button--ghost login__dev-button"
+              className="cm-btn cm-btn--quiet cm-btn--sm"
               onClick={handleDevSignIn}
               disabled={submitting}
             >
               Skip sign-in (development only)
             </button>
-            <p className="login__dev-note">
+            <p className="cm-login__dev-note">
               Signs you in as a demo student when Microsoft sign-in is not set up. Removed before
               deployment.
             </p>
@@ -87,7 +88,7 @@ export function LoginPage(): ReactNode {
         )}
       </section>
 
-      <footer className="login__footer">
+      <footer className="cm-login__footer">
         <p>
           A CSE 3311 project at the University of Texas at Arlington.
         </p>

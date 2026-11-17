@@ -59,24 +59,21 @@ export function CreateGroupPage(): ReactNode {
   }
 
   return (
-    <main className="page">
-      <Link className="button create-group-back" to="/">← Back</Link>
-      <section className="panel" aria-labelledby="create-group-title">
-        <div className="panel__header">
-          <h1 className="panel__title" id="create-group-title">
-            Create Group
-          </h1>
-        </div>
-        <div className="panel__body">
-          <p>Set up a study group for your course.</p>
+    <main className="cm-main">
+      <Link className="cm-back" to="/">← Back</Link>
+      <section className="cm-panel" aria-labelledby="create-group-title">
+        <h1 id="create-group-title">Create Group</h1>
+        <div>
+          <p className="cm-panel__text">Set up a study group for your course.</p>
           <form
-            className="create-group-form"
+            className="cm-form"
             onSubmit={(event) => void handleSubmit(event)}
             onChange={() => setError('')}
           >
-            <label htmlFor="group-course">Course</label>
+            <label className="cm-label" htmlFor="group-course">Course</label>
             <select
               id="group-course"
+              className="cm-input"
               value={courseId}
               onChange={(event) => setCourseId(event.target.value)}
               disabled={courses.length === 0}
@@ -92,7 +89,7 @@ export function CreateGroupPage(): ReactNode {
                 </option>
               ))}
             </select>
-            <p id="group-course-help" className="panel__hint">
+            <p id="group-course-help" className="cm-hint">
               {!coursesLoading && courses.length === 0 ? (
                 <>
                   You have no courses yet. Add one on the <Link to="/">My Courses</Link> page first.
@@ -102,9 +99,10 @@ export function CreateGroupPage(): ReactNode {
               )}
             </p>
 
-            <label htmlFor="group-day">Meeting day</label>
+            <label className="cm-label" htmlFor="group-day">Meeting day</label>
             <select
               id="group-day"
+              className="cm-input"
               value={meetingDay}
               onChange={(event) => setMeetingDay(event.target.value)}
               required
@@ -115,18 +113,20 @@ export function CreateGroupPage(): ReactNode {
               ))}
             </select>
 
-            <label htmlFor="group-time">Meeting time (local time)</label>
+            <label className="cm-label" htmlFor="group-time">Meeting time (local time)</label>
             <input
               id="group-time"
+              className="cm-input"
               type="time"
               value={meetingTime}
               onChange={(event) => setMeetingTime(event.target.value)}
               required
             />
 
-            <label htmlFor="group-size">Maximum members</label>
+            <label className="cm-label" htmlFor="group-size">Maximum members</label>
             <input
               id="group-size"
+              className="cm-input"
               type="number"
               min={MIN_GROUP_MEMBERS}
               max={50}
@@ -135,9 +135,10 @@ export function CreateGroupPage(): ReactNode {
               onChange={(event) => setSizeCap(event.target.value)}
               required
             />
-            <label htmlFor="group-goal">Study goal</label>
+            <label className="cm-label" htmlFor="group-goal">Study goal</label>
             <textarea
               id="group-goal"
+              className="cm-input"
               value={goal}
               onChange={(event) => setGoal(event.target.value)}
               placeholder="Example: Review for the next exam"
@@ -145,9 +146,10 @@ export function CreateGroupPage(): ReactNode {
               maxLength={500}
               required
             />
-            <label htmlFor="group-format">Meeting format</label>
+            <label className="cm-label" htmlFor="group-format">Meeting format</label>
             <select
               id="group-format"
+              className="cm-input"
               value={meetingFormat}
               onChange={(event) => {
                 setMeetingFormat(event.target.value);
@@ -157,11 +159,12 @@ export function CreateGroupPage(): ReactNode {
               <option value="in-person">In person</option>
               <option value="online">Online</option>
             </select>
-            <label htmlFor="group-location">
+            <label className="cm-label" htmlFor="group-location">
               {meetingFormat === 'online' ? 'Meeting link' : 'Meeting location'}
             </label>
             <input
               id="group-location"
+              className="cm-input"
               type={meetingFormat === 'online' ? 'url' : 'text'}
               aria-describedby={meetingFormat === 'online' ? 'group-link-help' : undefined}
               value={location}
@@ -172,14 +175,14 @@ export function CreateGroupPage(): ReactNode {
               required
             />
             {meetingFormat === 'online' && (
-              <p id="group-link-help" className="panel__hint">
+              <p id="group-link-help" className="cm-hint">
                 Create a meeting in Teams, Zoom, or Google Meet, then paste its invite link here.
               </p>
             )}
-            {error && <p className="alert alert--error" role="alert">{error}</p>}
-            <div className="create-group-form__actions">
-              <Link className="button" to="/">Cancel</Link>
-              <button className="button" type="submit" disabled={submitting}>
+            {error && <p className="cm-notice cm-notice--error" role="alert">{error}</p>}
+            <div className="cm-form__actions">
+              <Link className="cm-btn cm-btn--quiet" to="/">Cancel</Link>
+              <button className="cm-btn cm-btn--primary" type="submit" disabled={submitting}>
                 {submitting ? 'Creating…' : 'Create Group'}
               </button>
             </div>
