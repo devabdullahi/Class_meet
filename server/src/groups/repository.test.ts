@@ -11,18 +11,12 @@
  */
 import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdir, readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { PGlite, type Transaction } from '@electric-sql/pglite';
-import type { QueryResultRow } from 'pg';
-import type { Database, QueryRunner } from '../db/pool.js';
+import type { PGlite } from '@electric-sql/pglite';
+import { createMigratedPglite, pgliteDatabase } from '../db/pglite-test-database.js';
 import { createPostgresGroupRepository, type GroupRepository } from './repository.js';
 import { createPostgresProfileRepository, type ProfileRepository } from '../profiles/repository.js';
 import type { StudentProfile } from '../profiles/validation.js';
 import type { CreateGroupInput } from './validation.js';
-
-const MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../migrations');
 
 let pglite: PGlite;
 let repository: GroupRepository;
@@ -30,28 +24,12 @@ let profiles: ProfileRepository;
 let cse3311: string;
 let cse4308: string;
 
-function runnerFor(executor: PGlite | Transaction): QueryRunner {
-  return async <Row extends QueryResultRow>(sql: string, params: readonly unknown[] = []) =>
-    (await executor.query<Row>(sql, [...params])).rows;
-}
-
-function pgliteDatabase(database: PGlite): Database {
-  return {
-    query: runnerFor(database),
-    transaction: (work) => database.transaction((tx) => work(runnerFor(tx))),
-  };
-}
-
 async function sql<Row>(text: string, params: unknown[] = []): Promise<Row[]> {
   return (await pglite.query<Row>(text, params)).rows;
 }
 
 before(async () => {
-  pglite = await PGlite.create();
-  const files = (await readdir(MIGRATIONS_DIR)).filter((name) => name.endsWith('.sql')).sort();
-  for (const file of files) {
-    await pglite.exec(await readFile(path.join(MIGRATIONS_DIR, file), 'utf8'));
-  }
+  pglite = await createMigratedPglite();
   repository = createPostgresGroupRepository(pgliteDatabase(pglite));
   profiles = createPostgresProfileRepository(pgliteDatabase(pglite));
   const courses = await sql<{ id: string; code: string }>('SELECT id, code FROM courses');
