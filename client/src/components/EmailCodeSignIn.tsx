@@ -7,7 +7,9 @@
  *
  * Every error is shown under the field it is about, announced as it appears
  * (role="alert") and tied to the field (aria-describedby), and focus moves to
- * the field that needs attention. A correct code signs the app in through
+ * the field that needs attention. The server answers every failed code the
+ * same way, so the typed digits stay (selected) for the student to correct.
+ * A correct code signs the app in through
  * AuthProvider, and the login page then sends the student on to the page
  * they came from.
  */
@@ -35,9 +37,6 @@ function useSecondsUntil(deadline: number | null): number {
 function messageOf(caught: unknown): string {
   return caught instanceof ApiError ? caught.message : 'Something went wrong. Please try again.';
 }
-
-/** Server answers after which the code in the field can never work, so it is cleared. */
-const DEAD_CODE_ERRORS = new Set(['code_used_up', 'code_expired']);
 
 export function EmailCodeSignIn(): ReactNode {
   const { config, signInWithEmailCode } = useAuth();
@@ -130,7 +129,6 @@ export function EmailCodeSignIn(): ReactNode {
       // On success the app is signed in and the login page navigates away.
       await signInWithEmailCode(sentTo, code);
     } catch (caught) {
-      if (caught instanceof ApiError && DEAD_CODE_ERRORS.has(caught.code)) setCodeValue('');
       showFieldError(messageOf(caught), 'code');
     } finally {
       setBusy(false);

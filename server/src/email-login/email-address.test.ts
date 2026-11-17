@@ -5,6 +5,7 @@ import {
   displayNameFromEmail,
   normaliseUniversityEmail,
   parseEmailLoginDomains,
+  redactEmailAddresses,
 } from './email-address.js';
 
 const normalise = (raw: unknown) => normaliseUniversityEmail(raw, DEFAULT_EMAIL_LOGIN_DOMAINS);
@@ -72,4 +73,12 @@ test('makes a readable name from the address', () => {
   assert.equal(displayNameFromEmail('mary-kate_o.neil@uta.edu'), 'Mary Kate O Neil');
   assert.equal(displayNameFromEmail('abc1234@mavs.uta.edu'), 'Abc1234');
   assert.equal(displayNameFromEmail('...@uta.edu'), '...');
+});
+
+test('redacts every email address from a log line, and nothing else', () => {
+  assert.equal(
+    redactEmailAddresses('550 5.1.1 <jane.doe@mavs.uta.edu>: Recipient address rejected; from "a+b@gmail.com".'),
+    '550 5.1.1 <[address]>: Recipient address rejected; from "[address]".',
+  );
+  assert.equal(redactEmailAddresses('connect ETIMEDOUT 142.250.1.1:465'), 'connect ETIMEDOUT 142.250.1.1:465');
 });

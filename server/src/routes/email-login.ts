@@ -11,16 +11,23 @@
  * space; it is the limits around it that make guessing hopeless:
  *  - five guesses per code, counted in the database, then the code is dead;
  *  - one live code per address, at most one new code a minute, and a few an
- *    hour (per address and per client address, below);
+ *    hour per address;
  *  - ten minutes to use it, once.
  * At five guesses for each of six codes an hour, an attacker trying one
  * address gets 30 guesses an hour at one-in-a-million odds each.
  *
- * NO ACCOUNT ENUMERATION. `start` never looks at the users table: every
- * allowed address gets the same answer and the same email whether or not it
- * has ever signed in, and the account is found or created only after a
- * correct code. The only addresses refused are those outside UTA's domains,
- * which says nothing about who has an account.
+ * WHAT KEEPS THE LIMITS FROM BEING A WEAPON. A limit keyed by someone else's
+ * address lets a stranger lock its owner out, so the per-address limit counts
+ * only codes actually sent (each of which lands in the owner's inbox), and
+ * there is no per-address limit on guesses at all: each code's own five tries
+ * already bound them. The global caps on emails sent protect the mail
+ * provider's daily allowance, which would otherwise be one attacker away from
+ * stopping every sign-in.
+ *
+ * NOTHING ABOUT ACCOUNTS OR CODES LEAKS. `start` never looks at the users
+ * table and answers every allowed address alike. `verify` gives the same
+ * answer to a wrong code, an expired or used-up one, and an address that was
+ * never sent one, so it cannot be used to learn who asked for a code.
  *
  * Both endpoints sit under the CSRF guard in app.ts like every other write.
  */
@@ -29,7 +36,7 @@ import { HttpError } from '../errors.js';
 import { env } from '../env.js';
 import { createSessionToken, setSessionCookie } from '../session.js';
 import { createRateLimiter, enforceRateLimit, limitByClientIp, type RateLimiter } from '../middleware/rate-limit.js';
-import { displayNameFromEmail, normaliseUniversityEmail } from '../email-login/email-address.js';
+import { displayNameFromEmail, normaliseUniversityEmail, redactEmailAddresses } from '../email-login/email-address.js';
 import { generateLoginCode, hashLoginCode, loginCodeMatches, readSubmittedCode } from '../email-login/login-code.js';
 import type { EmailLoginRepository } from '../email-login/repository.js';
 import type { LoginCodeSender } from '../email-login/mailer.js';
@@ -45,25 +52,29 @@ export const MAX_CODE_ATTEMPTS = 5;
 export const EMAIL_SESSION_PROVIDER_ID = 'email-code';
 
 const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
 
 /**
- * Per client address, the limits are generous on purpose: a lecture hall on
- * campus Wi-Fi can reach us from a handful of NAT addresses, and thirty
- * students signing in at the start of class must not lock each other out.
- * Per email address they are tight, because one person needs very few codes.
+ * Per client address: ten codes in fifteen minutes is far more than one
+ * person needs, and still lets a few students behind one campus NAT sign in
+ * together; it mainly stops one client spraying codes at many inboxes.
+ * Per email address: counted only when a code is sent. Globally: the
+ * EMAIL_SENDS_PER_HOUR / EMAIL_SENDS_PER_DAY caps, below the provider's own.
  */
 export const EMAIL_LOGIN_RATE_LIMITS = {
-  startPerClient: { max: 30, windowMs: 15 * MINUTE_MS },
-  startPerEmail: { max: 6, windowMs: 60 * MINUTE_MS },
+  startPerClient: { max: 10, windowMs: 15 * MINUTE_MS },
+  startPerEmail: { max: 6, windowMs: HOUR_MS },
   verifyPerClient: { max: 60, windowMs: 15 * MINUTE_MS },
-  verifyPerEmail: { max: 15, windowMs: 15 * MINUTE_MS },
+  sendsPerHour: { max: env.emailSendsPerHour, windowMs: HOUR_MS },
+  sendsPerDay: { max: env.emailSendsPerDay, windowMs: 24 * HOUR_MS },
 } as const;
 
 export interface EmailLoginLimiters {
   startPerClient: RateLimiter;
   startPerEmail: RateLimiter;
   verifyPerClient: RateLimiter;
-  verifyPerEmail: RateLimiter;
+  sendsPerHour: RateLimiter;
+  sendsPerDay: RateLimiter;
 }
 
 export function createEmailLoginLimiters(): EmailLoginLimiters {
@@ -71,7 +82,8 @@ export function createEmailLoginLimiters(): EmailLoginLimiters {
     startPerClient: createRateLimiter(EMAIL_LOGIN_RATE_LIMITS.startPerClient),
     startPerEmail: createRateLimiter(EMAIL_LOGIN_RATE_LIMITS.startPerEmail),
     verifyPerClient: createRateLimiter(EMAIL_LOGIN_RATE_LIMITS.verifyPerClient),
-    verifyPerEmail: createRateLimiter(EMAIL_LOGIN_RATE_LIMITS.verifyPerEmail),
+    sendsPerHour: createRateLimiter(EMAIL_LOGIN_RATE_LIMITS.sendsPerHour),
+    sendsPerDay: createRateLimiter(EMAIL_LOGIN_RATE_LIMITS.sendsPerDay),
   };
 }
 
@@ -80,6 +92,8 @@ export interface EmailLoginRouterOptions {
   sender: LoginCodeSender;
   /** Fresh limiters by default. Tests pass their own to reach a limit quickly. */
   limiters?: EmailLoginLimiters;
+  /** `generateLoginCode` by default. Tests pass known codes. */
+  generateCode?: () => string;
 }
 
 /** What a successful `start` answers, for every allowed address alike. */
@@ -91,6 +105,9 @@ export interface CodeSentResponse {
 }
 
 const TOO_MANY_MESSAGE = 'Too many sign-in attempts. Wait a few minutes, then try again.';
+
+/** The one key the global send caps count under. */
+const ALL_SENDS = 'all';
 
 function readEmail(body: unknown): string {
   const raw = typeof body === 'object' && body !== null ? (body as Record<string, unknown>)['email'] : undefined;
@@ -111,23 +128,54 @@ function readCode(body: unknown): string {
   return code;
 }
 
-function codeExpired(): HttpError {
-  return HttpError.badRequest('code_expired', 'That code has expired or has already been used. Send yourself a new code.');
+/** The single answer for every code that does not sign in (see the header comment). */
+function codeRejected(): HttpError {
+  return HttpError.badRequest('code_rejected', "That code didn't work. Check the newest email or ask for a new code.");
+}
+
+/**
+ * Refuses to send when either global cap is reached. Logged as a warning an
+ * operator will notice — with no address, since the cause is the volume.
+ */
+function enforceSendCaps(limiters: EmailLoginLimiters): void {
+  for (const [period, limiter] of [
+    ['hour', limiters.sendsPerHour],
+    ['day', limiters.sendsPerDay],
+  ] as const) {
+    if (!limiter.check(ALL_SENDS).allowed) {
+      console.warn(
+        `[auth] SIGN-IN EMAIL LIMIT REACHED: the per-${period} cap on codes sent is used up, so no ` +
+          'sign-in emails go out until it resets. If this is real demand, raise EMAIL_SENDS_PER_HOUR / ' +
+          'EMAIL_SENDS_PER_DAY within your email provider\'s allowance; if not, someone is requesting codes in bulk.',
+      );
+      throw HttpError.serviceUnavailable(
+        'email_temporarily_unavailable',
+        'Class Meet has sent a lot of sign-in emails in a short time and has paused sending. Please try again later.',
+      );
+    }
+  }
 }
 
 export function createEmailLoginRouter(options: EmailLoginRouterOptions): Router {
   const { repository, sender } = options;
   const limiters = options.limiters ?? createEmailLoginLimiters();
+  const generateCode = options.generateCode ?? generateLoginCode;
   const router = Router();
 
   router.post('/start', limitByClientIp(limiters.startPerClient, TOO_MANY_MESSAGE), async (req: Request, res: Response) => {
     const email = readEmail(req.body);
-    enforceRateLimit(limiters.startPerEmail, email, TOO_MANY_MESSAGE);
+    // Checked now, counted only once a code is really issued below: a request
+    // refused for being too soon must not use up its owner's allowance.
+    const perEmail = limiters.startPerEmail.check(email);
+    if (!perEmail.allowed) {
+      throw HttpError.tooManyRequests('too_many_requests', TOO_MANY_MESSAGE, perEmail.retryAfterSeconds);
+    }
+    enforceSendCaps(limiters);
 
     // Housekeeping: without it, codes nobody used would stay forever.
     await repository.deleteExpiredCodes();
 
-    const code = generateLoginCode();
+    const code = generateCode();
     const codeHash = hashLoginCode(email, code, env.sessionSecret);
     const issued = await repository.issueCode(email, codeHash, {
       ttlSeconds: CODE_TTL_SECONDS,
@@ -141,14 +189,20 @@ export function createEmailLoginRouter(options: EmailLoginRouterOptions): Router
       );
     }
 
+    limiters.startPerEmail.consume(email);
+    limiters.sendsPerHour.consume(ALL_SENDS);
+    limiters.sendsPerDay.consume(ALL_SENDS);
+
     try {
       await sender.send({ to: email, code, expiresInMinutes: CODE_TTL_SECONDS / 60 });
     } catch (error) {
       // Withdraw the code nobody received, so the student can retry at once
-      // instead of waiting out the resend cooldown. Logged without the code
-      // or the address: the mail server's reason is what an operator needs.
+      // instead of waiting out the resend cooldown. The provider's reason is
+      // what an operator needs, but providers quote the recipient (and often
+      // the sender) in it, so addresses are redacted; the code never appears.
       await repository.deleteCode(email, codeHash);
-      console.error('[auth] could not send a sign-in code:', error instanceof Error ? error.message : error);
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error('[auth] could not send a sign-in code:', redactEmailAddresses(reason));
       throw HttpError.serviceUnavailable(
         'email_send_failed',
         'We could not send the email just now. Try again in a minute.',
@@ -165,28 +219,18 @@ export function createEmailLoginRouter(options: EmailLoginRouterOptions): Router
   router.post('/verify', limitByClientIp(limiters.verifyPerClient, TOO_MANY_MESSAGE), async (req: Request, res: Response) => {
     const email = readEmail(req.body);
     const code = readCode(req.body);
-    enforceRateLimit(limiters.verifyPerEmail, email, TOO_MANY_MESSAGE);
 
+    // Counts this guess against the address's live code, if there is one.
+    // Whatever the reason a code fails — none sent, expired, used up, wrong —
+    // the answer is the same.
     const attempt = await repository.countAttempt(email, MAX_CODE_ATTEMPTS);
-    if (attempt === null) throw codeExpired();
-
-    if (!loginCodeMatches(email, code, attempt.codeHash, env.sessionSecret)) {
-      const triesLeft = MAX_CODE_ATTEMPTS - attempt.attempts;
-      if (triesLeft === 0) {
-        throw HttpError.badRequest(
-          'code_used_up',
-          'That code is not right, and it was the last try. Send yourself a new code.',
-        );
-      }
-      throw HttpError.badRequest(
-        'code_incorrect',
-        `That code is not right. You have ${String(triesLeft)} ${triesLeft === 1 ? 'try' : 'tries'} left.`,
-      );
+    if (attempt === null || !loginCodeMatches(email, code, attempt.codeHash, env.sessionSecret)) {
+      throw codeRejected();
     }
 
     // Single use: of two requests racing with the same correct code, only
     // the one whose delete removed the row gets a session.
-    if (!(await repository.deleteCode(email, attempt.codeHash))) throw codeExpired();
+    if (!(await repository.deleteCode(email, attempt.codeHash))) throw codeRejected();
 
     const user = await repository.findOrCreateUserByEmail(email, displayNameFromEmail(email));
     setSessionCookie(res, createSessionToken({ userId: user.id, providerObjectId: EMAIL_SESSION_PROVIDER_ID }));

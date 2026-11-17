@@ -32,6 +32,12 @@ export interface RateLimitDecision {
 export interface RateLimiter {
   /** Counts one request for `key` and says whether it may proceed. */
   consume(key: string): RateLimitDecision;
+  /**
+   * Whether one more request for `key` would be allowed, without counting it.
+   * For limits on outcomes rather than attempts: check first, then
+   * `consume` only if the thing being limited actually happened.
+   */
+  check(key: string): RateLimitDecision;
   /** Keys currently tracked. For tests of the memory bound. */
   size(): number;
 }
@@ -57,7 +63,17 @@ export function createRateLimiter(rule: RateLimitRule, now: () => number = Date.
     }
   }
 
+  function decide(window: Window | undefined, at: number, extra: number): RateLimitDecision {
+    const live = window !== undefined && window.endsAt > at;
+    const count = (live ? window.count : 0) + extra;
+    const endsAt = live ? window.endsAt : at + rule.windowMs;
+    return { allowed: count <= rule.max, retryAfterSeconds: Math.ceil((endsAt - at) / 1000) };
+  }
+
   return {
+    check(key: string): RateLimitDecision {
+      return decide(windows.get(key), now(), 1);
+    },
     consume(key: string): RateLimitDecision {
       const at = now();
       if (windows.size >= SWEEP_THRESHOLD) sweepFinishedWindows(at);

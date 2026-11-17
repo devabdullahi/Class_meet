@@ -282,13 +282,13 @@ POST /api/auth/email/start  {"email":"jane@mavs.uta.edu"}
 429 resend_too_soon       a code was sent less than a minute ago (retryAfterSeconds)
 429 too_many_requests     a rate limit (retryAfterSeconds, Retry-After header)
 503 email_send_failed     the mail server refused or timed out; retry at once
+503 email_temporarily_unavailable  the global cap on emails sent is reached
 
 POST /api/auth/email/verify {"email":"jane@mavs.uta.edu","code":"042817"}
 200 {"user":{...}}  + Set-Cookie: cm_session=...; HttpOnly; SameSite=Lax
 400 code_invalid          not six digits (does not use up a try)
-400 code_incorrect        wrong code; the message says how many tries are left
-400 code_used_up          the fifth wrong code; the code is now dead
-400 code_expired          expired, already used, replaced, or never sent
+400 code_rejected         wrong, expired, used, replaced, burned or never sent —
+                          one answer for all, so it reveals nothing
 429 too_many_requests     a rate limit
 ```
 
@@ -307,21 +307,32 @@ space; the limits around it make guessing hopeless. All of them are in
   SQL statements, so parallel requests cannot get extra guesses or reuse a code.
 - **One code per address**: a new code replaces the old one, and at most one is
   sent a minute.
-- **Rate limits** per client address and per email address on both endpoints
-  (`EMAIL_LOGIN_RATE_LIMITS`). The per-client limits are generous because a
-  lecture hall on campus Wi-Fi reaches us from a few NAT addresses; the
-  per-email ones are tight. They are kept in memory, which is right for the one
-  process Class Meet runs as — see **Known limits** below.
-- **No account enumeration**: `start` never looks at the users table, and
-  answers and emails every allowed address alike. The only refusal is a
-  non-UTA domain, which says nothing about who has an account.
+- **Rate limits** (`EMAIL_LOGIN_RATE_LIMITS`): 10 code requests per client
+  address per 15 minutes, 60 guesses per client address per 15 minutes, and 6
+  codes sent per email address per hour. The per-address limit counts only
+  codes actually sent, and there is no per-address limit on guesses (each
+  code's five tries already bound them), so a stranger cannot lock someone out
+  by spamming requests for their address.
+- **Global send caps**: at most `EMAIL_SENDS_PER_HOUR` (60) and
+  `EMAIL_SENDS_PER_DAY` (250) sign-in emails in total, below Brevo's free 300
+  a day. Requests for many different addresses therefore cannot use up the
+  provider's allowance and stop sign-in for everyone. When a cap is reached,
+  `start` answers `503 email_temporarily_unavailable`, the page says so
+  politely, and the server logs a warning (with no addresses).
+- All limits are kept in memory, which is right for the one process Class
+  Meet runs as — see **Known limits** below.
+- **No account or code enumeration**: `start` never looks at the users table,
+  and answers and emails every allowed address alike; the only refusal is a
+  non-UTA domain. `verify` answers a wrong code, an expired or used-up one and
+  an address never sent one identically (`code_rejected`), while still counting
+  each guess, so it cannot reveal who asked for a code.
 - **CSRF**: both endpoints are writes, under the same `X-Class-Meet` header and
   `Origin` check as every other.
 - **No codes or keys in logs**: in development without an email provider the
   code is printed to the server console as a `[dev email]` line; in production
   the server **refuses to start** without one, so that fallback can never run
-  there. Send failures are logged with the provider's reason, never the code or
-  the API key.
+  there. Send failures are logged with the provider's reason, with any email
+  addresses in it redacted, and never the code or the API key.
 
 **Plus-addressing is stripped**: `jane+cm@mavs.uta.edu` signs in as
 `jane@mavs.uta.edu`, and the code goes there. Exchange delivers both to one
@@ -378,7 +389,17 @@ microsoft_login_disabled`, the login page shows no Microsoft button, and the
 browser never downloads MSAL: `client/src/auth/msal.ts` is imported on demand
 only when `GET /api/auth/config` reports `microsoftLoginEnabled: true`. If UTA
 grants admin consent, turning it on adds **Sign in with Microsoft** under the
-email form. How it works, for then:
+email form.
+
+**Before turning it on, link accounts by email.** Microsoft sign-in finds
+accounts by their Microsoft identifiers only (`upsertUserFromDirectory` in
+`server/src/users.ts`). A student who first signed in with an emailed code
+has none, so their first Microsoft sign-in would try to create a second
+account with the same address and fail with `duplicate_record`. That upsert
+must first look for an existing account with the same email and attach the
+Microsoft identifiers to it.
+
+How it works, for then:
 
 1. MSAL — in our own bundle, no script loaded from the provider — opens a popup
    to UTA's Microsoft sign-in page and runs the OAuth 2.0 **authorization code
@@ -674,8 +695,12 @@ npm test
   `email-login/repository.test.ts` for the cooldown, five tries, expiry and
   matching an existing Microsoft account; and `routes/email-login.test.ts`,
   which drives both endpoints over HTTP against PGlite with a recording mail
-  sender — wrong codes, expiry, single use, rate limits, the
-  enumeration-safe answer and the session cookie. `env.test.ts` checks that
+  sender and known codes — wrong codes, expiry, single use, that one
+  address's code never signs in another, the rate limits and global send caps
+  (and that refused requests cannot lock an address out), redacted failure
+  logs, the identical answers that reveal nothing, and the session cookie.
+  `npm test` loads `server/src/testing/test-env.ts` first, so the tests need
+  no `server/.env`. `env.test.ts` checks that
   production will not start without exactly one complete email provider.
 - **Client** (Vitest, jsdom, Testing Library, `client/src/**/*.test.ts(x)`):
   form rules, calendar export, each page's states and actions, the
@@ -706,7 +731,8 @@ Check responsive layout and the native time picker manually in a browser.
 | No code arrives in development | Without an email provider nothing is emailed: look for the `[dev email]` line in the server's terminal |
 | `503 email_send_failed` | Brevo or the mail server refused or timed out. The server log says why (e.g. `Brevo refused the email: HTTP 401` for a wrong API key; `535` for a wrong `SMTP_USER`/`SMTP_PASS`) |
 | `429 resend_too_soon` | A code was sent to that address less than a minute ago. The page goes straight to entering it |
-| `400 code_expired` | The code is over ten minutes old, was already used, was replaced by a newer one, or used up its five tries. Send a new one |
+| `400 code_rejected` | The code is wrong, over ten minutes old, already used, replaced by a newer one, or used up its five tries. The answer is deliberately the same for all of these. Send a new one |
+| `503 email_temporarily_unavailable` | The global cap on sign-in emails (`EMAIL_SENDS_PER_HOUR` / `EMAIL_SENDS_PER_DAY`) is reached. The server log says which. Raise it within your provider's allowance if the demand is real |
 | The server will not start: `NODE_ENV=production without an email provider`, or `EMAIL_PROVIDER=... needs ...` | Production must email codes. Set one provider's variables (the message names what is missing), or `NODE_ENV=development` locally |
 | `403 microsoft_login_disabled` | Microsoft sign-in is off. It needs `ENABLE_MICROSOFT_LOGIN=true` and `ENTRA_CLIENT_ID` |
 | "Could not reach Microsoft sign-in" before the login screen | No network, or `VITE_ENTRA_CLIENT_ID` is set to a client ID that does not exist |

@@ -295,7 +295,11 @@ straight away; no redeploy is needed.
 
 Microsoft sign-in is **off** unless `ENABLE_MICROSOFT_LOGIN=true`, because UTA's
 tenant requires an administrator to approve the app before students can use
-it ("Need admin approval"). If UTA grants that consent, turn it on:
+it ("Need admin approval"). If UTA grants that consent, turn it on — but first
+make Microsoft sign-in link accounts by email: today it finds accounts by
+their Microsoft identifiers only, so anyone who already signed in with an
+emailed code would get `duplicate_record` (see the README, **Microsoft
+sign-in**). Then:
 
 1. Add these to the service's **Environment**, then **Save, rebuild, and deploy**
    (the two `VITE_` values are compiled into the browser code):
@@ -373,6 +377,8 @@ deploy, so **Save, rebuild, and deploy** covers it.
 | `SMTP_SECURE` | no (default: `true` on 465) | runtime | `true` or `false`, matching the port |
 | `SMTP_USER` | SMTP: with `SMTP_PASS` | runtime | The mail account's login (the Gmail address) |
 | `SMTP_PASS` | SMTP: with `SMTP_USER` | runtime | Its password — for Gmail an **App Password**. Secret |
+| `EMAIL_SENDS_PER_HOUR` | no (default `60`) | runtime | Most sign-in emails sent per hour, in total. Above it, `start` answers `503 email_temporarily_unavailable` |
+| `EMAIL_SENDS_PER_DAY` | no (default `250`) | runtime | Most per day, in total. Keep it below your provider's daily allowance (Brevo free: 300) |
 | `EMAIL_LOGIN_DOMAINS` | no (default `mavs.uta.edu,uta.edu`) | runtime | Which addresses may ask for a code; matched exactly after the `@` |
 | `ENABLE_MICROSOFT_LOGIN` | no (default off) | runtime | `true` turns Microsoft sign-in on, together with `ENTRA_CLIENT_ID` |
 | `ENTRA_CLIENT_ID` | only for Microsoft sign-in | runtime | Application (client) ID of the app registration |
@@ -410,6 +416,7 @@ are never stored in the image.
 | `503 email_send_failed`; the log says `Brevo refused the email: HTTP 400` and mentions the sender | `EMAIL_FROM` is not a verified Brevo sender (step 3.2) |
 | `503 email_send_failed` and the log says an SMTP connection timed out | SMTP on Render's **Free** instance type, which blocks it. Use Brevo's API (step 3) |
 | `503 email_send_failed` and the log says `535` or `Invalid login` | Wrong `SMTP_USER`/`SMTP_PASS`. For Gmail, use an App Password, not the account password |
+| Students see "Class Meet has sent a lot of sign-in emails ... paused sending" (`503 email_temporarily_unavailable`) | The global cap was reached; the log says `SIGN-IN EMAIL LIMIT REACHED`. It resets within the hour or day. If demand is real, raise `EMAIL_SENDS_PER_HOUR` / `EMAIL_SENDS_PER_DAY` (staying under the provider's allowance) |
 | The code never arrives | Look in **Junk**. Check the Render log for `could not send a sign-in code`, and Brevo's **Transactional** → **Logs** |
 | Signing in fails with `403 origin_not_allowed` | `CLIENT_ORIGIN` is not exactly the address in the browser's address bar (step 5) |
 | The Microsoft popup shows `AADSTS50011` / redirect URI mismatch | The `/redirect.html` URI is missing or mistyped in the portal (**Optional — Microsoft sign-in**) |

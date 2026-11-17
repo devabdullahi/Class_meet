@@ -101,33 +101,33 @@ test('a short code is caught before it costs one of the five tries', async () =>
   expect(signInWithEmailCode).not.toHaveBeenCalled();
 });
 
-test('a wrong code says so under the field, keeps focus there, and leaves the digits to correct', async () => {
-  signInWithEmailCode.mockRejectedValueOnce(
-    new ApiError(400, 'code_incorrect', 'That code is not right. You have 4 tries left.'),
-  );
+const CODE_REJECTED = "That code didn't work. Check the newest email or ask for a new code.";
+
+test('a code that does not work says so under the field, keeps focus there, and leaves the digits to correct', async () => {
+  signInWithEmailCode.mockRejectedValueOnce(new ApiError(400, 'code_rejected', CODE_REJECTED));
   const user = await reachCodeStep();
   const code = screen.getByLabelText('6-digit code') as HTMLInputElement;
   await user.type(code, '111111');
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
   const alert = await screen.findByRole('alert');
-  expect(alert.textContent).toBe('That code is not right. You have 4 tries left.');
+  expect(alert.textContent).toBe(CODE_REJECTED);
   expect(code.getAttribute('aria-describedby')).toBe(alert.id);
   expect(code.getAttribute('aria-invalid')).toBe('true');
   expect(document.activeElement).toBe(code);
   expect(code.value).toBe('111111');
 });
 
-test('a code that can no longer work is cleared', async () => {
-  signInWithEmailCode.mockRejectedValueOnce(
-    new ApiError(400, 'code_used_up', 'That code is not right, and it was the last try. Send yourself a new code.'),
-  );
-  const user = await reachCodeStep();
-  const code = screen.getByLabelText('6-digit code') as HTMLInputElement;
-  await user.type(code, '111111');
-  await user.click(screen.getByRole('button', { name: 'Sign in' }));
-  expect((await screen.findByRole('alert')).textContent).toMatch(/last try/);
-  expect(code.value).toBe('');
+test('when sign-in emails are paused, the page says so politely and stays on the email step', async () => {
+  const paused =
+    'Class Meet has sent a lot of sign-in emails in a short time and has paused sending. Please try again later.';
+  startEmailSignIn.mockRejectedValueOnce(new ApiError(503, 'email_temporarily_unavailable', paused));
+  const user = userEvent.setup();
+  render(<EmailCodeSignIn />);
+  await user.type(screen.getByLabelText('UTA email'), 'jane@mavs.uta.edu');
+  await user.click(screen.getByRole('button', { name: 'Email me a code' }));
+  expect((await screen.findByRole('alert')).textContent).toBe(paused);
+  expect(screen.queryByLabelText('6-digit code')).toBeNull();
 });
 
 test('resend waits for its countdown, then sends a new code', async () => {

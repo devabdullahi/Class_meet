@@ -143,6 +143,13 @@ if (emailDelivery === null && nodeEnv === 'production') {
  * Microsoft sign-in is kept but off unless asked for: UTA's tenant requires an
  * administrator to approve the app, so students cannot use it until someone
  * at UTA grants that. ENTRA_CLIENT_ID alone no longer turns it on.
+ *
+ * BEFORE TURNING IT ON: Microsoft sign-in finds accounts by their Microsoft
+ * identifiers only (`upsertUserFromDirectory` in users.ts). A student who
+ * first signed in with an emailed code has no such identifiers, so their
+ * first Microsoft sign-in would try to create a second account with the same
+ * address and fail with `duplicate_record`. Make that
+ * upsert link an existing account by email first.
  */
 const microsoftLoginRequested = optional('ENABLE_MICROSOFT_LOGIN', '').toLowerCase() === 'true';
 
@@ -167,6 +174,15 @@ export const env = {
 
   /** How sign-in codes are emailed, or null in development without a provider. */
   emailDelivery,
+
+  /**
+   * The most sign-in emails sent per hour and per day, across everyone.
+   * Defaults sit below Brevo's free plan (300 a day), so a flood of requests
+   * for many different addresses is stopped by us, politely, before the
+   * provider stops every sign-in for the rest of the day.
+   */
+  emailSendsPerHour: intOption('EMAIL_SENDS_PER_HOUR', 60),
+  emailSendsPerDay: intOption('EMAIL_SENDS_PER_DAY', 250),
 
   /**
    * The only tenant whose users may sign in. Enforced on the `tid` claim of a

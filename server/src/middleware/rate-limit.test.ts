@@ -54,6 +54,19 @@ test('forgets finished windows once it holds many keys, so memory stays bounded'
   assert.equal(limiter.size(), 1);
 });
 
+test('check says whether one more would be allowed, without counting it', () => {
+  const clock = manualClock();
+  const limiter = createRateLimiter({ max: 2, windowMs: 60_000 }, clock.now);
+  assert.deepEqual(limiter.check('a'), { allowed: true, retryAfterSeconds: 60 });
+  assert.deepEqual(limiter.check('a'), { allowed: true, retryAfterSeconds: 60 });
+  limiter.consume('a');
+  limiter.consume('a');
+  clock.advance(10_000);
+  assert.deepEqual(limiter.check('a'), { allowed: false, retryAfterSeconds: 50 });
+  clock.advance(50_000);
+  assert.equal(limiter.check('a').allowed, true, 'a finished window no longer counts');
+});
+
 test('enforceRateLimit throws a 429 carrying the wait', () => {
   const limiter = createRateLimiter({ max: 0, windowMs: 30_000 }, manualClock().now);
   assert.throws(

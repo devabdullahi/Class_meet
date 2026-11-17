@@ -80,3 +80,12 @@ export function displayNameFromEmail(email: string): string {
   if (words.length === 0) return localPart;
   return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
+
+/**
+ * The text with every email address replaced by "[address]". Mail servers
+ * and Brevo quote the recipient (and often the sender) in their error
+ * messages; those messages are worth logging, the addresses are not.
+ */
+export function redactEmailAddresses(text: string): string {
+  return text.replace(/[^\s<>()[\]"',;:@]+@[^\s<>()[\]"',;:@]+/g, '[address]');
+}
