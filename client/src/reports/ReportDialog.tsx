@@ -1,5 +1,6 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { api, ApiError, type GroupMember, type ReportReason } from '../api';
+import { handleDialogKeys } from '../components/dialogKeys';
 import { AlertIcon, CloseIcon } from '../components/icons';
 import { describeError } from '../hooks/useApiData';
 import { MAX_REPORT_DETAILS_LENGTH, REPORT_REASONS } from './reportWording';
@@ -16,34 +17,6 @@ interface ReportDialogProps {
   onClose: () => void;
   /** After the report is filed, or when it turns out it already was. */
   onReported: () => void;
-}
-
-/**
- * Keeps Tab and Shift+Tab inside the dialog, and closes it on Escape. The
- * same behaviour as the Add a course dialog, over this form's controls.
- */
-function handleDialogKeys(event: KeyboardEvent<HTMLElement>, onClose: () => void): void {
-  if (event.key === 'Escape') {
-    event.stopPropagation();
-    onClose();
-    return;
-  }
-  if (event.key !== 'Tab') return;
-
-  const controls = event.currentTarget.querySelectorAll<HTMLElement>(
-    'button:not(:disabled), select:not(:disabled), input:not(:disabled), textarea:not(:disabled)',
-  );
-  const first = controls[0];
-  const last = controls[controls.length - 1];
-  if (first === undefined || last === undefined) return;
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
 }
 
 export function ReportDialog({ groupId, canReportGroup, members, onClose, onReported }: ReportDialogProps): ReactNode {

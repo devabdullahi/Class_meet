@@ -186,6 +186,19 @@ test('Cancel and Escape close the dialog and return focus to the Report button',
   expect(document.activeElement).toBe(button);
 });
 
+test('keyboard focus stays inside the report dialog', async () => {
+  const user = renderPage();
+  const dialog = await openDialog(user);
+  const close = within(dialog).getByRole('button', { name: 'Close' });
+  const send = within(dialog).getByRole('button', { name: 'Send report' });
+
+  send.focus();
+  await user.tab();
+  expect(document.activeElement).toBe(close);
+  await user.tab({ shift: true });
+  expect(document.activeElement).toBe(send);
+});
+
 test('a report already sent from elsewhere closes the dialog and shows the notice', async () => {
   fetchMyReports.mockResolvedValueOnce({ reports: [] }).mockResolvedValue({ reports: [GROUP_REPORT] });
   reportGroup.mockRejectedValue(new ApiError(409, 'already_reported', 'You already reported this.'));
