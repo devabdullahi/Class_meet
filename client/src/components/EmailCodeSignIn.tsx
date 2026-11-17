@@ -3,7 +3,7 @@
  *
  *   1. "UTA email" -> Email me a code
  *   2. "Enter the code we sent to x" -> Sign in,
- *      with Resend code (after a countdown) and Use a different email.
+ *      with Resend code (after a countdown) and Change email.
  *
  * Every error is shown under the field it is about, announced as it appears
  * (role="alert") and tied to the field (aria-describedby), and focus moves to
@@ -261,14 +261,14 @@ export function EmailCodeSignIn(): ReactNode {
         >
           {secondsToResend > 0 ? (
             <>
-              Resend code in <span className="cm-login__countdown">{formatCountdown(secondsToResend)}</span>
+              Resend in <span className="cm-login__countdown">{formatCountdown(secondsToResend)}</span>
             </>
           ) : (
             'Resend code'
           )}
         </button>
         <button type="button" className="cm-btn cm-btn--quiet cm-btn--sm" onClick={handleChangeEmail} disabled={busy}>
-          Use a different email
+          Change email
         </button>
       </div>
     </form>

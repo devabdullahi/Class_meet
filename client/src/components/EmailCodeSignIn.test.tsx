@@ -46,7 +46,7 @@ test('a non-UTA address is refused in place, without asking the server', async (
   await user.click(screen.getByRole('button', { name: 'Email me a code' }));
 
   const alert = screen.getByRole('alert');
-  expect(alert.textContent).toBe('Use your UTA email (…@mavs.uta.edu or …@uta.edu).');
+  expect(alert.textContent).toBe('Use your UTA email address, ending in @mavs.uta.edu or @uta.edu.');
   expect(field.getAttribute('aria-invalid')).toBe('true');
   expect(field.getAttribute('aria-describedby')).toBe(alert.id);
   expect(document.activeElement).toBe(field);
@@ -132,7 +132,7 @@ test('a code that can no longer work is cleared', async () => {
 
 test('resend waits for its countdown, then sends a new code', async () => {
   const user = await reachCodeStep({ ...SENT, resendAfterSeconds: 1 });
-  const waiting = screen.getByRole('button', { name: /Resend code in 0:0\d/ });
+  const waiting = screen.getByRole('button', { name: /Resend in 0:0\d/ });
   expect((waiting as HTMLButtonElement).disabled).toBe(true);
 
   const resend = await screen.findByRole('button', { name: 'Resend code' }, { timeout: 3000 });
@@ -143,7 +143,7 @@ test('resend waits for its countdown, then sends a new code', async () => {
   expect((await screen.findByRole('status')).textContent).toBe(
     'We sent a new code to jane@mavs.uta.edu. Only the newest code works.',
   );
-  expect(screen.getByRole('button', { name: /Resend code in 1:00/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Resend in 1:00/ })).toBeTruthy();
   expect(document.activeElement).toBe(screen.getByLabelText('6-digit code'));
 });
 
@@ -160,12 +160,12 @@ test('if a code was sent moments ago, the page goes straight to entering it', as
   expect(screen.getByRole('status').textContent).toBe(
     'We already sent a code to this address a moment ago. Enter it below.',
   );
-  expect(screen.getByRole('button', { name: /Resend code in 0:4\d/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Resend in 0:4\d/ })).toBeTruthy();
 });
 
-test('"Use a different email" goes back with the address kept and focused', async () => {
+test('"Change email" goes back with the address kept and focused', async () => {
   const user = await reachCodeStep();
-  await user.click(screen.getByRole('button', { name: 'Use a different email' }));
+  await user.click(screen.getByRole('button', { name: 'Change email' }));
   const field = screen.getByLabelText('UTA email') as HTMLInputElement;
   expect(field.value).toBe('Jane@mavs.uta.edu');
   expect(document.activeElement).toBe(field);

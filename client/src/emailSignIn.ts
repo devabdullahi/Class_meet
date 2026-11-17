@@ -8,9 +8,9 @@
 
 export const LOGIN_CODE_DIGITS = 6;
 
-/** "…@mavs.uta.edu or …@uta.edu". */
+/** "@mavs.uta.edu or @uta.edu". */
 function domainExamples(domains: readonly string[]): string {
-  return domains.map((domain) => `…@${domain}`).join(' or ');
+  return domains.map((domain) => `@${domain}`).join(' or ');
 }
 
 /**
@@ -26,7 +26,8 @@ export function emailProblem(typed: string, domains: readonly string[] | null): 
   const at = email.lastIndexOf('@');
   const domain = at === -1 ? '' : email.slice(at + 1);
   if (at <= 0 || !domains.includes(domain)) {
-    return `Use your UTA email (${domainExamples(domains)}).`;
+    // The server's wording for the same refusal, so the student sees one message.
+    return `Use your UTA email address, ending in ${domainExamples(domains)}.`;
   }
   return null;
 }

@@ -10,7 +10,7 @@ test('a UTA address, however it was typed, may be sent', () => {
 });
 
 test('anything else says which addresses work', () => {
-  const problem = 'Use your UTA email (…@mavs.uta.edu or …@uta.edu).';
+  const problem = 'Use your UTA email address, ending in @mavs.uta.edu or @uta.edu.';
   expect(emailProblem('jane@gmail.com', UTA)).toBe(problem);
   expect(emailProblem('jane@mavs.uta.edu.evil.com', UTA)).toBe(problem);
   expect(emailProblem('jane', UTA)).toBe(problem);
