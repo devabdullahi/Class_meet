@@ -89,18 +89,9 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
 
   // DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT. A dev session is
   // answered from the hard-coded user, because the whole point of it is to
-  // work with no DATABASE_URL. The flag is re-checked here and not merely
-  // trusted from the cookie, so turning the gate off invalidates the sessions
-  // it handed out.
+  // work with no DATABASE_URL. requireAuth has already refused it if the
+  // bypass is now off.
   if (session.dev === true) {
-    if (!env.allowDevLogin) {
-      clearSessionCookie(res);
-      throw HttpError.unauthorized(
-        'dev_login_disabled',
-        'That session came from the development sign-in bypass, which is now switched off. ' +
-          'Sign in with your UTA account.',
-      );
-    }
     res.status(200).json({ user: devUser() } satisfies SessionResponse);
     return;
   }

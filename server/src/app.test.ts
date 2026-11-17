@@ -147,6 +147,21 @@ describe('sign-in', () => {
     assert.equal(body.error.code, 'microsoft_login_disabled');
   });
 
+  // ALLOW_DEV_LOGIN is unset here, as on every deployment.
+  test('the development sign-in bypass is off: not offered, and refused if called anyway', async () => {
+    const config = (await (await fetch(`${baseUrl}/api/auth/config`)).json()) as { devLoginEnabled: boolean };
+    assert.equal(config.devLoginEnabled, false);
+
+    const response = await fetch(`${baseUrl}/api/auth/dev-login`, {
+      method: 'POST',
+      headers: { 'X-Class-Meet': '1' },
+    });
+    assert.equal(response.status, 403);
+    const body = (await response.json()) as { error: { code: string } };
+    assert.equal(body.error.code, 'dev_login_disabled');
+    assert.equal(response.headers.get('set-cookie'), null);
+  });
+
   test('asking for a code is a write, so it needs the CSRF header like any other', async () => {
     const response = await fetch(`${baseUrl}/api/auth/email/start`, {
       method: 'POST',

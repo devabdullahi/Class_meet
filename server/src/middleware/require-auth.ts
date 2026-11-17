@@ -7,8 +7,9 @@
  * profile load it themselves.
  */
 import type { NextFunction, Request, Response } from 'express';
-import { SESSION_COOKIE_NAME, readSessionToken, type SessionClaims } from '../session.js';
+import { SESSION_COOKIE_NAME, clearSessionCookie, readSessionToken, type SessionClaims } from '../session.js';
 import { HttpError } from '../errors.js';
+import { env } from '../env.js';
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -25,12 +26,29 @@ function readSession(req: Request): SessionClaims | null {
   return readSessionToken(typeof raw === 'string' ? raw : undefined);
 }
 
-export function requireAuth(req: Request, _res: Response, next: NextFunction): void {
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const session = readSession(req);
   if (session === null) {
     next(HttpError.unauthorized('not_authenticated', 'You are not signed in.'));
     return;
   }
+
+  // DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT. A dev session is
+  // honoured only while the bypass is on. Checked here, for every protected
+  // route, rather than in `/me` alone: a dev cookie signed with a secret that
+  // later reached a deployment must not open the rest of the API there.
+  if (session.dev === true && !env.allowDevLogin) {
+    clearSessionCookie(res);
+    next(
+      HttpError.unauthorized(
+        'dev_login_disabled',
+        'That session came from the development sign-in bypass, which is switched off. ' +
+          'Sign in with your UTA email.',
+      ),
+    );
+    return;
+  }
+
   req.session = session;
   next();
 }

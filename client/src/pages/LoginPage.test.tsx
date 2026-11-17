@@ -110,3 +110,36 @@ test('when the server turns Microsoft sign-in on, it is offered under the email 
   );
   expect(screen.getByRole('button', { name: 'Sign in with Microsoft' })).toBeTruthy();
 });
+
+// The server reports devLoginEnabled: false in production (and refuses to
+// start if asked to turn it on there), so this is what every deployment shows.
+test('the development sign-in bypass is not offered unless the server says it is on', () => {
+  auth.current = { ...SIGNED_OUT, config: CONFIG };
+  render(
+    <MemoryRouter initialEntries={['/login']}>
+      <LoginPage />
+    </MemoryRouter>,
+  );
+  expect(screen.queryByRole('button', { name: /Skip sign-in/ })).toBeNull();
+  expect(screen.queryByText(/development only/i)).toBeNull();
+});
+
+test('a local server with the bypass on offers it under the email form', () => {
+  auth.current = { ...SIGNED_OUT, config: { ...CONFIG, devLoginEnabled: true } };
+  render(
+    <MemoryRouter initialEntries={['/login']}>
+      <LoginPage />
+    </MemoryRouter>,
+  );
+  expect(screen.getByRole('button', { name: 'Skip sign-in (development only)' })).toBeTruthy();
+});
+
+test('before the server has said which sign-in methods are on, the bypass is not offered', () => {
+  auth.current = { ...SIGNED_OUT, config: null };
+  render(
+    <MemoryRouter initialEntries={['/login']}>
+      <LoginPage />
+    </MemoryRouter>,
+  );
+  expect(screen.queryByRole('button', { name: /Skip sign-in/ })).toBeNull();
+});
