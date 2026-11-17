@@ -66,11 +66,19 @@
 
 .cm-account {
   margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+/* The avatar button that opens the account menu exists for phones only. */
+.cm-account__toggle {
+  display: none;
+}
+
+.cm-account__panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
 }
 
 .cm-account__who {
@@ -101,7 +109,8 @@
 .cm-main {
   flex: 1;
   min-width: 0;
-  max-width: 1160px;
+  max-width: 1120px;
+  margin-inline: auto;
   padding: var(--space-8) var(--space-12) var(--space-12);
 }
 
@@ -835,39 +844,84 @@
     flex-direction: column;
   }
 
+  /* Phones: a 56px top bar (wordmark, account menu) and a 56px tab bar
+     fixed to the bottom, instead of a sidebar that would wrap into rows. */
   .cm-sidebar {
-    position: static;
+    position: sticky;
+    z-index: 20;
     width: auto;
-    height: auto;
+    align-self: stretch;
+    height: 56px;
     flex-direction: row;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-3);
+    padding: 0 var(--space-2) 0 var(--space-3);
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
 
   .cm-nav {
+    position: fixed;
+    z-index: 20;
+    inset: auto 0 0 0;
     flex-direction: row;
-    order: 3;
-    width: 100%;
+    gap: 0;
+    height: calc(56px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--surface-1);
+    border-top: 1px solid var(--border);
+  }
+
+  .cm-nav__link {
+    flex: 1;
+    justify-content: center;
+    gap: var(--space-2);
+    border-radius: 0;
+    font-size: var(--font-label);
+  }
+
+  .cm-nav__link[aria-current='page'] {
+    background: transparent;
+    color: var(--text);
+    box-shadow: inset 0 3px 0 var(--accent);
   }
 
   .cm-account {
+    position: relative;
     margin-top: 0;
     padding-top: 0;
     border-top: none;
-    flex-direction: row;
-    align-items: center;
   }
 
-  .cm-account__email {
+  .cm-account__toggle {
+    display: flex;
+    padding: var(--space-1);
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .cm-account__panel {
     display: none;
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    right: 0;
+    width: min(280px, calc(100vw - 2 * var(--space-4)));
+    padding: var(--space-4);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .cm-account[data-open='true'] .cm-account__panel {
+    display: flex;
   }
 
   .cm-main {
-    padding: var(--space-6) var(--space-5) var(--space-12);
+    width: 100%;
+    padding: var(--space-6) var(--space-5) calc(56px + var(--space-12));
   }
 
   /* Filters become one row of compact controls that scrolls sideways. Each
