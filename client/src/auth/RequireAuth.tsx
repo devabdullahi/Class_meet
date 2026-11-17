@@ -16,7 +16,8 @@ export function RequireAuth({ children }: { children: ReactNode }): ReactNode {
   }
 
   if (status === 'signed-out') {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    // With the query string, so /groups/create?course=... comes back with its course.
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
 
   return children;

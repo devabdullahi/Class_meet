@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { AuthError } from '@azure/msal-browser';
-import { api, ApiError, type AuthConfigResponse, type AuthUser } from '../api';
+import { api, ApiError, setSessionExpiredHandler, type AuthConfigResponse, type AuthUser } from '../api';
 import { AuthContext, type AuthContextValue, type AuthStatus } from './auth-context';
 import { entraClientId } from './msal';
 
@@ -85,6 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      setUser(null);
+      setStatus('signed-out');
+    });
+    return () => setSessionExpiredHandler(null);
   }, []);
 
   const signIn = useCallback(async (): Promise<void> => {

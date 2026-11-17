@@ -1,12 +1,24 @@
 import { useState, type ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { EntraSignInButton } from '../components/EntraSignInButton';
 import { FullPageSpinner } from '../components/FullPageSpinner';
 import { Wordmark } from '../components/Wordmark';
 
+/**
+ * Where to go after signing in: the page RequireAuth remembered, if it is a
+ * path inside this app. Anything else (nothing remembered, "//other.site",
+ * the login page itself) goes to My courses.
+ */
+function returnPath(state: unknown): string {
+  const from = typeof state === 'object' && state !== null ? (state as { from?: unknown }).from : undefined;
+  const isAppPath = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//');
+  return isAppPath && from !== '/login' ? from : '/';
+}
+
 export function LoginPage(): ReactNode {
   const { status, error, config, signIn, devSignIn, clearError } = useAuth();
+  const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
 
   if (status === 'loading') {
@@ -14,7 +26,7 @@ export function LoginPage(): ReactNode {
   }
 
   if (status === 'signed-in') {
-    return <Navigate to="/" replace />;
+    return <Navigate to={returnPath(location.state)} replace />;
   }
 
   const handleSignIn = (): void => {

@@ -181,6 +181,19 @@ function extractError(status: number, body: unknown): ApiError {
   return new ApiError(status, 'unknown_error', `The request failed (HTTP ${status}).`);
 }
 
+let sessionExpiredHandler: (() => void) | null = null;
+
+/**
+ * Called when an API call answers 401, meaning the session cookie expired (or
+ * was cleared) while the app was open. AuthProvider registers here to sign
+ * the app out, so RequireAuth sends the student to sign in instead of every
+ * screen offering "Try again" forever. The /api/auth/ endpoints are left out:
+ * their 401 is the ordinary "not signed in" answer AuthProvider handles itself.
+ */
+export function setSessionExpiredHandler(handler: (() => void) | null): void {
+  sessionExpiredHandler = handler;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
@@ -221,6 +234,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/api/auth/')) {
+      sessionExpiredHandler?.();
+    }
     throw extractError(response.status, body);
   }
 
