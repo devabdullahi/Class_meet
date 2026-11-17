@@ -593,12 +593,6 @@
 
 /* ---- Create group ----------------------------------------------------- */
 
-.cm-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
 .cm-create-form {
   display: flex;
   flex-direction: column;
@@ -735,25 +729,87 @@
 
 /* ---- Add course dialog ------------------------------------------------ */
 
-.cm-course-results {
-  list-style: none;
-  padding: 0;
-  margin: var(--space-3) 0 0;
+.cm-course-search {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  margin-top: var(--space-5);
+}
+
+/* Search sits beside the input, so it stays next to what it acts on. */
+.cm-course-search__row {
+  display: flex;
   gap: var(--space-2);
 }
 
+.cm-course-search__row .cm-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.cm-course-search .cm-field-error {
+  font-size: var(--font-label);
+}
+
+/* 56px rows, divided, with a fixed action column so Add and Added line up. */
+.cm-course-results {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-4) 0 0;
+  border-top: 1px solid var(--border);
+}
+
 .cm-course-results__item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cm-course-results__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.cm-course-results__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+.cm-course-results__item .cm-btn {
+  width: 100%;
+}
+
+.cm-course-results__added {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  color: var(--success);
+  font-size: var(--font-label);
+  font-weight: 600;
+}
+
+.cm-course-results__added svg {
+  width: 16px;
+  height: 16px;
 }
 
 .cm-search-status {
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
   color: var(--text);
+}
+
+.cm-dialog .cm-notice {
+  margin-top: var(--space-4);
 }
 
 /* ---- Narrow screens --------------------------------------------------- */

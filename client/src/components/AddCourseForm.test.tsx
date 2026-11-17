@@ -78,8 +78,11 @@ test('adding a course enrolls the student, marks it added and tells the page', a
   await user.click(await screen.findByRole('button', { name: 'Add CSE 3311' }));
   expect(enrollInCourse).toHaveBeenCalledWith('c1');
   expect(onAdded).toHaveBeenCalledTimes(1);
-  const added = (await screen.findByRole('button', { name: 'CSE 3311 already added' })) as HTMLButtonElement;
-  expect(added.disabled).toBe(true);
+  // "Added" is a label, not a disabled button, and keyboard focus stays on its row.
+  const added = await screen.findByText('Added');
+  expect(added.closest('button')).toBeNull();
+  expect(document.activeElement).toBe(added);
+  expect(screen.queryByRole('button', { name: 'Add CSE 3311' })).toBeNull();
   expect(screen.getByText('CSE 3311 was added to your courses.')).toBeTruthy();
 });
 
@@ -88,8 +91,8 @@ test('a course the student already has cannot be added again', async () => {
   const user = userEvent.setup();
   render(<AddCourseForm onClose={vi.fn()} />);
   await user.type(screen.getByLabelText('Course name or code'), 'CSE{Enter}');
-  const button = (await screen.findByRole('button', { name: 'CSE 3311 already added' })) as HTMLButtonElement;
-  expect(button.disabled).toBe(true);
+  expect(await screen.findByText('Added')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Add CSE 3311' })).toBeNull();
 });
 
 test('shows the server message when the search itself is rejected', async () => {
@@ -112,19 +115,26 @@ test('says plainly when the search fails on the server and clears it on typing',
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
+test('Search sits right after the input in the tab order', async () => {
+  const user = userEvent.setup();
+  render(<AddCourseForm onClose={vi.fn()} />);
+  await user.tab();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Search' }));
+});
+
 test('wraps keyboard focus inside the modal', async () => {
   const user = userEvent.setup();
   render(<AddCourseForm onClose={vi.fn()} />);
 
-  const search = screen.getByRole('button', { name: 'Search' });
+  const done = screen.getByRole('button', { name: 'Done' });
   const close = screen.getByRole('button', { name: 'Close Add Course' });
 
-  search.focus();
+  done.focus();
   await user.tab();
   expect(document.activeElement).toBe(close);
 
   await user.tab({ shift: true });
-  expect(document.activeElement).toBe(search);
+  expect(document.activeElement).toBe(done);
 });
 
 test('calls onClose when Escape is pressed', async () => {
@@ -140,12 +150,12 @@ test('calls onClose when Escape is pressed', async () => {
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
-test('calls onClose when Cancel is clicked', async () => {
+test('calls onClose when Done is clicked', async () => {
   const user = userEvent.setup();
   const onClose = vi.fn();
   render(<AddCourseForm onClose={onClose} />);
 
-  await user.click(screen.getByRole('button', { name: 'Cancel' }));
+  await user.click(screen.getByRole('button', { name: 'Done' }));
 
   expect(onClose).toHaveBeenCalledTimes(1);
 });
@@ -176,4 +186,15 @@ test('shows validation when searching with an empty input', async () => {
   expect(screen.getByRole('alert').textContent).toBe(
     'Enter a course name or course code.',
   );
+});
+
+test('a failed add is reported without marking the search box invalid', async () => {
+  searchCourses.mockResolvedValue({ courses: [OOSE] });
+  enrollInCourse.mockRejectedValue(new ApiError(503, 'database_unavailable', 'Check DATABASE_URL.'));
+  const user = userEvent.setup();
+  render(<AddCourseForm onClose={vi.fn()} />);
+  await user.type(screen.getByLabelText('Course name or code'), 'CSE{Enter}');
+  await user.click(await screen.findByRole('button', { name: 'Add CSE 3311' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('We could not add CSE 3311. Please try again.');
+  expect(screen.getByLabelText('Course name or code').getAttribute('aria-invalid')).toBe('false');
 });

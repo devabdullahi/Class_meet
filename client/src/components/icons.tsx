@@ -140,3 +140,11 @@ export function ExternalLinkIcon(): ReactNode {
     </svg>
   );
 }
+
+export function CloseIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" {...STROKE} />
+    </svg>
+  );
+}
