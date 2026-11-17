@@ -252,11 +252,30 @@
   gap: var(--space-3);
 }
 
+.cm-group-card__heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
 .cm-group-card__title {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+/* The goal under a named group's title: two lines at most, so cards in a
+   row keep their rows aligned. The details page shows it in full. */
+.cm-group-card__goal {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  overflow-wrap: anywhere;
 }
 
 .cm-group-card__place {
@@ -306,13 +325,6 @@
 
 .cm-section .cm-card-grid {
   margin-top: var(--space-3);
-}
-
-.cm-my-group__heading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
 }
 
 /* "2 requests waiting": the number is the heaviest thing on the card. */
@@ -388,6 +400,13 @@
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.cm-details-header__goal {
+  max-width: 70ch;
+  margin-top: var(--space-2);
+  font-size: var(--font-title);
   overflow-wrap: anywhere;
 }
 

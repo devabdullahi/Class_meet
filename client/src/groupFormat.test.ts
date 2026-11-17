@@ -2,6 +2,8 @@ import { expect, test } from 'vitest';
 import {
   formatLabel,
   formatMeetingTime,
+  groupGoalLine,
+  groupTitle,
   isGroupFull,
   meetingPlaceLabel,
   meetingPlatform,
@@ -17,6 +19,18 @@ test.each([
   ['23:59', '11:59 PM'],
 ])('formats %s as %s', (input, expected) => {
   expect(formatMeetingTime(input)).toBe(expected);
+});
+
+test('a group is titled by its name, with its goal as the line under it', () => {
+  const named = { name: 'Midterm crew', goal: 'Review SOLID' };
+  expect(groupTitle(named)).toBe('Midterm crew');
+  expect(groupGoalLine(named)).toBe('Review SOLID');
+});
+
+test('a group from before names existed is titled by its goal, with no second line', () => {
+  const unnamed = { name: null, goal: 'Review SOLID' };
+  expect(groupTitle(unnamed)).toBe('Review SOLID');
+  expect(groupGoalLine(unnamed)).toBeNull();
 });
 
 test('labels the two formats', () => {

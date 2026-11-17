@@ -20,6 +20,7 @@ export type GroupFormat = 'in_person' | 'online';
 /** Includes the leader, so 2 is the smallest group that can exist. */
 export const MIN_GROUP_MEMBERS = 2;
 export const MAX_GROUP_MEMBERS = 50;
+export const MAX_NAME_LENGTH = 80;
 export const MAX_GOAL_LENGTH = 500;
 export const MAX_LOCATION_LENGTH = 300;
 
@@ -28,6 +29,7 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export interface CreateGroupInput {
   courseId: string;
+  name: string;
   goal: string;
   meetingDay: MeetingDay;
   /** "HH:MM", 24-hour. */
@@ -70,6 +72,11 @@ export function parseCreateGroupInput(body: unknown): CreateGroupInput {
 
   const courseId = fields['courseId'];
   if (!isUuid(courseId)) throw invalid('courseId', 'Choose a course.');
+
+  const name = readTrimmedString(fields, 'name', 'Group name');
+  if (name.length > MAX_NAME_LENGTH) {
+    throw invalid('name', `Group name must be ${MAX_NAME_LENGTH} characters or fewer.`);
+  }
 
   const goal = readTrimmedString(fields, 'goal', 'Study goal');
   if (goal.length > MAX_GOAL_LENGTH) {
@@ -114,6 +121,7 @@ export function parseCreateGroupInput(body: unknown): CreateGroupInput {
 
   return {
     courseId,
+    name,
     goal,
     meetingDay: meetingDay as MeetingDay,
     meetingTime,

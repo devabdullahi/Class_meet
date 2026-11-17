@@ -21,6 +21,7 @@ const BASE: MyGroupSummary = {
   courseId: 'c1',
   courseCode: 'CSE 3311',
   courseTitle: 'Object Oriented Software Engineering',
+  name: null,
   goal: 'Group',
   meetingDay: 'Tuesday',
   meetingTime: '14:30',

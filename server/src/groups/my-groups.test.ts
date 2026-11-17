@@ -8,6 +8,7 @@ function group(overrides: Partial<LedGroupSummary>): LedGroupSummary {
     courseId: 'c1',
     courseCode: 'CSE 3311',
     courseTitle: 'Object Oriented Software Engineering',
+    name: 'Pattern crew',
     goal: 'Review design patterns',
     meetingDay: 'Tuesday',
     meetingTime: '14:30',

@@ -37,6 +37,7 @@ const GROUP: GroupDetails = {
   courseId: COURSE.id,
   courseCode: COURSE.code,
   courseTitle: COURSE.title,
+  name: 'Pattern crew',
   goal: 'Review design patterns',
   meetingDay: 'Tuesday',
   meetingTime: '14:30',
@@ -165,6 +166,7 @@ async function send(method: string, path: string, body?: unknown): Promise<{ sta
 
 const validGroupBody = {
   courseId: COURSE.id,
+  name: 'Pattern crew',
   goal: 'Review design patterns',
   meetingDay: 'Tuesday',
   meetingTime: '14:30',

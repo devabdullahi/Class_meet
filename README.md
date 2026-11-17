@@ -142,6 +142,8 @@ server/                  Express + TypeScript API
   migrations/
     001_create_users.sql the users table
     002_create_courses_and_groups.sql  courses, study_groups, group_members (+ 3 starter courses)
+    003_create_enrollments_and_join_requests.sql  course_enrollments, group_join_requests
+    004_add_group_name.sql  study_groups.name (NULL for groups made before it; the goal is shown instead)
   src/
     index.ts             listen, startup warnings, graceful shutdown
     app.ts               middleware wiring and route mounting

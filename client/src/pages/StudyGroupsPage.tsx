@@ -4,7 +4,14 @@ import { api, type GroupSummary } from '../api';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { RelationshipLabel, SeatCount, TimeTile } from '../components/groupParts';
 import { AlertIcon, ChevronLeftIcon, PinIcon, PlusIcon, VideoIcon } from '../components/icons';
-import { formatLabel, isGroupFull, meetingPlaceLabel, sortByNextMeeting } from '../groupFormat';
+import {
+  formatLabel,
+  groupGoalLine,
+  groupTitle,
+  isGroupFull,
+  meetingPlaceLabel,
+  sortByNextMeeting,
+} from '../groupFormat';
 import { useApiData } from '../hooks/useApiData';
 
 const ANY_DAY = 'Any day';
@@ -20,17 +27,21 @@ function matchesFilters(group: GroupSummary, day: string, format: string, availa
   return dayMatches && formatMatches && availabilityMatches;
 }
 
-/** The whole card is one link, named by the group's goal. */
+/** The whole card is one link, named by the group's title. */
 function GroupCard({ group, courseId }: { group: GroupSummary; courseId: string }): ReactNode {
+  const goalLine = groupGoalLine(group);
   return (
     <article className="cm-card cm-group-card">
       <div className="cm-group-card__top">
         <TimeTile day={group.meetingDay} time={group.meetingTime} full={isGroupFull(group)} />
-        <h2 className="cm-card__title cm-group-card__title">
-          <Link className="cm-card__link" to={`/groups/${courseId}/${group.id}`}>
-            {group.goal}
-          </Link>
-        </h2>
+        <div className="cm-group-card__heading">
+          <h2 className="cm-card__title cm-group-card__title">
+            <Link className="cm-card__link" to={`/groups/${courseId}/${group.id}`}>
+              {groupTitle(group)}
+            </Link>
+          </h2>
+          {goalLine !== null && <p className="cm-group-card__goal">{goalLine}</p>}
+        </div>
       </div>
       <p className="cm-group-card__place">
         {group.format === 'online' ? <VideoIcon /> : <PinIcon />}

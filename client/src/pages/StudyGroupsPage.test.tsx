@@ -22,6 +22,7 @@ function group(overrides: Partial<GroupSummary>): GroupSummary {
   return {
     id: 'g1',
     courseId: 'c1',
+    name: null,
     goal: 'Review SOLID',
     meetingDay: 'Tuesday',
     meetingTime: '14:30',
@@ -164,11 +165,22 @@ test('with no groups, offers one way to create the first and hides the filters',
   expect(screen.getAllByRole('link', { name: 'Create group' })).toHaveLength(1);
 });
 
-test('opens a group from its card, which is one link named by the goal', async () => {
+test('opens a group from its card, which is one link named by the goal when the group has no name', async () => {
   fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
   const user = renderPage();
   await user.click(await screen.findByRole('link', { name: 'Review SOLID' }));
   expect(screen.getByRole('heading', { name: 'Details page' })).toBeTruthy();
+});
+
+test('a named group is titled by its name, with the goal on the line under it', async () => {
+  fetchCourseGroups.mockResolvedValue({
+    course: COURSE,
+    groups: [group({ id: 'g7', name: 'Midterm crew', goal: 'Review SOLID' })],
+  });
+  renderPage();
+  expect(await screen.findByRole('link', { name: 'Midterm crew' })).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 2, name: 'Midterm crew' })).toBeTruthy();
+  expect(screen.getByText('Review SOLID', { selector: 'p' })).toBeTruthy();
 });
 
 test('an unknown course gets a way back, not filters or Create Group', async () => {

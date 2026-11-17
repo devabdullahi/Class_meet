@@ -20,11 +20,13 @@ export const MEETING_DAYS: MeetingDay[] = [
 export const MIN_GROUP_SIZE = 2;
 export const MAX_GROUP_SIZE = 50;
 export const DEFAULT_GROUP_SIZE = 4;
+export const MAX_NAME_LENGTH = 80;
 export const MAX_GOAL_LENGTH = 500;
 export const MAX_LOCATION_LENGTH = 300;
 
 export interface GroupFormValues {
   courseId: string;
+  name: string;
   goal: string;
   meetingDay: MeetingDay | '';
   /** "HH:MM" from the time input, or '' when not chosen. */
@@ -41,6 +43,7 @@ export type GroupFormErrors = Partial<Record<GroupFormField, string>>;
 /** The order fields appear on screen, so focus can go to the first problem. */
 export const GROUP_FORM_FIELD_ORDER: GroupFormField[] = [
   'courseId',
+  'name',
   'goal',
   'meetingDay',
   'meetingTime',
@@ -78,6 +81,7 @@ function locationError(format: GroupFormat, location: string): string | undefine
 export function validateGroupForm(values: GroupFormValues): GroupFormErrors {
   const errors: GroupFormErrors = {};
   if (values.courseId === '') errors.courseId = 'Choose a course.';
+  if (values.name.trim() === '') errors.name = 'Give the group a name.';
   if (values.goal.trim() === '') errors.goal = 'Say what the group will study.';
   if (values.meetingDay === '') errors.meetingDay = 'Choose a day.';
   if (values.meetingTime === '') errors.meetingTime = 'Choose a time.';
@@ -92,6 +96,7 @@ export function validateGroupForm(values: GroupFormValues): GroupFormErrors {
 export function toCreateGroupRequest(values: GroupFormValues): CreateGroupRequest {
   return {
     courseId: values.courseId,
+    name: values.name.trim(),
     goal: values.goal.trim(),
     meetingDay: values.meetingDay as MeetingDay,
     meetingTime: values.meetingTime,

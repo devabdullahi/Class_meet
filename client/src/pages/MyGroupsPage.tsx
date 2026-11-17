@@ -10,7 +10,7 @@ import { api, type LedGroupSummary, type MyGroupSummary } from '../api';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { SeatCount, TimeTile } from '../components/groupParts';
 import { AlertIcon, PinIcon, PlusIcon, VideoIcon } from '../components/icons';
-import { isGroupFull, meetingPlaceLabel, sortByNextMeeting } from '../groupFormat';
+import { groupGoalLine, groupTitle, isGroupFull, meetingPlaceLabel, sortByNextMeeting } from '../groupFormat';
 import { useApiData } from '../hooks/useApiData';
 
 /** Most join requests first; groups with the same number, soonest meeting first. */
@@ -56,19 +56,21 @@ function RequestFact({ group }: { group: MyGroupSummary }): ReactNode {
   );
 }
 
-/** The whole card is one link, named by the group's goal. */
+/** The whole card is one link, named by the group's title. */
 function MyGroupCard({ group, children }: { group: MyGroupSummary; children: ReactNode }): ReactNode {
+  const goalLine = groupGoalLine(group);
   return (
     <article className="cm-card">
       <div className="cm-group-card__top">
         <TimeTile day={group.meetingDay} time={group.meetingTime} full={isGroupFull(group)} />
-        <div className="cm-my-group__heading">
+        <div className="cm-group-card__heading">
           <span className="cm-code">{group.courseCode}</span>
           <h3 className="cm-card__title cm-group-card__title">
             <Link className="cm-card__link" to={`/groups/${group.courseId}/${group.id}`}>
-              {group.goal}
+              {groupTitle(group)}
             </Link>
           </h3>
+          {goalLine !== null && <p className="cm-group-card__goal">{goalLine}</p>}
         </div>
       </div>
       <div className="cm-card__foot">{children}</div>

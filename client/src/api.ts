@@ -75,6 +75,8 @@ export interface EnrolledCourse extends Course {
 export interface GroupSummary {
   id: string;
   courseId: string;
+  /** Null for groups created before groups had names; show `groupTitle` instead of reading it directly. */
+  name: string | null;
   goal: string;
   meetingDay: MeetingDay;
   /** "HH:MM", 24-hour. */
@@ -132,6 +134,7 @@ export interface MyGroups {
 
 export interface CreateGroupRequest {
   courseId: string;
+  name: string;
   goal: string;
   meetingDay: MeetingDay;
   meetingTime: string;

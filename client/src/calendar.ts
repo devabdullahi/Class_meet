@@ -18,6 +18,8 @@ export const MEETING_DURATION_MINUTES = 60;
 export interface CalendarEventInput {
   groupId: string;
   courseCode: string;
+  /** Null for a group created before groups had names. */
+  name: string | null;
   goal: string;
   meetingDay: MeetingDay;
   /** "HH:MM", 24-hour. */
@@ -87,7 +89,7 @@ function eventTimes(event: CalendarEventInput, now: Date): { start: Date; end: D
 }
 
 function summaryOf(event: CalendarEventInput): string {
-  return `${event.courseCode} study group`;
+  return event.name === null ? `${event.courseCode} study group` : `${event.name} (${event.courseCode})`;
 }
 
 function weeklyRule(event: CalendarEventInput): string {

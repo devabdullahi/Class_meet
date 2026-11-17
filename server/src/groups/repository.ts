@@ -38,6 +38,8 @@ export type ViewerRole = 'leader' | 'member' | 'none';
 export interface GroupSummary {
   id: string;
   courseId: string;
+  /** Null for groups created before groups had names; show the goal instead. */
+  name: string | null;
   goal: string;
   meetingDay: MeetingDay;
   meetingTime: string;
@@ -104,6 +106,7 @@ export interface GroupRepository {
 interface GroupRow {
   id: string;
   course_id: string;
+  name: string | null;
   goal: string;
   meeting_day: MeetingDay;
   meeting_time: string;
@@ -116,7 +119,7 @@ interface GroupRow {
 }
 
 /** Selects a GroupRow from `study_groups g`. $2 must be the viewing student's id. */
-const GROUP_SUMMARY_COLUMNS = `g.id, g.course_id, g.goal, g.meeting_day,
+const GROUP_SUMMARY_COLUMNS = `g.id, g.course_id, g.name, g.goal, g.meeting_day,
        to_char(g.meeting_time, 'HH24:MI') AS meeting_time,
        g.format, g.location, g.max_members,
        (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count,
@@ -135,6 +138,7 @@ function toGroupSummary(row: GroupRow): GroupSummary {
   return {
     id: row.id,
     courseId: row.course_id,
+    name: row.name,
     goal: row.goal,
     meetingDay: row.meeting_day,
     meetingTime: row.meeting_time,
@@ -263,8 +267,8 @@ export const postgresGroupRepository: GroupRepository = {
     const rows = await query<{ id: string }>(
       `WITH new_group AS (
          INSERT INTO study_groups
-           (course_id, leader_id, goal, meeting_day, meeting_time, format, location, max_members)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           (course_id, leader_id, name, goal, meeting_day, meeting_time, format, location, max_members)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id, leader_id
        ), leader_membership AS (
          INSERT INTO group_members (group_id, user_id)
@@ -274,6 +278,7 @@ export const postgresGroupRepository: GroupRepository = {
       [
         input.courseId,
         leaderId,
+        input.name,
         input.goal,
         input.meetingDay,
         input.meetingTime,

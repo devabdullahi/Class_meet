@@ -40,6 +40,7 @@ const BASE: GroupDetails = {
   courseId: 'c1',
   courseCode: 'CSE 3311',
   courseTitle: 'Object Oriented Software Engineering',
+  name: null,
   goal: 'Review SOLID',
   meetingDay: 'Tuesday',
   meetingTime: '14:30',
@@ -107,6 +108,14 @@ test('a long goal is repeated in full in the Meeting panel; a short one is not',
   renderPage();
   await screen.findByRole('heading', { level: 1 });
   expect(screen.getAllByText('Review SOLID')).toHaveLength(1);
+});
+
+test('a named group is headed by its name, with the whole goal under it and not repeated', async () => {
+  const longGoal = 'Review '.repeat(40).trim();
+  fetchGroup.mockResolvedValue({ group: { ...BASE, name: 'Midterm crew', goal: longGoal } });
+  renderPage();
+  expect(await screen.findByRole('heading', { level: 1, name: 'Midterm crew' })).toBeTruthy();
+  expect(screen.getAllByText(longGoal)).toHaveLength(1);
 });
 
 test('marks the viewer in the member list', async () => {

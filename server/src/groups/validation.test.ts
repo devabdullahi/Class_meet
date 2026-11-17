@@ -8,6 +8,7 @@ const COURSE_ID = '3f2b8c1e-5d4a-4c0e-9b7a-1a2b3c4d5e6f';
 function validBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     courseId: COURSE_ID,
+    name: '  Pattern crew  ',
     goal: '  Review design patterns  ',
     meetingDay: 'Tuesday',
     meetingTime: '14:30',
@@ -31,6 +32,7 @@ function rejectionCode(body: unknown): string {
 
 test('accepts a valid in-person group and trims text fields', () => {
   const input = parseCreateGroupInput(validBody());
+  assert.equal(input.name, 'Pattern crew');
   assert.equal(input.goal, 'Review design patterns');
   assert.equal(input.meetingDay, 'Tuesday');
   assert.equal(input.maxMembers, 6);
@@ -51,6 +53,16 @@ test('rejects a body that is not an object', () => {
 test('rejects a missing or malformed course id', () => {
   assert.equal(rejectionCode(validBody({ courseId: undefined })), 'invalid_courseId');
   assert.equal(rejectionCode(validBody({ courseId: 'CSE 3311' })), 'invalid_courseId');
+});
+
+test('rejects a missing, empty or whitespace-only name', () => {
+  assert.equal(rejectionCode(validBody({ name: undefined })), 'invalid_name');
+  assert.equal(rejectionCode(validBody({ name: '   ' })), 'invalid_name');
+});
+
+test('rejects a name over the length limit and accepts one at it', () => {
+  assert.equal(rejectionCode(validBody({ name: 'x'.repeat(81) })), 'invalid_name');
+  assert.equal(parseCreateGroupInput(validBody({ name: 'x'.repeat(80) })).name.length, 80);
 });
 
 test('rejects an empty or whitespace-only goal', () => {

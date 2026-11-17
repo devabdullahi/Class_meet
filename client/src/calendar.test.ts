@@ -14,6 +14,7 @@ const NOW = new Date(2026, 10, 2, 10, 0, 0);
 const EVENT: CalendarEventInput = {
   groupId: '9a8b7c6d-1111-4222-8333-444455556666',
   courseCode: 'CSE 3311',
+  name: null,
   goal: 'Review SOLID, patterns; and UML',
   meetingDay: 'Tuesday',
   meetingTime: '14:30',
@@ -51,6 +52,12 @@ test('the .ics file describes a weekly event with the group details', () => {
   expect(ics).toContain('RRULE:FREQ=WEEKLY;BYDAY=TU\r\n');
   expect(ics).toContain('SUMMARY:CSE 3311 study group\r\n');
   expect(ics).toContain('UID:9a8b7c6d-1111-4222-8333-444455556666@classmeet\r\n');
+});
+
+test("a named group's event is titled by its name and course", () => {
+  const named = { ...EVENT, name: 'Midterm crew' };
+  expect(buildIcs(named, NOW)).toContain('SUMMARY:Midterm crew (CSE 3311)\r\n');
+  expect(new URL(googleCalendarUrl(named, NOW)).searchParams.get('text')).toBe('Midterm crew (CSE 3311)');
 });
 
 test('the event lasts the standard meeting length', () => {

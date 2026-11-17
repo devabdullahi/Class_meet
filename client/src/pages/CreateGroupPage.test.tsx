@@ -65,6 +65,7 @@ const submit = (user: ReturnType<typeof userEvent.setup>) =>
 async function fillDetails(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByRole('option', { name: /CSE 3311/ });
   await user.selectOptions(screen.getByLabelText('Course'), 'c1');
+  await user.type(screen.getByLabelText('Group name'), 'Exam crew');
   await user.type(screen.getByLabelText('What will you study?'), 'Review for the exam');
   await user.selectOptions(screen.getByLabelText('Day'), 'Tuesday');
   // Native time-picker UI is browser-owned; supply its normalized value in jsdom.
@@ -106,6 +107,7 @@ test('an empty form shows an error beside every missing field and focuses the fi
   await screen.findByRole('option', { name: /CSE 3311/ });
   await submit(user);
   expect(messageFor('Course')).toBe('Choose a course.');
+  expect(messageFor('Group name')).toBe('Give the group a name.');
   expect(messageFor('What will you study?')).toBe('Say what the group will study.');
   expect(messageFor('Day')).toBe('Choose a day.');
   expect(messageFor('Time')).toBe('Choose a time.');
@@ -146,7 +148,18 @@ test('the size buttons step within 2 to 50', async () => {
   expect(size.value).toBe('2');
 });
 
-test.each(['What will you study?', 'Meeting place'])('rejects whitespace-only %s', async (label) => {
+test('the group name comes first after the course and counts its characters', async () => {
+  const user = renderPage();
+  await screen.findByRole('option', { name: /CSE 3311/ });
+  const labels = [...document.querySelectorAll('.cm-create-form .cm-label')].map((label) => label.textContent);
+  expect(labels.slice(0, 3)).toEqual(['Course', 'Group name', 'What will you study?']);
+  expect(messageFor('Group name')).toBe('0/80 characters');
+  await user.type(screen.getByLabelText('Group name'), 'Crew');
+  expect(messageFor('Group name')).toBe('4/80 characters');
+  expect(screen.getByLabelText('Group name').getAttribute('maxlength')).toBe('80');
+});
+
+test.each(['Group name', 'What will you study?', 'Meeting place'])('rejects whitespace-only %s', async (label) => {
   const user = renderPage();
   await fillDetails(user);
   await user.clear(screen.getByLabelText(label));
@@ -189,6 +202,7 @@ test('an in-person group is sent to the API and the student lands on the new gro
   await submit(user);
   expect(createGroup).toHaveBeenCalledWith({
     courseId: 'c1',
+    name: 'Exam crew',
     goal: 'Review for the exam',
     meetingDay: 'Tuesday',
     meetingTime: '14:30',

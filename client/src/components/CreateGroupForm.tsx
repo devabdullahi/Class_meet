@@ -7,6 +7,7 @@ import {
   MAX_GOAL_LENGTH,
   MAX_GROUP_SIZE,
   MAX_LOCATION_LENGTH,
+  MAX_NAME_LENGTH,
   MEETING_DAYS,
   MIN_GROUP_SIZE,
   toCreateGroupRequest,
@@ -22,6 +23,7 @@ import { AlertIcon, MinusIcon, PlusIcon } from './icons';
 /** The DOM id of each field's control, so focus can move to the first problem. */
 const FIELD_IDS: Record<GroupFormField, string> = {
   courseId: 'group-course',
+  name: 'group-name',
   goal: 'group-goal',
   meetingDay: 'group-day',
   meetingTime: 'group-time',
@@ -42,6 +44,7 @@ export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroup
   const navigate = useNavigate();
   const [values, setValues] = useState<GroupFormValues>({
     courseId: presetCourse?.id ?? '',
+    name: '',
     goal: '',
     meetingDay: '',
     meetingTime: '',
@@ -125,6 +128,26 @@ export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroup
           )}
         </FormField>
       )}
+
+      <FormField
+        id={FIELD_IDS.name}
+        label="Group name"
+        hint={`${values.name.length}/${MAX_NAME_LENGTH} characters`}
+        error={errors.name}
+      >
+        {(control) => (
+          <input
+            {...control}
+            className="cm-input"
+            type="text"
+            value={values.name}
+            onChange={(event) => update('name', event.target.value)}
+            placeholder="Example: Midterm 2 crew"
+            maxLength={MAX_NAME_LENGTH}
+            required
+          />
+        )}
+      </FormField>
 
       <FormField
         id={FIELD_IDS.goal}

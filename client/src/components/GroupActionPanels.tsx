@@ -92,6 +92,7 @@ function toCalendarEvent(group: GroupDetails): CalendarEventInput {
   return {
     groupId: group.id,
     courseCode: group.courseCode,
+    name: group.name,
     goal: group.goal,
     meetingDay: group.meetingDay,
     meetingTime: group.meetingTime,

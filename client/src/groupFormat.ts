@@ -1,6 +1,19 @@
 import type { GroupFormat, GroupSummary } from './api';
 import { nextOccurrence } from './calendar';
 
+/**
+ * What a group is called on cards, headings and calendar events: its name,
+ * or its goal for a group created before groups had names.
+ */
+export function groupTitle(group: Pick<GroupSummary, 'name' | 'goal'>): string {
+  return group.name ?? group.goal;
+}
+
+/** The goal, as the line under the title; null when the goal already is the title. */
+export function groupGoalLine(group: Pick<GroupSummary, 'name' | 'goal'>): string | null {
+  return group.name === null ? null : group.goal;
+}
+
 /** "14:30" -> "2:30 PM". */
 export function formatMeetingTime(time: string): string {
   const [hourText = '0', minute = '00'] = time.split(':');

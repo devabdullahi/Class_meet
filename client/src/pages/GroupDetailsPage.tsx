@@ -8,14 +8,15 @@ import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { JoinPanel, JoinRequestsPanel, YourMeetingPanel } from '../components/GroupActionPanels';
 import { SeatCount, TimeTile } from '../components/groupParts';
 import { AlertIcon, CheckCircleIcon, ChevronLeftIcon, PeopleIcon, PinIcon, VideoIcon } from '../components/icons';
-import { isGroupFull, meetingPlatform } from '../groupFormat';
+import { groupGoalLine, groupTitle, isGroupFull, meetingPlatform } from '../groupFormat';
 import { describeError, useApiData } from '../hooks/useApiData';
 import { usePendingRequests } from '../pending-requests/usePendingRequests';
 
 /**
- * The heading shows at most three lines of the goal (up to 500 characters).
- * Past roughly this length it may be cut, so the Meeting panel repeats it
- * in full.
+ * A group without a name has its goal as the heading, which shows at most
+ * three lines (of up to 500 characters). Past roughly this length it may be
+ * cut, so the Meeting panel repeats it in full. A named group shows its goal
+ * in full under the heading instead.
  */
 const LONG_GOAL_LENGTH = 120;
 
@@ -30,7 +31,7 @@ function MeetingPanel({ group }: { group: GroupDetails }): ReactNode {
   return (
     <section className="cm-panel" aria-labelledby="meeting-heading">
       <h2 id="meeting-heading">Meeting</h2>
-      {group.goal.length > LONG_GOAL_LENGTH && <p className="cm-goal">{group.goal}</p>}
+      {group.name === null && group.goal.length > LONG_GOAL_LENGTH && <p className="cm-goal">{group.goal}</p>}
       <div className="cm-info">
         <div className="cm-info__row">
           <TimeTile day={group.meetingDay} time={group.meetingTime} full={isGroupFull(group)} />
@@ -133,6 +134,7 @@ export function GroupDetailsPage(): ReactNode {
     });
 
   const leader = group?.members.find((member) => member.isLeader);
+  const goalLine = group === null ? null : groupGoalLine(group);
 
   return (
     <ClassMeetLayout>
@@ -171,7 +173,8 @@ export function GroupDetailsPage(): ReactNode {
       {group !== null && (
         <>
           <header className="cm-details-header">
-            <h1>{group.goal}</h1>
+            <h1>{groupTitle(group)}</h1>
+            {goalLine !== null && <p className="cm-details-header__goal">{goalLine}</p>}
             <div className="cm-details-head">
               <span>
                 {group.courseCode} · {group.courseTitle}
