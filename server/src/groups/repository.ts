@@ -83,6 +83,8 @@ export type WithdrawOutcome = 'withdrawn' | 'request_not_found';
 
 export type UpdateGroupOutcome = 'updated' | 'group_not_found' | 'not_leader' | 'size_below_member_count';
 
+export type LeaveGroupOutcome = 'left' | 'group_not_found' | 'is_leader' | 'not_member';
+
 export interface GroupRepository {
   listCourses(search: string, viewerId: string): Promise<CourseSearchResult[]>;
   listMyCourses(viewerId: string): Promise<EnrolledCourse[]>;
@@ -98,6 +100,8 @@ export interface GroupRepository {
   /** Leader only. The size may not drop below the members already in the group. */
   updateGroup(groupId: string, viewerId: string, settings: GroupSettings): Promise<UpdateGroupOutcome>;
   requestToJoin(groupId: string, viewerId: string): Promise<JoinRequestOutcome>;
+  /** A member gives up their seat. The leader cannot leave the group they lead. */
+  leaveGroup(groupId: string, viewerId: string): Promise<LeaveGroupOutcome>;
   /** Removes the viewer's own request while it is still pending. */
   withdrawJoinRequest(groupId: string, viewerId: string): Promise<WithdrawOutcome>;
   decideJoinRequest(
@@ -410,6 +414,28 @@ export const postgresGroupRepository: GroupRepository = {
       [groupId, viewerId],
     );
     return 'created';
+  },
+
+  async leaveGroup(groupId, viewerId) {
+    // The membership goes; the approved request stays as a record of how
+    // they joined. Asking again later resets that row to 'pending'.
+    const rows = await query<{ leader_id: string; left_group: boolean }>(
+      `WITH target AS (
+         SELECT id, leader_id FROM study_groups WHERE id = $1
+       ), removed AS (
+         DELETE FROM group_members m
+          USING target t
+          WHERE m.group_id = t.id AND m.user_id = $2 AND t.leader_id <> $2
+          RETURNING m.user_id
+       )
+       SELECT t.leader_id, EXISTS (SELECT 1 FROM removed) AS left_group
+         FROM target t`,
+      [groupId, viewerId],
+    );
+    const group = rows[0];
+    if (group === undefined) return 'group_not_found';
+    if (group.leader_id === viewerId) return 'is_leader';
+    return group.left_group ? 'left' : 'not_member';
   },
 
   async withdrawJoinRequest(groupId, viewerId) {

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { api, type GroupDetails, type JoinDecision } from '../api';
 import { useAuth } from '../auth/useAuth';
@@ -110,11 +110,13 @@ export function GroupDetailsPage(): ReactNode {
   );
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [justLeft, setJustLeft] = useState(false);
 
   const group = data?.group ?? null;
 
   async function runAction(action: () => Promise<unknown>): Promise<void> {
     setActionError(null);
+    setJustLeft(false);
     setBusy(true);
     try {
       await action();
@@ -134,6 +136,15 @@ export function GroupDetailsPage(): ReactNode {
       await api.decideJoinRequest(groupId, requestId, decision);
       refreshPendingRequestCount();
     });
+
+  // The panel holding Leave group is gone once the student has left, so
+  // the notice saying so takes focus.
+  const leftNotice = useCallback((notice: HTMLDivElement | null) => notice?.focus(), []);
+  async function leaveGroup(): Promise<void> {
+    await api.leaveGroup(groupId);
+    setJustLeft(true);
+    reload();
+  }
 
   const leader = group?.members.find((member) => member.isLeader);
   const goalLine = group === null ? null : groupGoalLine(group);
@@ -201,6 +212,13 @@ export function GroupDetailsPage(): ReactNode {
             </div>
           )}
 
+          {justLeft && group.viewerRole === 'none' && (
+            <div ref={leftNotice} className="cm-notice" role="status" tabIndex={-1}>
+              <CheckCircleIcon />
+              <span className="cm-notice__body">You left this group.</span>
+            </div>
+          )}
+
           {justSaved && (
             <div className="cm-notice" role="status">
               <CheckCircleIcon />
@@ -228,7 +246,7 @@ export function GroupDetailsPage(): ReactNode {
                   onDecide={decide}
                 />
               )}
-              {group.viewerRole !== 'none' && <YourMeetingPanel group={group} />}
+              {group.viewerRole !== 'none' && <YourMeetingPanel group={group} onLeave={leaveGroup} />}
             </div>
 
             <div className="cm-stack cm-details-main">

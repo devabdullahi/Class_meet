@@ -14,6 +14,7 @@ import type {
   GroupRepository,
   GroupSummary,
   JoinRequestOutcome,
+  LeaveGroupOutcome,
   UpdateGroupOutcome,
   WithdrawOutcome,
 } from '../groups/repository.js';
@@ -65,6 +66,8 @@ class FakeRepository implements GroupRepository {
   withdrawOutcome: WithdrawOutcome = 'withdrawn';
   updateOutcome: UpdateGroupOutcome = 'updated';
   updates: Array<{ groupId: string; viewerId: string; settings: GroupSettings }> = [];
+  leaveOutcome: LeaveGroupOutcome = 'left';
+  departures: Array<{ groupId: string; viewerId: string }> = [];
   withdrawals: Array<{ groupId: string; viewerId: string }> = [];
   decisions: Array<{ requestId: string; decision: string; viewerId: string }> = [];
   myGroupsByViewer = new Map<string, MyGroups>();
@@ -107,6 +110,10 @@ class FakeRepository implements GroupRepository {
   }
   async requestToJoin(): Promise<JoinRequestOutcome> {
     return this.joinOutcome;
+  }
+  async leaveGroup(groupId: string, viewerId: string): Promise<LeaveGroupOutcome> {
+    this.departures.push({ groupId, viewerId });
+    return this.leaveOutcome;
   }
   async withdrawJoinRequest(groupId: string, viewerId: string): Promise<WithdrawOutcome> {
     this.withdrawals.push({ groupId, viewerId });
@@ -161,6 +168,7 @@ beforeEach(() => {
   repository.decisionOutcome = 'decided';
   repository.withdrawOutcome = 'withdrawn';
   repository.updateOutcome = 'updated';
+  repository.leaveOutcome = 'left';
 });
 
 async function send(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }> {
@@ -355,6 +363,42 @@ test('editing rejects a malformed group id', async () => {
   const { status, json } = await send('PATCH', '/api/groups/nope', validSettings);
   assert.equal(status, 400);
   assert.equal(json.error.code, 'invalid_groupId');
+});
+
+// ---- leaving a group --------------------------------------------------
+
+test('DELETE /api/groups/:id/members/me lets the signed-in student leave', async () => {
+  signInAs(OTHER_STUDENT_ID);
+  const { status } = await send('DELETE', `/api/groups/${GROUP_ID}/members/me`);
+  assert.equal(status, 204);
+  assert.deepEqual(repository.departures.at(-1), { groupId: GROUP_ID, viewerId: OTHER_STUDENT_ID });
+});
+
+const leaveFailures: Array<[LeaveGroupOutcome, number, string]> = [
+  ['group_not_found', 404, 'group_not_found'],
+  ['is_leader', 409, 'leader_cannot_leave'],
+  ['not_member', 404, 'not_member'],
+];
+for (const [outcome, expectedStatus, expectedCode] of leaveFailures) {
+  test(`leaving answers ${expectedStatus} ${expectedCode} when the outcome is ${outcome}`, async () => {
+    repository.leaveOutcome = outcome;
+    const { status, json } = await send('DELETE', `/api/groups/${GROUP_ID}/members/me`);
+    assert.equal(status, expectedStatus);
+    assert.equal(json.error.code, expectedCode);
+  });
+}
+
+test('the leader is told why they cannot leave', async () => {
+  repository.leaveOutcome = 'is_leader';
+  const { json } = await send('DELETE', `/api/groups/${GROUP_ID}/members/me`);
+  assert.equal(json.error.message, 'You lead this group, so you cannot leave it.');
+});
+
+test('leaving rejects a malformed group id', async () => {
+  const before = repository.departures.length;
+  const { status } = await send('DELETE', '/api/groups/nope/members/me');
+  assert.equal(status, 400);
+  assert.equal(repository.departures.length, before);
 });
 
 // ---- join requests ----------------------------------------------------

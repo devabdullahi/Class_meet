@@ -298,6 +298,10 @@ export const api = {
   requestToJoin: (groupId: string): Promise<{ status: 'pending' }> =>
     request<{ status: 'pending' }>(`/api/groups/${groupId}/join-requests`, { method: 'POST' }),
 
+  /** Members only; the leader cannot leave the group they lead. */
+  leaveGroup: (groupId: string): Promise<null> =>
+    request<null>(`/api/groups/${groupId}/members/me`, { method: 'DELETE' }),
+
   withdrawJoinRequest: (groupId: string): Promise<null> =>
     request<null>(`/api/groups/${groupId}/join-requests/mine`, { method: 'DELETE' }),
 

@@ -3,6 +3,7 @@
  *   GET  /api/groups/:id                                   one group, its members, and the viewer's relationship to it
  *   PATCH /api/groups/:id                                  leader changes the group's settings (all of them, not the course)
  *   POST /api/groups/:id/join-requests                     ask to join
+ *   DELETE /api/groups/:id/members/me                      leave a group you are in (not one you lead)
  *   DELETE /api/groups/:id/join-requests/mine              withdraw your own pending request
  *   POST /api/groups/:id/join-requests/:requestId/decision leader approves or declines: { decision }
  */
@@ -81,6 +82,22 @@ export function createGroupsRouter(repository: GroupRepository): Router {
         throw HttpError.conflict('already_requested', 'You have already asked to join this group.');
       case 'group_full':
         throw HttpError.conflict('group_full', 'This group is full.');
+    }
+  });
+
+  router.delete('/:groupId/members/me', async (req: Request, res: Response) => {
+    const groupId = requireGroupId(req.params['groupId']);
+    const outcome = await repository.leaveGroup(groupId, requireViewerId(req));
+    switch (outcome) {
+      case 'left':
+        res.status(204).end();
+        return;
+      case 'group_not_found':
+        throw HttpError.notFound('group_not_found', 'That group does not exist.');
+      case 'is_leader':
+        throw HttpError.conflict('leader_cannot_leave', 'You lead this group, so you cannot leave it.');
+      case 'not_member':
+        throw HttpError.notFound('not_member', 'You are not a member of this group.');
     }
   });
 

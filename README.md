@@ -128,6 +128,7 @@ client/                  Vite + React + TypeScript single-page app
       GroupForm.tsx      the group fields, inline errors and submit; creates a group or edits one
       FormField.tsx      label, control, then hint or error, wired with aria
       GroupActionPanels.tsx  Group Details' state-driven action panel
+      InlineConfirm.tsx  asks in place before leaving a group or removing a course
       Wordmark.tsx       inline-SVG logo
       FullPageSpinner.tsx
       icons.tsx
@@ -169,7 +170,8 @@ server/                  Express + TypeScript API
                          GET /api/me/groups/pending-request-count             (sign-in required)
     routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
     routes/groups.ts     POST /api/groups, GET /api/groups/:id, PATCH /api/groups/:id (leader), join requests
-                         (ask, withdraw your own, leader decides)            (sign-in required)
+                         (ask, withdraw your own, leader decides),
+                         DELETE /api/groups/:id/members/me (leave)           (sign-in required)
     scripts/migrate.ts   the migration runner
 ```
 

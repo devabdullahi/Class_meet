@@ -23,6 +23,7 @@ vi.mock('../api', async (importOriginal) => {
       requestToJoin: vi.fn(),
       withdrawJoinRequest: vi.fn(),
       decideJoinRequest: vi.fn(),
+      leaveGroup: vi.fn(),
       fetchPendingRequestCount: vi.fn(),
     },
   };
@@ -32,6 +33,7 @@ const fetchGroup = vi.mocked(api.fetchGroup);
 const requestToJoin = vi.mocked(api.requestToJoin);
 const withdrawJoinRequest = vi.mocked(api.withdrawJoinRequest);
 const decideJoinRequest = vi.mocked(api.decideJoinRequest);
+const leaveGroup = vi.mocked(api.leaveGroup);
 const fetchPendingRequestCount = vi.mocked(api.fetchPendingRequestCount);
 
 /** Seen by Sam, who is not in it. */
@@ -262,6 +264,65 @@ test('after an edit, the group says the changes were saved', async () => {
   fetchGroup.mockResolvedValue({ group: { ...BASE, viewerRole: 'leader' } });
   renderPage({ saved: true });
   expect((await screen.findByRole('status')).textContent).toBe('Changes saved.');
+});
+
+test('only a member, not the leader or a stranger, is offered Leave group', async () => {
+  fetchGroup.mockResolvedValue({ group: AS_MEMBER });
+  renderPage();
+  const leave = await screen.findByRole('button', { name: 'Leave group' });
+  expect(leave.className).toContain('cm-btn--quiet');
+  for (const group of [{ ...BASE, viewerRole: 'leader' as const }, BASE]) {
+    cleanup();
+    fetchGroup.mockResolvedValue({ group });
+    renderPage();
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('button', { name: 'Leave group' })).toBeNull();
+  }
+});
+
+test('Leave group asks first; Cancel and Escape back out without leaving', async () => {
+  fetchGroup.mockResolvedValue({ group: AS_MEMBER });
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Leave group' }));
+  const question = screen.getByRole('group', { name: 'Leave this group?' });
+  expect(question.textContent).toContain('Your seat goes to someone else.');
+  expect(document.activeElement).toBe(within(question).getByRole('button', { name: 'Cancel' }));
+  expect(within(question).getByRole('button', { name: 'Leave group' }).className).toContain('cm-btn--danger');
+
+  await user.click(within(question).getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('group', { name: 'Leave this group?' })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Leave group' }));
+
+  await user.click(screen.getByRole('button', { name: 'Leave group' }));
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('group', { name: 'Leave this group?' })).toBeNull();
+  expect(leaveGroup).not.toHaveBeenCalled();
+});
+
+test('a member who confirms leaves, and then sees the group as someone outside it', async () => {
+  fetchGroup.mockResolvedValueOnce({ group: AS_MEMBER }).mockResolvedValue({ group: BASE });
+  leaveGroup.mockResolvedValue(null);
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Leave group' }));
+  const question = screen.getByRole('group', { name: 'Leave this group?' });
+  await user.click(within(question).getByRole('button', { name: 'Leave group' }));
+  expect(leaveGroup).toHaveBeenCalledWith('g1');
+  const notice = await screen.findByRole('status');
+  expect(notice.textContent).toBe('You left this group.');
+  expect(document.activeElement).toBe(notice);
+  expect(screen.getByRole('button', { name: 'Request to join' })).toBeTruthy();
+  expect(screen.queryByText('(you)')).toBeNull();
+});
+
+test('if leaving fails, the question stays open with the reason', async () => {
+  fetchGroup.mockResolvedValue({ group: AS_MEMBER });
+  leaveGroup.mockRejectedValue(new ApiError(409, 'leader_cannot_leave', 'You lead this group, so you cannot leave it.'));
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Leave group' }));
+  const question = screen.getByRole('group', { name: 'Leave this group?' });
+  await user.click(within(question).getByRole('button', { name: 'Leave group' }));
+  expect((await within(question).findByRole('alert')).textContent).toBe('You lead this group, so you cannot leave it.');
+  expect(within(question).getByRole('button', { name: 'Cancel' })).toBeTruthy();
 });
 
 test('the leader can approve a request, and the list refreshes', async () => {

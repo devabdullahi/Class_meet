@@ -11,6 +11,7 @@ import { buildIcs, googleCalendarUrl, icsFileName, type CalendarEventInput } fro
 import { downloadTextFile } from '../download';
 import { isGroupFull, meetingPlatform, seatsLeft } from '../groupFormat';
 import { Avatar } from './Avatar';
+import { InlineConfirm } from './InlineConfirm';
 import { AlertIcon, CalendarIcon, ChevronDownIcon, ExternalLinkIcon } from './icons';
 
 function ActionError({ message }: { message: string | null }): ReactNode {
@@ -136,8 +137,14 @@ function CalendarOptions({ group }: { group: GroupDetails }): ReactNode {
   );
 }
 
-/** For members and the leader: how to get to the meeting, and the calendar. */
-export function YourMeetingPanel({ group }: { group: GroupDetails }): ReactNode {
+interface YourMeetingPanelProps {
+  group: GroupDetails;
+  /** Members only; the leader cannot leave the group they lead. */
+  onLeave: () => Promise<void>;
+}
+
+/** For members and the leader: how to get to the meeting, the calendar, and for members a way out. */
+export function YourMeetingPanel({ group, onLeave }: YourMeetingPanelProps): ReactNode {
   const leader = group.viewerRole === 'leader';
   return (
     <section className="cm-panel cm-action" aria-labelledby="your-meeting-heading">
@@ -156,6 +163,16 @@ export function YourMeetingPanel({ group }: { group: GroupDetails }): ReactNode 
         </p>
       )}
       <CalendarOptions group={group} />
+      {!leader && (
+        <InlineConfirm
+          label="Leave group"
+          busyLabel="Leaving…"
+          question="Leave this group?"
+          consequence="Your seat goes to someone else. To come back, you would ask to join again."
+          failureMessage="We could not take you out of the group. Please try again."
+          onConfirm={onLeave}
+        />
+      )}
     </section>
   );
 }
