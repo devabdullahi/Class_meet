@@ -547,6 +547,10 @@ What a moderator's decisions do:
 - **Remove from group** takes one member out; they may ask to join again,
   and the leader decides.
 
+When a leader deletes their own group, its open reports leave the queue but
+stay `open` in the database: no moderator decided them, and every resolved
+report records the moderator who did.
+
 Who reported what is visible to moderators only. A group's leader and members
 never see reports about it, and a student sees only their own.
 

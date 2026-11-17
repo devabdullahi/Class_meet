@@ -554,6 +554,14 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
       // memberships and requests go in the same delete. Locking the row
       // first, as approving does, means an approval in flight finishes
       // before the group goes, and one that comes after finds no group.
+      //
+      // Open reports about the group are left open on purpose. Resolving one
+      // needs an outcome and the moderator who decided it (migration 007),
+      // and a leader deleting their own group is neither: recording it as
+      // 'removed' would list the leader among the moderators' decisions. The
+      // moderators' queue and badge only count reports about groups that
+      // still exist, so these drop out of both and stay as the record of
+      // what was reported.
       const rows = await query<{ leader_id: string; deleted: boolean }>(
         `WITH target AS (
            SELECT id, leader_id FROM study_groups WHERE id = $1 FOR UPDATE
