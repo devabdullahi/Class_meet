@@ -23,6 +23,7 @@ import type {
 } from '../groups/repository.js';
 import type { GroupSettings } from '../groups/validation.js';
 import type { MyGroups } from '../groups/my-groups.js';
+import { createCourseLinksRouter } from './course-links.js';
 import { createCoursesRouter } from './courses.js';
 import { createGroupsRouter } from './groups.js';
 import { createMeRouter } from './me.js';
@@ -80,13 +81,17 @@ class FakeRepository implements GroupRepository {
   decisions: Array<{ requestId: string; decision: string; viewerId: string }> = [];
   myGroupsByViewer = new Map<string, MyGroups>();
   pendingRequestCountByViewer = new Map<string, number>();
+  linkCodesLookedUp: string[] = [];
+  viewerHasCourse = false;
+  classmateCount = 38;
+  classmateCountViewers: string[] = [];
 
   async listCourses(search: string, viewerId: string): Promise<CourseSearchResult[]> {
     this.searches.push({ search, viewerId });
     return [{ ...COURSE, enrolled: false }];
   }
   async listMyCourses(): Promise<EnrolledCourse[]> {
-    return [{ ...COURSE, groupCount: 2, openGroupCount: 1, joinedGroupCount: 1 }];
+    return [{ ...COURSE, groupCount: 2, openGroupCount: 1, joinedGroupCount: 1, classmateCount: 38 }];
   }
   async enrollInCourse(viewerId: string, courseId: string): Promise<void> {
     this.enrolled.push({ viewerId, courseId });
@@ -97,6 +102,18 @@ class FakeRepository implements GroupRepository {
   }
   async findCourse(courseId: string): Promise<Course | null> {
     return courseId === COURSE.id ? COURSE : null;
+  }
+  /** Knows COURSE by the code a link spells it with, as parseCourseLinkCode leaves it. */
+  async findCourseByLinkCode(code: string): Promise<Course | null> {
+    this.linkCodesLookedUp.push(code);
+    return code === 'CSE-3311' ? COURSE : null;
+  }
+  async isEnrolled(): Promise<boolean> {
+    return this.viewerHasCourse;
+  }
+  async countClassmates(_courseId: string, viewerId: string): Promise<number> {
+    this.classmateCountViewers.push(viewerId);
+    return this.classmateCount;
   }
   async listGroupsForCourse(_courseId: string, viewerId: string): Promise<GroupSummary[]> {
     this.viewersOfCourseGroups.push(viewerId);
@@ -166,6 +183,7 @@ before(async () => {
   });
   app.use('/api/me', createMeRouter(repository));
   app.use('/api/courses', createCoursesRouter(repository));
+  app.use('/api/course-links', createCourseLinksRouter(repository));
   app.use('/api/groups', createGroupsRouter(repository));
   app.use(errorHandler);
   await new Promise<void>((resolve) => {
@@ -188,6 +206,7 @@ beforeEach(() => {
   repository.deleteOutcome = 'deleted';
   repository.leaveOutcome = 'left';
   repository.removeCourseOutcome = 'removed';
+  repository.viewerHasCourse = false;
 });
 
 async function send(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }> {
@@ -235,6 +254,12 @@ test('GET /api/courses/:id/groups returns the course and its groups as the viewe
   assert.equal(repository.viewersOfCourseGroups.at(-1), VIEWER_ID);
 });
 
+test('GET /api/courses/:id/groups counts the classmates who have added the course, leaving out the viewer', async () => {
+  const { json } = await send('GET', `/api/courses/${COURSE.id}/groups`);
+  assert.equal(json.classmateCount, 38);
+  assert.equal(repository.classmateCountViewers.at(-1), VIEWER_ID);
+});
+
 test('GET /api/courses/:id/groups returns 404 for an unknown course', async () => {
   const { status, json } = await send('GET', `/api/courses/${UNKNOWN_ID}/groups`);
   assert.equal(status, 404);
@@ -247,6 +272,54 @@ test('GET /api/courses/:id/groups rejects a malformed id', async () => {
   assert.equal(json.error.code, 'invalid_courseId');
 });
 
+// ---- course links ------------------------------------------------------
+
+test('GET /api/courses/by-code/:code resolves a course link for a student who has not added the course', async () => {
+  const { status, json } = await send('GET', '/api/courses/by-code/CSE-3311');
+  assert.equal(status, 200);
+  assert.deepEqual(json.course, COURSE);
+  assert.equal(json.enrolled, false);
+  assert.equal(json.classmateCount, 38);
+  assert.equal(json.groups.length, 1);
+  assert.equal(repository.viewersOfCourseGroups.at(-1), VIEWER_ID);
+  assert.equal(repository.classmateCountViewers.at(-1), VIEWER_ID);
+});
+
+test('GET /api/courses/by-code/:code says when the student already has the course', async () => {
+  repository.viewerHasCourse = true;
+  const { json } = await send('GET', '/api/courses/by-code/CSE-3311');
+  assert.equal(json.enrolled, true);
+});
+
+test('GET /api/courses/by-code/:code reads the code in any case, with a space or a hyphen', async () => {
+  for (const code of ['cse-3311', 'Cse%203311', '%20CSE-3311%20']) {
+    const { status } = await send('GET', `/api/courses/by-code/${code}`);
+    assert.equal(status, 200, code);
+    assert.equal(repository.linkCodesLookedUp.at(-1), 'CSE-3311');
+  }
+});
+
+test('GET /api/courses/by-code/:code returns 404 for a code not in the catalog and 400 for one too long to be a code', async () => {
+  const unknown = await send('GET', '/api/courses/by-code/CSE-3399');
+  assert.equal(unknown.status, 404);
+  assert.equal(unknown.json.error.code, 'course_not_found');
+  const tooLong = await send('GET', `/api/courses/by-code/${'A'.repeat(41)}`);
+  assert.equal(tooLong.status, 400);
+  assert.equal(tooLong.json.error.code, 'invalid_course_code');
+});
+
+test('GET /api/course-links/:code gives only the course code and title', async () => {
+  const { status, json } = await send('GET', '/api/course-links/cse-3311');
+  assert.equal(status, 200);
+  assert.deepEqual(json, { course: { code: 'CSE 3311', title: COURSE.title } });
+});
+
+test('GET /api/course-links/:code returns 404 for a code not in the catalog', async () => {
+  const { status, json } = await send('GET', '/api/course-links/CSE-3399');
+  assert.equal(status, 404);
+  assert.equal(json.error.code, 'course_not_found');
+});
+
 // ---- my courses -------------------------------------------------------
 
 test('GET /api/me/courses lists the student\'s courses with group counts', async () => {
@@ -255,6 +328,7 @@ test('GET /api/me/courses lists the student\'s courses with group counts', async
   assert.equal(json.courses[0].groupCount, 2);
   assert.equal(json.courses[0].openGroupCount, 1);
   assert.equal(json.courses[0].joinedGroupCount, 1);
+  assert.equal(json.courses[0].classmateCount, 38);
 });
 
 test('POST /api/me/courses adds the course for the signed-in student', async () => {

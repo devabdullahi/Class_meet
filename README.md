@@ -176,7 +176,11 @@ server/                  Express + TypeScript API
                          (refused while you lead or are in one of its groups;
                          withdraws your requests to its groups), GET /api/me/groups,
                          GET /api/me/groups/pending-request-count             (sign-in required)
-    routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
+    routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups (with the
+                         classmate count), GET /api/courses/by-code/:code (a course
+                         link: the course, added or not, classmates, groups)  (sign-in required)
+    routes/course-links.ts  GET /api/course-links/:code — a course link's code and
+                         title only, for its sign-in page               (no sign-in)
     routes/groups.ts     POST /api/groups, GET /api/groups/:id, PATCH and DELETE /api/groups/:id (leader), join requests
                          (ask, withdraw your own, leader decides),
                          DELETE /api/groups/:id/members/me (leave)           (sign-in required)

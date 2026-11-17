@@ -243,7 +243,15 @@ test('My courses counts each course\'s groups, those with a seat left, and those
   await joinGroup(fullGroup, cse3311, leader, student);
 
   assert.deepEqual(await repository.listMyCourses(student), [
-    { id: cse3311, code: 'CSE 3311', title: 'Object Oriented Software Engineering', groupCount: 2, openGroupCount: 1, joinedGroupCount: 1 },
+    {
+      id: cse3311,
+      code: 'CSE 3311',
+      title: 'Object Oriented Software Engineering',
+      groupCount: 2,
+      openGroupCount: 1,
+      joinedGroupCount: 1,
+      classmateCount: 1,
+    },
   ]);
 });
 
@@ -276,6 +284,46 @@ test('course search matches a code typed without its space and marks courses alr
     { id: cse3311, code: 'CSE 3311', title: 'Object Oriented Software Engineering', enrolled: true },
   ]);
   assert.deepEqual(await repository.listCourses('100%', student), []);
+});
+
+// ---- Classmates and course links ----------------------------------------------
+
+test('classmates are the other students who have added the course, counted without the viewer', async () => {
+  const viewer = await addStudent('Jo');
+  const classmates = [await addStudent('Alex'), await addStudent('Sam')];
+  for (const student of classmates) await repository.enrollInCourse(student, cse3311);
+  await repository.enrollInCourse(await addStudent('Kim'), cse4308);
+
+  // Before the viewer adds the course, and after: the count does not change.
+  assert.equal(await repository.countClassmates(cse3311, viewer), 2);
+  await repository.enrollInCourse(viewer, cse3311);
+  assert.equal(await repository.countClassmates(cse3311, viewer), 2);
+  assert.equal(await repository.countClassmates(cse3311, classmates[0]!), 2);
+  assert.equal(await repository.countClassmates(cse4308, viewer), 1);
+  assert.equal((await repository.listMyCourses(viewer))[0]?.classmateCount, 2);
+});
+
+test('the first student to add a course has no classmates in it', async () => {
+  const viewer = await addStudent('Jo');
+  await repository.enrollInCourse(viewer, cse3311);
+  assert.equal(await repository.countClassmates(cse3311, viewer), 0);
+  assert.equal((await repository.listMyCourses(viewer))[0]?.classmateCount, 0);
+});
+
+test('a course link finds its course by the code with its space as a hyphen, and nothing for a code not in the catalog', async () => {
+  const course = { id: cse3311, code: 'CSE 3311', title: 'Object Oriented Software Engineering' };
+  assert.deepEqual(await repository.findCourseByLinkCode('CSE-3311'), course);
+  assert.equal(await repository.findCourseByLinkCode('CSE-3399'), null);
+  // The repository compares in the form parseCourseLinkCode produces; a space is not that form.
+  assert.equal(await repository.findCourseByLinkCode('CSE 3311'), null);
+});
+
+test('whether a student has added a course', async () => {
+  const student = await addStudent('Jo');
+  assert.equal(await repository.isEnrolled(student, cse3311), false);
+  await repository.enrollInCourse(student, cse3311);
+  assert.equal(await repository.isEnrolled(student, cse3311), true);
+  assert.equal(await repository.isEnrolled(student, cse4308), false);
 });
 
 // ---- Removing a course -------------------------------------------------------
