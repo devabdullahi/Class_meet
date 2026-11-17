@@ -52,6 +52,16 @@ export function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_PATTERN.test(value);
 }
 
+/**
+ * A uuid from a request in lowercase, or null when it is not a uuid.
+ * Postgres reads a uuid in any letter case but always returns it in
+ * lowercase, so an id that a repository compares in TypeScript with ids read
+ * from the database ("is this the leader?") must be lowercased first.
+ */
+export function parseUuid(value: unknown): string | null {
+  return isUuid(value) ? value.toLowerCase() : null;
+}
+
 function invalid(field: string, message: string): HttpError {
   return HttpError.badRequest(`invalid_${field}`, message);
 }

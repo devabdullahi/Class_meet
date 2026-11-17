@@ -14,16 +14,16 @@
  */
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { HttpError } from '../errors.js';
-import { isUuid } from '../groups/validation.js';
+import { parseUuid } from '../groups/validation.js';
 import type { ModerationRepository, ReportTarget } from '../moderation/repository.js';
 import { requireViewerId } from './me.js';
 
 function requireUuidParam(req: Request, name: 'groupId' | 'userId', label: string): string {
-  const value: unknown = req.params[name];
-  if (!isUuid(value)) {
+  const id = parseUuid(req.params[name]);
+  if (id === null) {
     throw HttpError.badRequest(`invalid_${name}`, `That is not a valid ${label} id.`);
   }
-  return value;
+  return id;
 }
 
 export function createModerationRouter(repository: ModerationRepository): Router {

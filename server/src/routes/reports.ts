@@ -11,16 +11,17 @@
  */
 import { Router, type Request, type Response } from 'express';
 import { HttpError } from '../errors.js';
-import { isUuid } from '../groups/validation.js';
+import { parseUuid } from '../groups/validation.js';
 import type { ModerationRepository } from '../moderation/repository.js';
 import { parseReportInput } from '../moderation/validation.js';
 import { requireViewerId } from './me.js';
 
 function requireGroupId(value: unknown): string {
-  if (!isUuid(value)) {
+  const groupId = parseUuid(value);
+  if (groupId === null) {
     throw HttpError.badRequest('invalid_groupId', 'That is not a valid group id.');
   }
-  return value;
+  return groupId;
 }
 
 export function createReportsRouter(repository: ModerationRepository): Router {

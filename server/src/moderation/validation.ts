@@ -4,7 +4,7 @@
  * them.
  */
 import { HttpError } from '../errors.js';
-import { isUuid } from '../groups/validation.js';
+import { parseUuid } from '../groups/validation.js';
 
 /**
  * What a student can say is wrong. The database CHECK in migration 007 holds
@@ -34,8 +34,9 @@ export function parseReportInput(body: unknown): ReportInput {
   }
   const record = body as Record<string, unknown>;
 
-  const memberId = record['memberId'] ?? null;
-  if (memberId !== null && !isUuid(memberId)) {
+  const rawMemberId = record['memberId'] ?? null;
+  const memberId = rawMemberId === null ? null : parseUuid(rawMemberId);
+  if (rawMemberId !== null && memberId === null) {
     throw HttpError.badRequest('invalid_memberId', 'That is not a valid member id.');
   }
 

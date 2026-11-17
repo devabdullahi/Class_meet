@@ -169,6 +169,20 @@ test('POST /api/groups/:id/reports files the report as the signed-in student', a
   ]);
 });
 
+// Postgres reads a uuid in any letter case, but the repository compares ids
+// it was given with ids read from the database (always lowercase) in
+// TypeScript: an uppercase id must not slip past "is this you?" or "is this
+// the leader?".
+const MIXED_CASE_ID = 'ABCDEF01-2345-4678-89ab-CDEF01234567';
+
+test('POST /api/groups/:id/reports passes ids to the repository in lowercase', async () => {
+  signInAs(STUDENT_ID);
+  await send('POST', `/api/groups/${GROUP_ID.toUpperCase()}/reports`, { memberId: MIXED_CASE_ID, reason: 'spam' });
+  const created = repository.reportsCreated.at(-1);
+  assert.equal(created?.groupId, GROUP_ID);
+  assert.equal(created?.input.memberId, MIXED_CASE_ID.toLowerCase());
+});
+
 test('POST /api/groups/:id/reports rejects a bad group id, reason, member id or over-long details', async () => {
   const cases: Array<[string, unknown, string]> = [
     ['not-a-uuid', { reason: 'spam' }, 'invalid_groupId'],
@@ -314,6 +328,17 @@ test('removing a member answers each refusal with its own status', async () => {
     assert.equal(status, expectedStatus, outcome);
     assert.equal(json.error.code, code);
   }
+});
+
+test('moderation endpoints pass ids to the repository in lowercase', async () => {
+  signInAs(MODERATOR_ID);
+  await send('DELETE', `/api/moderation/groups/${GROUP_ID.toUpperCase()}/members/${MIXED_CASE_ID}`);
+  await send('POST', `/api/moderation/groups/${GROUP_ID.toUpperCase()}/members/${MIXED_CASE_ID}/keep`);
+  await send('DELETE', `/api/moderation/groups/${GROUP_ID.toUpperCase()}`);
+  const memberId = MIXED_CASE_ID.toLowerCase();
+  assert.deepEqual(repository.memberRemovals, [{ groupId: GROUP_ID, memberId, moderatorId: MODERATOR_ID }]);
+  assert.deepEqual(repository.kept, [{ target: { groupId: GROUP_ID, memberId }, moderatorId: MODERATOR_ID }]);
+  assert.deepEqual(repository.groupRemovals, [{ groupId: GROUP_ID, moderatorId: MODERATOR_ID }]);
 });
 
 test('moderation endpoints reject malformed ids before touching the repository', async () => {
