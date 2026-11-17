@@ -49,7 +49,7 @@ export function createMeRouter(repository: GroupRepository): Router {
       case 'leads_group':
         throw HttpError.conflict(
           'leads_group_in_course',
-          `You lead a study group in ${course.code}, so you cannot remove the course.`,
+          `You lead a study group in ${course.code}. Delete the group first, then remove the course.`,
         );
       case 'in_group':
         throw HttpError.conflict(

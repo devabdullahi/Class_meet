@@ -174,14 +174,14 @@ test('a confirmed removal takes the course off the list and says so', async () =
 test('a course whose group the student leads is kept, with the reason in the question', async () => {
   fetchMyCourses.mockResolvedValue({ courses: [OOSE] });
   removeCourse.mockRejectedValue(
-    new ApiError(409, 'leads_group_in_course', 'You lead a study group in CSE 3311, so you cannot remove the course.'),
+    new ApiError(409, 'leads_group_in_course', 'You lead a study group in CSE 3311. Delete the group first, then remove the course.'),
   );
   const user = renderPage();
   await user.click(await screen.findByRole('button', { name: 'Remove CSE 3311' }));
   const question = screen.getByRole('group', { name: 'Remove CSE 3311 from your courses?' });
   await user.click(within(question).getByRole('button', { name: 'Remove' }));
   expect((await within(question).findByRole('alert')).textContent).toBe(
-    'You lead a study group in CSE 3311, so you cannot remove the course.',
+    'You lead a study group in CSE 3311. Delete the group first, then remove the course.',
   );
   expect(screen.getByText('Object Oriented Software Engineering')).toBeTruthy();
   expect(fetchMyCourses).toHaveBeenCalledTimes(1);

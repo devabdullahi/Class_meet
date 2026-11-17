@@ -278,7 +278,7 @@ test('DELETE /api/me/courses/:id removes the course for the signed-in student', 
 
 const removeCourseFailures: Array<[RemoveCourseOutcome, number, string, string]> = [
   ['not_enrolled', 404, 'not_enrolled', 'CSE 3311 is not one of your courses.'],
-  ['leads_group', 409, 'leads_group_in_course', 'You lead a study group in CSE 3311, so you cannot remove the course.'],
+  ['leads_group', 409, 'leads_group_in_course', 'You lead a study group in CSE 3311. Delete the group first, then remove the course.'],
   [
     'in_group',
     409,
