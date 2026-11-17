@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "migrate": "tsx src/scripts/migrate.ts",
     "migrate:status": "tsx src/scripts/migrate.ts --status",
-    "test": "tsx --test \"src/**/*.test.ts\""
+    "test": "tsx --import ./src/testing/test-env.ts --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

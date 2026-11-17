@@ -14,15 +14,10 @@ import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 
-// env.ts validates at import time, so the environment is set first and the
-// app is imported after it. A value already set in server/.env is not used:
-// dotenv never overrides a variable that is already present.
-process.env['SESSION_SECRET'] = 'test-session-secret-that-is-long-enough-0123456789';
-process.env['NODE_ENV'] = 'test';
-// Off whatever server/.env says, so the sign-in tests below see the default.
-process.env['ENABLE_MICROSOFT_LOGIN'] = '';
-const { createApp } = await import('./app.js');
-const { CONTENT_SECURITY_POLICY } = await import('./middleware/security-headers.js');
+// The environment (no database, Microsoft sign-in off, ...) comes from
+// src/testing/test-env.ts, which npm test loads before every test file.
+import { createApp } from './app.js';
+import { CONTENT_SECURITY_POLICY } from './middleware/security-headers.js';
 
 const INDEX_HTML = '<!doctype html><title>Class Meet</title><div id="root"></div>';
 const REDIRECT_HTML = '<!doctype html><title>Signing in</title>';
