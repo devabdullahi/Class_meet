@@ -1,4 +1,5 @@
 import type { GroupFormat, GroupSummary } from './api';
+import { nextOccurrence } from './calendar';
 
 /** "14:30" -> "2:30 PM". */
 export function formatMeetingTime(time: string): string {
@@ -19,6 +20,18 @@ export function isGroupFull(group: Pick<GroupSummary, 'memberCount' | 'maxMember
 
 export function seatsLeft(group: Pick<GroupSummary, 'memberCount' | 'maxMembers'>): number {
   return Math.max(0, group.maxMembers - group.memberCount);
+}
+
+/**
+ * Soonest meeting first, counting from `now`: a Saturday group created
+ * yesterday comes after a Monday group when today is Sunday.
+ */
+export function sortByNextMeeting<Group extends Pick<GroupSummary, 'meetingDay' | 'meetingTime'>>(
+  groups: readonly Group[],
+  now: Date,
+): Group[] {
+  const startOf = (group: Group): number => nextOccurrence(group.meetingDay, group.meetingTime, now).getTime();
+  return [...groups].sort((first, second) => startOf(first) - startOf(second));
 }
 
 /** Whether the viewer leads or belongs to the group: it is one of "your" meetings. */

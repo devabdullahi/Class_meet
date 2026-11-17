@@ -198,38 +198,68 @@
 }
 
 .cm-toolbar__count {
-  margin-left: auto;
-  padding-bottom: var(--space-3);
+  margin-top: var(--space-4);
   color: var(--text-muted);
+  font-size: var(--font-label);
 }
 
-.cm-group__top {
+.cm-toolbar__count + .cm-card-grid {
+  margin-top: var(--space-3);
+}
+
+/* Three rows: tile and title, place and seats, status. The title is held to
+   two lines so the place and seat bars line up across a row of cards. */
+.cm-group-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-4);
+}
+
+.cm-group-card__top {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
 }
 
-.cm-meta {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.cm-group-card__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.cm-group-card__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  color: var(--text-muted);
-}
-
-.cm-meta li {
-  display: flex;
-  align-items: flex-start;
   gap: var(--space-3);
 }
 
-.cm-meta svg {
+.cm-group-card__place {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.cm-group-card__place span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-group-card__place svg {
   width: 18px;
   height: 18px;
   flex: none;
-  margin-top: 3px;
+}
+
+.cm-group-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 /* ---- Meeting tile and seats ------------------------------------------- */
@@ -782,6 +812,44 @@
 
   .cm-main {
     padding: var(--space-6) var(--space-5) var(--space-12);
+  }
+
+  /* Filters become one row of compact controls that scrolls sideways. Each
+     select's value ("Any Day", "All Groups") says what it filters, and the
+     label stays available to screen readers. */
+  .cm-toolbar {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-6);
+    margin-inline: calc(-1 * var(--space-5));
+    padding: 0 var(--space-5) var(--space-1);
+    overflow-x: auto;
+  }
+
+  .cm-field__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .cm-field {
+    flex: none;
+  }
+
+  .cm-field .cm-input {
+    min-width: 0;
+    min-height: var(--control-height-sm);
+    padding-left: var(--space-3);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-label);
+  }
+
+  .cm-toolbar .cm-btn {
+    flex: none;
   }
 
   .cm-pagehead h1,

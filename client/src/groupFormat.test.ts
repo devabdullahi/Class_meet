@@ -1,5 +1,12 @@
 import { expect, test } from 'vitest';
-import { formatLabel, formatMeetingTime, isGroupFull, meetingPlatform, seatsLeft } from './groupFormat';
+import {
+  formatLabel,
+  formatMeetingTime,
+  isGroupFull,
+  meetingPlatform,
+  seatsLeft,
+  sortByNextMeeting,
+} from './groupFormat';
 
 test.each([
   ['00:05', '12:05 AM'],
@@ -35,4 +42,16 @@ test.each([
   ['not a link', 'Online meeting'],
 ])('names the platform of %s', (link, expected) => {
   expect(meetingPlatform(link)).toBe(expected);
+});
+
+test('sorts groups by their next meeting, counting from now', () => {
+  // Wednesday 4 November 2026, 17:00.
+  const now = new Date(2026, 10, 4, 17, 0);
+  const groups = [
+    { id: 'tue', meetingDay: 'Tuesday' as const, meetingTime: '09:00' },
+    { id: 'wed-past', meetingDay: 'Wednesday' as const, meetingTime: '16:00' },
+    { id: 'wed-later', meetingDay: 'Wednesday' as const, meetingTime: '18:00' },
+    { id: 'fri', meetingDay: 'Friday' as const, meetingTime: '12:30' },
+  ];
+  expect(sortByNextMeeting(groups, now).map((group) => group.id)).toEqual(['wed-later', 'fri', 'tue', 'wed-past']);
 });

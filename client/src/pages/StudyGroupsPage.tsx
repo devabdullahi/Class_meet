@@ -2,9 +2,9 @@ import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type GroupSummary } from '../api';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
-import { SeatMeter, StatusPill, TimeTile } from '../components/groupParts';
+import { RelationshipChip, SeatMeter, StatusPill, TimeTile } from '../components/groupParts';
 import { AlertIcon, ChevronLeftIcon, PinIcon, PlusIcon, VideoIcon } from '../components/icons';
-import { formatLabel, isGroupFull, isViewersGroup } from '../groupFormat';
+import { formatLabel, isGroupFull, isViewersGroup, meetingPlatform, sortByNextMeeting } from '../groupFormat';
 import { useApiData } from '../hooks/useApiData';
 
 const ANY_DAY = 'Any Day';
@@ -20,9 +20,47 @@ function matchesFilters(group: GroupSummary, day: string, format: string, availa
   return dayMatches && formatMatches && availabilityMatches;
 }
 
+/** Where the group meets: the place, or the platform for an online group when you may see its link. */
+function placeLabel(group: GroupSummary): string {
+  if (group.format === 'in_person') return group.location ?? '';
+  return group.location === null ? 'Online' : `Online · ${meetingPlatform(group.location)}`;
+}
+
+/** The whole card is one link, named by the group's goal. */
+function GroupCard({ group, courseId }: { group: GroupSummary; courseId: string }): ReactNode {
+  const full = isGroupFull(group);
+  return (
+    <article className="cm-card cm-group-card">
+      <div className="cm-group-card__top">
+        <TimeTile
+          day={group.meetingDay}
+          time={group.meetingTime}
+          tone={isViewersGroup(group) ? 'yours' : full ? 'full' : 'open'}
+        />
+        <h2 className="cm-card__title cm-group-card__title">
+          <Link className="cm-card__link" to={`/groups/${courseId}/${group.id}`}>
+            {group.goal}
+          </Link>
+        </h2>
+      </div>
+      <div className="cm-group-card__body">
+        <p className="cm-group-card__place">
+          {group.format === 'online' ? <VideoIcon /> : <PinIcon />}
+          <span>{placeLabel(group)}</span>
+        </p>
+        <SeatMeter taken={group.memberCount} max={group.maxMembers} />
+      </div>
+      <div className="cm-group-card__foot">
+        <StatusPill full={full} />
+        <RelationshipChip group={group} />
+      </div>
+    </article>
+  );
+}
+
 export function StudyGroupsPage(): ReactNode {
   const { courseId = '' } = useParams();
-  const { data, error, loading, reload } = useApiData(
+  const { data, error, notFound, loading, reload } = useApiData(
     () => api.fetchCourseGroups(courseId),
     [courseId],
     'We could not load the study groups for this course. Please try again.',
@@ -31,9 +69,11 @@ export function StudyGroupsPage(): ReactNode {
   const [format, setFormat] = useState(ANY_FORMAT);
   const [availability, setAvailability] = useState(ALL_GROUPS);
 
-  const groups = data?.groups ?? [];
+  const groups = sortByNextMeeting(data?.groups ?? [], new Date());
   const visibleGroups = groups.filter((group) => matchesFilters(group, day, format, availability));
   const filtersActive = day !== ANY_DAY || format !== ANY_FORMAT || availability !== ALL_GROUPS;
+  const hasGroups = groups.length > 0;
+  const createGroupPath = `/groups/create?course=${courseId}`;
 
   const clearFilters = (): void => {
     setDay(ANY_DAY);
@@ -53,56 +93,75 @@ export function StudyGroupsPage(): ReactNode {
           <h1>{data === null ? 'Study Groups' : `${data.course.code} — Study Groups`}</h1>
           {data !== null && <p className="cm-pagehead__sub">{data.course.title}</p>}
         </div>
-        <div className="cm-actions">
-          <Link className="cm-btn cm-btn--primary" to={`/groups/create?course=${courseId}`}>
-            <PlusIcon />
-            Create Group
-          </Link>
-        </div>
+        {/* With no groups yet, the empty state below holds this action instead. */}
+        {hasGroups && (
+          <div className="cm-actions">
+            <Link className="cm-btn cm-btn--primary" to={createGroupPath}>
+              <PlusIcon />
+              Create Group
+            </Link>
+          </div>
+        )}
       </header>
 
-      <div className="cm-toolbar">
-        <label className="cm-field">
-          Day
-          <select className="cm-input" value={day} onChange={(event) => setDay(event.target.value)}>
-            {DAY_FILTERS.map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </select>
-        </label>
+      {hasGroups && (
+        <div className="cm-toolbar">
+          <label className="cm-field">
+            <span className="cm-field__label">Day</span>
+            <select className="cm-input" value={day} onChange={(event) => setDay(event.target.value)}>
+              {DAY_FILTERS.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+          </label>
 
-        <label className="cm-field">
-          Format
-          <select className="cm-input" value={format} onChange={(event) => setFormat(event.target.value)}>
-            <option>{ANY_FORMAT}</option>
-            <option>Online</option>
-            <option>In Person</option>
-          </select>
-        </label>
+          <label className="cm-field">
+            <span className="cm-field__label">Format</span>
+            <select className="cm-input" value={format} onChange={(event) => setFormat(event.target.value)}>
+              <option>{ANY_FORMAT}</option>
+              <option>Online</option>
+              <option>In Person</option>
+            </select>
+          </label>
 
-        <label className="cm-field">
-          Availability
-          <select className="cm-input" value={availability} onChange={(event) => setAvailability(event.target.value)}>
-            <option value={ALL_GROUPS}>All Groups</option>
-            <option value="Open">Open</option>
-            <option value="Full">Full</option>
-          </select>
-        </label>
+          <label className="cm-field">
+            <span className="cm-field__label">Availability</span>
+            <select
+              className="cm-input"
+              value={availability}
+              onChange={(event) => setAvailability(event.target.value)}
+            >
+              <option value={ALL_GROUPS}>All Groups</option>
+              <option value="Open">Open</option>
+              <option value="Full">Full</option>
+            </select>
+          </label>
 
-        {filtersActive && (
-          <button type="button" className="cm-btn cm-btn--quiet cm-btn--sm" onClick={clearFilters}>
-            Clear filters
-          </button>
-        )}
+          {filtersActive && (
+            <button type="button" className="cm-btn cm-btn--quiet cm-btn--sm" onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
 
-        {data !== null && groups.length > 0 && (
-          <p className="cm-toolbar__count" aria-live="polite">
-            {visibleGroups.length} of {groups.length} {groups.length === 1 ? 'group' : 'groups'}
-          </p>
-        )}
-      </div>
+      {hasGroups && (
+        <p className="cm-toolbar__count" aria-live="polite">
+          {visibleGroups.length} of {groups.length} {groups.length === 1 ? 'group' : 'groups'}, soonest first
+        </p>
+      )}
 
-      {error !== null && (
+      {notFound && (
+        <div className="cm-empty">
+          <h2>Course not found</h2>
+          <p>This course does not exist, or the link is incomplete. Your courses are on My Courses.</p>
+          <Link className="cm-btn cm-btn--secondary" to="/">
+            Go to My Courses
+          </Link>
+        </div>
+      )}
+
+      {error !== null && !notFound && (
         <div className="cm-notice cm-notice--error" role="alert">
           <AlertIcon />
           <span className="cm-notice__body">{error}</span>
@@ -121,17 +180,18 @@ export function StudyGroupsPage(): ReactNode {
         </div>
       )}
 
-      {data !== null && groups.length === 0 && (
+      {data !== null && !hasGroups && (
         <div className="cm-empty">
           <h2>No study groups yet</h2>
-          <p>No study groups yet for this course. Start the first one and others can ask to join.</p>
-          <Link className="cm-btn cm-btn--primary" to={`/groups/create?course=${courseId}`}>
+          <p>No one has started a group for {data.course.code}. Start the first one and others can ask to join.</p>
+          <Link className="cm-btn cm-btn--primary" to={createGroupPath}>
+            <PlusIcon />
             Create the first group
           </Link>
         </div>
       )}
 
-      {groups.length > 0 && visibleGroups.length === 0 && (
+      {hasGroups && visibleGroups.length === 0 && (
         <div className="cm-empty">
           <h2>No groups match these filters</h2>
           <p>Try a different day or format, or clear the filters to see every group.</p>
@@ -143,36 +203,9 @@ export function StudyGroupsPage(): ReactNode {
 
       {visibleGroups.length > 0 && (
         <section className="cm-card-grid" aria-label="Study groups">
-          {visibleGroups.map((group) => {
-            const full = isGroupFull(group);
-            return (
-              <article className="cm-card" key={group.id}>
-                <div className="cm-group__top">
-                  <TimeTile
-                    day={group.meetingDay}
-                    time={group.meetingTime}
-                    tone={isViewersGroup(group) ? 'yours' : full ? 'full' : 'open'}
-                  />
-                  <h2 className="cm-card__title">{group.goal}</h2>
-                </div>
-                <ul className="cm-meta">
-                  <li>
-                    {group.format === 'online' ? <VideoIcon /> : <PinIcon />}
-                    <span>{group.format === 'online' ? 'Online meeting' : group.location}</span>
-                  </li>
-                  <li>
-                    <SeatMeter taken={group.memberCount} max={group.maxMembers} />
-                  </li>
-                </ul>
-                <div className="cm-card__foot">
-                  <StatusPill full={full} />
-                  <Link className="cm-btn cm-btn--secondary cm-btn--sm" to={`/groups/${courseId}/${group.id}`}>
-                    View group
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
+          {visibleGroups.map((group) => (
+            <GroupCard key={group.id} group={group} courseId={courseId} />
+          ))}
         </section>
       )}
     </ClassMeetLayout>

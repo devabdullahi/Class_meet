@@ -3,7 +3,7 @@
  * meeting time, a seat count and an Open/Full label look the same everywhere.
  */
 import type { ReactNode } from 'react';
-import type { MeetingDay } from '../api';
+import type { GroupSummary, MeetingDay } from '../api';
 import { formatMeetingTime } from '../groupFormat';
 
 /**
@@ -51,6 +51,18 @@ export function SeatMeter({ taken, max }: { taken: number; max: number }): React
       </span>
     </span>
   );
+}
+
+/** The viewer's own relationship to a group, if they have one. */
+export function RelationshipChip({
+  group,
+}: {
+  group: Pick<GroupSummary, 'viewerRole' | 'viewerRequestStatus'>;
+}): ReactNode {
+  if (group.viewerRole === 'leader') return <span className="cm-pill cm-pill--member">You lead</span>;
+  if (group.viewerRole === 'member') return <span className="cm-pill cm-pill--member">You&rsquo;re in</span>;
+  if (group.viewerRequestStatus === 'pending') return <span className="cm-pill cm-pill--requested">Requested</span>;
+  return null;
 }
 
 export function StatusPill({ full }: { full: boolean }): ReactNode {

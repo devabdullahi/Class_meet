@@ -71,11 +71,55 @@ test('shows the course and its groups with time, place and seats', async () => {
   expect(screen.getByText('All 6 seats taken')).toBeTruthy();
 });
 
-test('online groups show Online instead of the raw meeting link', async () => {
-  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
+test('online groups show the platform, never the raw link, and only Online when the link is withheld', async () => {
+  fetchCourseGroups.mockResolvedValue({
+    course: COURSE,
+    groups: [
+      group({ id: 'g4', goal: 'Members only', format: 'online', location: null }),
+      group({ id: 'g5', goal: 'Mine', format: 'online', location: 'https://zoom.us/j/1', viewerRole: 'member' }),
+    ],
+  });
   renderPage();
-  expect(await screen.findByText('Online meeting')).toBeTruthy();
-  expect(screen.queryByText(/meet\.example/)).toBeNull();
+  expect(await screen.findByText('Online', { selector: '.cm-group-card__place span' })).toBeTruthy();
+  expect(screen.getByText('Online · Zoom')).toBeTruthy();
+  expect(screen.queryByText(/zoom\.us/)).toBeNull();
+});
+
+test('lists groups by their next meeting, soonest first', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  // Wednesday 4 November 2026, 17:00.
+  vi.setSystemTime(new Date(2026, 10, 4, 17, 0));
+  fetchCourseGroups.mockResolvedValue({
+    course: COURSE,
+    groups: [
+      group({ id: 'a', goal: 'Tuesday morning', meetingDay: 'Tuesday', meetingTime: '09:00' }),
+      group({ id: 'b', goal: 'Friday lunch', meetingDay: 'Friday', meetingTime: '12:30' }),
+      group({ id: 'c', goal: 'Wednesday evening', meetingDay: 'Wednesday', meetingTime: '18:00' }),
+    ],
+  });
+  renderPage();
+  await screen.findByText('Friday lunch');
+  const titles = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
+  expect(titles).toEqual(['Wednesday evening', 'Friday lunch', 'Tuesday morning']);
+  vi.useRealTimers();
+});
+
+test('each card says how the viewer is related to the group', async () => {
+  fetchCourseGroups.mockResolvedValue({
+    course: COURSE,
+    groups: [
+      group({ id: 'l', goal: 'Led by me', viewerRole: 'leader' }),
+      group({ id: 'm', goal: 'I am in', viewerRole: 'member' }),
+      group({ id: 'p', goal: 'Asked', viewerRequestStatus: 'pending' }),
+      group({ id: 's', goal: 'Stranger' }),
+    ],
+  });
+  renderPage();
+  const card = async (goal: string) => (await screen.findByRole('link', { name: goal })).closest('article')!;
+  expect((await card('Led by me')).textContent).toContain('You lead');
+  expect((await card('I am in')).textContent).toContain('You’re in');
+  expect((await card('Asked')).textContent).toContain('Requested');
+  expect((await card('Stranger')).textContent).not.toMatch(/You lead|You’re in|Requested/);
 });
 
 test('filters by format', async () => {
@@ -108,26 +152,33 @@ test('says when the filters match nothing', async () => {
   expect(screen.getByRole('heading', { name: 'No groups match these filters' })).toBeTruthy();
 });
 
-test('invites the student to create the first group', async () => {
+test('with no groups, offers one way to create the first and hides the filters', async () => {
   fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: [] });
   renderPage();
-  expect(await screen.findByText(/No study groups yet for this course/)).toBeTruthy();
-  const create = screen.getAllByRole('link', { name: 'Create Group' }).find((link) => link.getAttribute('href')?.includes('course=c1'));
-  expect(create).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'No study groups yet' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Create the first group' }).getAttribute('href')).toBe(
+    '/groups/create?course=c1',
+  );
+  expect(screen.queryByLabelText('Day')).toBeNull();
+  // Only the sidebar's Create Group remains; the page has a single call to action.
+  expect(screen.getAllByRole('link', { name: 'Create Group' })).toHaveLength(1);
 });
 
-test('opens a group from its card', async () => {
+test('opens a group from its card, which is one link named by the goal', async () => {
   fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
   const user = renderPage();
-  const links = await screen.findAllByRole('link', { name: /View group/i });
-  await user.click(links[0]!);
+  await user.click(await screen.findByRole('link', { name: 'Review SOLID' }));
   expect(screen.getByRole('heading', { name: 'Details page' })).toBeTruthy();
 });
 
-test('shows the server message when the course cannot be found', async () => {
+test('an unknown course gets a way back, not filters or Create Group', async () => {
   fetchCourseGroups.mockRejectedValue(new ApiError(404, 'course_not_found', 'That course does not exist.'));
-  renderPage();
-  expect((await screen.findByRole('alert')).textContent).toContain('That course does not exist.');
+  const user = renderPage();
+  expect(await screen.findByRole('heading', { name: 'Course not found' })).toBeTruthy();
+  expect(screen.queryByLabelText('Day')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  await user.click(screen.getByRole('link', { name: 'Go to My Courses' }));
+  expect(screen.getByRole('heading', { name: 'My Courses page' })).toBeTruthy();
 });
 
 test('Back returns to My Courses', async () => {
