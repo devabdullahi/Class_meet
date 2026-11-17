@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useState, type ReactNode } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { api, type GroupSummary } from '../api';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { RelationshipLabel, SeatCount, TimeTile } from '../components/groupParts';
-import { AlertIcon, ChevronLeftIcon, PinIcon, PlusIcon, VideoIcon } from '../components/icons';
+import { AlertIcon, CheckCircleIcon, ChevronLeftIcon, PinIcon, PlusIcon, VideoIcon } from '../components/icons';
 import {
   formatLabel,
   groupGoalLine,
@@ -65,6 +65,10 @@ export function StudyGroupsPage(): ReactNode {
   const [day, setDay] = useState(ANY_DAY);
   const [format, setFormat] = useState(ANY_FORMAT);
   const [availability, setAvailability] = useState(ALL_GROUPS);
+  // Set by Group Details after its leader deletes the group. The page they
+  // were on is gone, so the notice saying what happened takes focus.
+  const deletedGroupTitle = (useLocation().state as { deletedGroupTitle?: string } | null)?.deletedGroupTitle;
+  const deletedNotice = useCallback((notice: HTMLDivElement | null) => notice?.focus(), []);
 
   const groups = sortByNextMeeting(data?.groups ?? [], new Date());
   const visibleGroups = groups.filter((group) => matchesFilters(group, day, format, availability));
@@ -100,6 +104,13 @@ export function StudyGroupsPage(): ReactNode {
           </div>
         )}
       </header>
+
+      {deletedGroupTitle !== undefined && (
+        <div ref={deletedNotice} className="cm-notice" role="status" tabIndex={-1}>
+          <CheckCircleIcon />
+          <span className="cm-notice__body">{deletedGroupTitle} was deleted.</span>
+        </div>
+      )}
 
       {hasGroups && (
         <div className="cm-toolbar">

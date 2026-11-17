@@ -141,10 +141,16 @@ interface YourMeetingPanelProps {
   group: GroupDetails;
   /** Members only; the leader cannot leave the group they lead. */
   onLeave: () => Promise<void>;
+  /** The leader only. */
+  onDelete: () => Promise<void>;
 }
 
-/** For members and the leader: how to get to the meeting, the calendar, and for members a way out. */
-export function YourMeetingPanel({ group, onLeave }: YourMeetingPanelProps): ReactNode {
+/**
+ * For members and the leader: how to get to the meeting, the calendar, and a
+ * way out: Leave group for a member, Delete group for the leader (who cannot
+ * leave, and needs this to ever remove the course).
+ */
+export function YourMeetingPanel({ group, onLeave, onDelete }: YourMeetingPanelProps): ReactNode {
   const leader = group.viewerRole === 'leader';
   return (
     <section className="cm-panel cm-action" aria-labelledby="your-meeting-heading">
@@ -163,7 +169,16 @@ export function YourMeetingPanel({ group, onLeave }: YourMeetingPanelProps): Rea
         </p>
       )}
       <CalendarOptions group={group} />
-      {!leader && (
+      {leader ? (
+        <InlineConfirm
+          label="Delete group"
+          busyLabel="Deleting…"
+          question="Delete this group?"
+          consequence="Its members lose their seats and waiting requests are dropped. This cannot be undone."
+          failureMessage="We could not delete the group. Please try again."
+          onConfirm={onDelete}
+        />
+      ) : (
         <InlineConfirm
           label="Leave group"
           busyLabel="Leaving…"

@@ -47,9 +47,9 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
-function renderPage() {
+function renderPage(state?: { deletedGroupTitle?: string }) {
   render(
-    <MemoryRouter initialEntries={['/groups/c1']}>
+    <MemoryRouter initialEntries={[{ pathname: '/groups/c1', state }]}>
       <Routes>
         <Route path="/groups/:courseId" element={<StudyGroupsPage />} />
         <Route path="/groups/:courseId/:groupId" element={<h1>Details page</h1>} />
@@ -198,4 +198,10 @@ test('Back returns to My Courses', async () => {
   const user = renderPage();
   await user.click(await screen.findByRole('link', { name: /Back to my courses/ }));
   expect(screen.getByRole('heading', { name: 'My Courses page' })).toBeTruthy();
+});
+
+test('after its leader deletes a group, the course\'s groups say it was deleted', async () => {
+  fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
+  renderPage({ deletedGroupTitle: 'Pattern crew' });
+  expect((await screen.findByRole('status')).textContent).toBe('Pattern crew was deleted.');
 });

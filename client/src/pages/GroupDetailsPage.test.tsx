@@ -24,6 +24,7 @@ vi.mock('../api', async (importOriginal) => {
       withdrawJoinRequest: vi.fn(),
       decideJoinRequest: vi.fn(),
       leaveGroup: vi.fn(),
+      deleteGroup: vi.fn(),
       fetchPendingRequestCount: vi.fn(),
     },
   };
@@ -34,6 +35,7 @@ const requestToJoin = vi.mocked(api.requestToJoin);
 const withdrawJoinRequest = vi.mocked(api.withdrawJoinRequest);
 const decideJoinRequest = vi.mocked(api.decideJoinRequest);
 const leaveGroup = vi.mocked(api.leaveGroup);
+const deleteGroup = vi.mocked(api.deleteGroup);
 const fetchPendingRequestCount = vi.mocked(api.fetchPendingRequestCount);
 
 /** Seen by Sam, who is not in it. */
@@ -385,4 +387,74 @@ test('a server failure offers Try again', async () => {
   renderPage();
   expect((await screen.findByRole('alert')).textContent).toContain('We could not load this group.');
   expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+});
+
+test('a group opened under another course\'s address is not found there', async () => {
+  fetchGroup.mockResolvedValue({ group: BASE });
+  renderPage(undefined, '/groups/c2/g1');
+  expect(await screen.findByRole('heading', { name: 'Group not found' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Review SOLID' })).toBeNull();
+});
+
+// A failed action usually means the group changed under the student (it
+// filled up, or the leader answered first), so the page shows it as it is now.
+test('when joining fails because the group filled up, the page shows it full', async () => {
+  fetchGroup.mockResolvedValueOnce({ group: BASE }).mockResolvedValue({ group: { ...BASE, memberCount: 6 } });
+  requestToJoin.mockRejectedValue(new ApiError(409, 'group_full', 'This group is full.'));
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Request to join' }));
+  expect(await screen.findByRole('heading', { name: 'This group is full' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Request to join' })).toBeNull();
+});
+
+test('when withdrawing fails because the leader already approved, the page shows the membership', async () => {
+  fetchGroup
+    .mockResolvedValueOnce({ group: { ...BASE, viewerRequestStatus: 'pending' } })
+    .mockResolvedValue({ group: AS_MEMBER });
+  withdrawJoinRequest.mockRejectedValue(
+    new ApiError(404, 'request_not_found', 'You have no pending request for this group.'),
+  );
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Withdraw request' }));
+  expect(await screen.findByRole('heading', { name: 'You are in this group' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Request sent' })).toBeNull();
+});
+
+test('when an answer fails because the request was withdrawn, the list drops it', async () => {
+  const LEADING = { ...BASE, viewerRole: 'leader' as const };
+  fetchGroup
+    .mockResolvedValueOnce({ group: { ...LEADING, pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe' }] } })
+    .mockResolvedValue({ group: LEADING });
+  decideJoinRequest.mockRejectedValue(
+    new ApiError(404, 'request_not_found', 'That request does not exist or was already answered.'),
+  );
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Approve Pat Doe' }));
+  expect(await screen.findByText('No one is waiting to join.')).toBeTruthy();
+  expect(screen.getByRole('alert').textContent).toBe('That request does not exist or was already answered.');
+});
+
+test('only the leader is offered Delete group', async () => {
+  fetchGroup.mockResolvedValue({ group: { ...BASE, viewerRole: 'leader' } });
+  renderPage();
+  expect(await screen.findByRole('button', { name: 'Delete group' })).toBeTruthy();
+  for (const group of [AS_MEMBER, BASE]) {
+    cleanup();
+    fetchGroup.mockResolvedValue({ group });
+    renderPage();
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('button', { name: 'Delete group' })).toBeNull();
+  }
+});
+
+test('the leader who confirms Delete group lands on the course\'s groups', async () => {
+  fetchGroup.mockResolvedValue({ group: { ...BASE, viewerRole: 'leader' } });
+  deleteGroup.mockResolvedValue(null);
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Delete group' }));
+  const question = screen.getByRole('group', { name: 'Delete this group?' });
+  expect(question.textContent).toContain('members');
+  await user.click(within(question).getByRole('button', { name: 'Delete group' }));
+  expect(deleteGroup).toHaveBeenCalledWith('g1');
+  expect(await screen.findByRole('heading', { name: 'Groups page' })).toBeTruthy();
 });

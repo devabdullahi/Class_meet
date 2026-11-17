@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, type GroupDetails, type JoinDecision } from '../api';
 import { useAuth } from '../auth/useAuth';
 import { MEETING_DURATION_MINUTES, nextOccurrence } from '../calendar';
@@ -102,6 +102,7 @@ export function GroupDetailsPage(): ReactNode {
   const justSaved = arrivedFrom?.saved === true;
   const { user } = useAuth();
   const { refresh: refreshPendingRequestCount } = usePendingRequests();
+  const navigate = useNavigate();
 
   const { data, error, notFound, loading, reload } = useApiData(
     () => api.fetchGroup(groupId),
@@ -112,7 +113,12 @@ export function GroupDetailsPage(): ReactNode {
   const [actionError, setActionError] = useState<string | null>(null);
   const [justLeft, setJustLeft] = useState(false);
 
-  const group = data?.group ?? null;
+  const loadedGroup = data?.group ?? null;
+  // The address names the course as well, and the back links follow it, so a
+  // group reached under another course's address is not shown there.
+  const inWrongCourse = loadedGroup !== null && loadedGroup.courseId !== courseId;
+  const group = inWrongCourse ? null : loadedGroup;
+  const groupNotFound = notFound || inWrongCourse;
 
   async function runAction(action: () => Promise<unknown>): Promise<void> {
     setActionError(null);
@@ -120,12 +126,15 @@ export function GroupDetailsPage(): ReactNode {
     setBusy(true);
     try {
       await action();
-      reload();
     } catch (failure) {
       setActionError(describeError(failure, 'That did not go through. Please try again.'));
     } finally {
       setBusy(false);
     }
+    // Reloaded after a failure too: one usually means the group changed under
+    // the student (it filled up, or the leader answered first), and the panel
+    // should show the group as it is now, not the button that just failed.
+    reload();
   }
 
   const requestToJoin = (): void => void runAction(() => api.requestToJoin(groupId));
@@ -146,6 +155,13 @@ export function GroupDetailsPage(): ReactNode {
     reload();
   }
 
+  // Replaces this page in the history, so Back does not return to a group
+  // that no longer exists.
+  async function deleteGroup(deleted: GroupDetails): Promise<void> {
+    await api.deleteGroup(groupId);
+    navigate(`/groups/${courseId}`, { replace: true, state: { deletedGroupTitle: groupTitle(deleted) } });
+  }
+
   const leader = group?.members.find((member) => member.isLeader);
   const goalLine = group === null ? null : groupGoalLine(group);
 
@@ -156,7 +172,7 @@ export function GroupDetailsPage(): ReactNode {
         {group === null ? 'Back to study groups' : `Back to ${group.courseCode} groups`}
       </Link>
 
-      {notFound && (
+      {groupNotFound && (
         <div className="cm-empty">
           <h2>Group not found</h2>
           <p>This group may have been removed, or the link is incomplete.</p>
@@ -166,7 +182,7 @@ export function GroupDetailsPage(): ReactNode {
         </div>
       )}
 
-      {error !== null && !notFound && (
+      {error !== null && !groupNotFound && (
         <div className="cm-notice cm-notice--error" role="alert">
           <AlertIcon />
           <span className="cm-notice__body">{error}</span>
@@ -246,7 +262,9 @@ export function GroupDetailsPage(): ReactNode {
                   onDecide={decide}
                 />
               )}
-              {group.viewerRole !== 'none' && <YourMeetingPanel group={group} onLeave={leaveGroup} />}
+              {group.viewerRole !== 'none' && (
+                <YourMeetingPanel group={group} onLeave={leaveGroup} onDelete={() => deleteGroup(group)} />
+              )}
             </div>
 
             <div className="cm-stack cm-details-main">

@@ -302,6 +302,10 @@ export const api = {
       body: JSON.stringify(settings),
     }),
 
+  /** Leader only. The group's members and join requests go with it. */
+  deleteGroup: (groupId: string): Promise<null> =>
+    request<null>(`/api/groups/${groupId}`, { method: 'DELETE' }),
+
   requestToJoin: (groupId: string): Promise<{ status: 'pending' }> =>
     request<{ status: 'pending' }>(`/api/groups/${groupId}/join-requests`, { method: 'POST' }),
 

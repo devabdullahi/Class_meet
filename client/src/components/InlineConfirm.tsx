@@ -1,6 +1,6 @@
 /**
  * A quiet button for an action that takes something away (leave a group,
- * remove a course), which asks once, in place, before doing it.
+ * remove a course, delete a group), which asks once, in place, before doing it.
  *
  * In place rather than in a dialog: the question appears where the student
  * clicked, next to what it is about. Opening it moves focus to Cancel, the
