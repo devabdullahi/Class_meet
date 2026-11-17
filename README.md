@@ -159,10 +159,11 @@ server/                  Express + TypeScript API
     session.ts           session JWT and cookie attributes
     users.ts             the users table: upsert and lookup
     groups/
-      validation.ts      rules for creating a group (pure, unit-tested)
+      validation.ts      rules for creating and editing a group (pure, unit-tested)
       visibility.ts      what outsiders may see: no online meeting links
       my-groups.ts       sorts a student's groups into led / member / requested (pure, unit-tested)
       repository.ts      all SQL for courses and groups, behind an interface
+                         (tested against PGlite in repository.test.ts)
     dev-login.ts         development sign-in bypass — remove before the pilot
     db/pool.ts           pg Pool, TLS, and the deliberate "no database" path
     middleware/
@@ -176,7 +177,7 @@ server/                  Express + TypeScript API
                          withdraws your requests to its groups), GET /api/me/groups,
                          GET /api/me/groups/pending-request-count             (sign-in required)
     routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
-    routes/groups.ts     POST /api/groups, GET /api/groups/:id, PATCH /api/groups/:id (leader), join requests
+    routes/groups.ts     POST /api/groups, GET /api/groups/:id, PATCH and DELETE /api/groups/:id (leader), join requests
                          (ask, withdraw your own, leader decides),
                          DELETE /api/groups/:id/members/me (leave)           (sign-in required)
     scripts/migrate.ts   the migration runner
@@ -472,33 +473,27 @@ To remove it: delete `server/src/dev-login.ts` and the call sites listed in its
 header comment (`env.ts`, `routes/auth.ts`, `index.ts`, and the block in
 `client/src/pages/LoginPage.tsx`).
 
-### Frontend form checks
+### Automated tests
 
-After initial setup, run both development servers from the repository root:
-
-```bash
-npm run dev
-```
-
-Open the Local URL printed by Vite. Sign in, or use
-**Skip sign-in (development only)** when the development bypass is enabled.
-
-- **Add Course** opens a modal with input validation and keyboard controls.
-- **Create Group** opens `/groups/create` with meeting details and in-person
-  or online location options.
-- Course search, course selection, and group saving are not connected to
-  backend APIs yet. The forms display availability messages.
-
-Run the automated checks from the repository root:
+Run them from the repository root. Neither needs a running server, a
+database or a `.env` beyond the one `npm run up` creates:
 
 ```bash
 npm run typecheck
-npm run test --workspace client
+npm test
 ```
 
-The frontend tests use Vitest, jsdom, and Testing Library. They cover form
-validation, feedback, navigation, and modal keyboard behavior. No running
-backend is needed for these tests.
+- **Server** (`node:test` via `tsx`, `server/src/**/*.test.ts`): the pure
+  rules (group validation, meeting-link visibility, My groups sorting), the
+  Entra access policy, session tokens, the CSRF guard and the error handler;
+  every route against an in-memory repository; and
+  `groups/repository.test.ts`, which runs the real SQL against
+  [PGlite](https://pglite.dev) (Postgres compiled to WebAssembly, in-process)
+  with the project's migrations applied: the seat cap, leaving, deleting a
+  group, the remove-course rule, My groups and meeting-link privacy.
+- **Client** (Vitest, jsdom, Testing Library, `client/src/**/*.test.ts(x)`):
+  form rules, calendar export, each page's states and actions, the
+  navigation badge, and the sign-in redirect when a session expires.
 
 Check responsive layout and the native time picker manually in a browser.
 
