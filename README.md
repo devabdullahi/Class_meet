@@ -166,7 +166,9 @@ server/                  Express + TypeScript API
       csrf.ts            custom-header + Origin check on unsafe methods
       error-handler.ts   one JSON error shape, 404 handler
     routes/auth.ts       POST /api/auth/entra, GET /me, POST /logout, GET /config
-    routes/me.ts         GET/POST /api/me/courses, GET /api/me/groups,
+    routes/me.ts         GET/POST /api/me/courses, DELETE /api/me/courses/:id
+                         (refused while you lead or are in one of its groups;
+                         withdraws your requests to its groups), GET /api/me/groups,
                          GET /api/me/groups/pending-request-count             (sign-in required)
     routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
     routes/groups.ts     POST /api/groups, GET /api/groups/:id, PATCH /api/groups/:id (leader), join requests

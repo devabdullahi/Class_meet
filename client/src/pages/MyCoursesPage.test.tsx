@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -18,13 +18,20 @@ vi.mock('../api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api')>();
   return {
     ...actual,
-    api: { ...actual.api, fetchMyCourses: vi.fn(), searchCourses: vi.fn(), enrollInCourse: vi.fn() },
+    api: {
+      ...actual.api,
+      fetchMyCourses: vi.fn(),
+      searchCourses: vi.fn(),
+      enrollInCourse: vi.fn(),
+      removeCourse: vi.fn(),
+    },
   };
 });
 
 const fetchMyCourses = vi.mocked(api.fetchMyCourses);
 const searchCourses = vi.mocked(api.searchCourses);
 const enrollInCourse = vi.mocked(api.enrollInCourse);
+const removeCourse = vi.mocked(api.removeCourse);
 
 const OOSE = {
   id: 'c1',
@@ -134,6 +141,50 @@ test('Create Group navigates to the create group page', async () => {
   // One link is in the sidebar and one beside the heading; both go to the same page.
   await user.click(screen.getAllByRole('link', { name: 'Create group' })[1]!);
   expect(screen.getByRole('heading', { name: 'Create Group page' })).toBeTruthy();
+});
+
+test('Remove asks first, and Cancel keeps the course', async () => {
+  fetchMyCourses.mockResolvedValue({ courses: [OOSE, AI] });
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Remove CSE 3311' }));
+  const question = screen.getByRole('group', { name: 'Remove CSE 3311 from your courses?' });
+  expect(question.textContent).toContain('Any requests you sent to its groups are withdrawn.');
+  expect(document.activeElement).toBe(within(question).getByRole('button', { name: 'Cancel' }));
+  await user.click(within(question).getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('group')).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Remove CSE 3311' }));
+  expect(removeCourse).not.toHaveBeenCalled();
+});
+
+test('a confirmed removal takes the course off the list and says so', async () => {
+  fetchMyCourses.mockResolvedValueOnce({ courses: [OOSE, AI] }).mockResolvedValue({ courses: [AI] });
+  removeCourse.mockResolvedValue(null);
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Remove CSE 3311' }));
+  const question = screen.getByRole('group', { name: 'Remove CSE 3311 from your courses?' });
+  await user.click(within(question).getByRole('button', { name: 'Remove' }));
+  expect(removeCourse).toHaveBeenCalledWith('c1');
+  const notice = await screen.findByRole('status');
+  expect(notice.textContent).toBe('CSE 3311 was removed from your courses.');
+  expect(document.activeElement).toBe(notice);
+  await waitFor(() => expect(screen.queryByText('Object Oriented Software Engineering')).toBeNull());
+  expect(screen.getByText('Artificial Intelligence')).toBeTruthy();
+});
+
+test('a course whose group the student leads is kept, with the reason in the question', async () => {
+  fetchMyCourses.mockResolvedValue({ courses: [OOSE] });
+  removeCourse.mockRejectedValue(
+    new ApiError(409, 'leads_group_in_course', 'You lead a study group in CSE 3311, so you cannot remove the course.'),
+  );
+  const user = renderPage();
+  await user.click(await screen.findByRole('button', { name: 'Remove CSE 3311' }));
+  const question = screen.getByRole('group', { name: 'Remove CSE 3311 from your courses?' });
+  await user.click(within(question).getByRole('button', { name: 'Remove' }));
+  expect((await within(question).findByRole('alert')).textContent).toBe(
+    'You lead a study group in CSE 3311, so you cannot remove the course.',
+  );
+  expect(screen.getByText('Object Oriented Software Engineering')).toBeTruthy();
+  expect(fetchMyCourses).toHaveBeenCalledTimes(1);
 });
 
 test('Sign out calls the auth provider', async () => {

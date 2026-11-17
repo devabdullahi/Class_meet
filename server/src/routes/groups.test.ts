@@ -15,6 +15,7 @@ import type {
   GroupSummary,
   JoinRequestOutcome,
   LeaveGroupOutcome,
+  RemoveCourseOutcome,
   UpdateGroupOutcome,
   WithdrawOutcome,
 } from '../groups/repository.js';
@@ -67,6 +68,8 @@ class FakeRepository implements GroupRepository {
   updateOutcome: UpdateGroupOutcome = 'updated';
   updates: Array<{ groupId: string; viewerId: string; settings: GroupSettings }> = [];
   leaveOutcome: LeaveGroupOutcome = 'left';
+  removeCourseOutcome: RemoveCourseOutcome = 'removed';
+  removedCourses: Array<{ viewerId: string; courseId: string }> = [];
   departures: Array<{ groupId: string; viewerId: string }> = [];
   withdrawals: Array<{ groupId: string; viewerId: string }> = [];
   decisions: Array<{ requestId: string; decision: string; viewerId: string }> = [];
@@ -82,6 +85,10 @@ class FakeRepository implements GroupRepository {
   }
   async enrollInCourse(viewerId: string, courseId: string): Promise<void> {
     this.enrolled.push({ viewerId, courseId });
+  }
+  async removeCourse(viewerId: string, courseId: string): Promise<RemoveCourseOutcome> {
+    this.removedCourses.push({ viewerId, courseId });
+    return this.removeCourseOutcome;
   }
   async findCourse(courseId: string): Promise<Course | null> {
     return courseId === COURSE.id ? COURSE : null;
@@ -169,6 +176,7 @@ beforeEach(() => {
   repository.withdrawOutcome = 'withdrawn';
   repository.updateOutcome = 'updated';
   repository.leaveOutcome = 'left';
+  repository.removeCourseOutcome = 'removed';
 });
 
 async function send(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }> {
@@ -249,6 +257,43 @@ test('POST /api/me/courses returns 404 for an unknown course and 400 for a bad i
   assert.equal((await send('POST', '/api/me/courses', { courseId: UNKNOWN_ID })).status, 404);
   assert.equal((await send('POST', '/api/me/courses', { courseId: 'nope' })).status, 400);
   assert.equal(repository.enrolled.length, before);
+});
+
+test('DELETE /api/me/courses/:id removes the course for the signed-in student', async () => {
+  const { status } = await send('DELETE', `/api/me/courses/${COURSE.id}`);
+  assert.equal(status, 204);
+  assert.deepEqual(repository.removedCourses.at(-1), { viewerId: VIEWER_ID, courseId: COURSE.id });
+});
+
+const removeCourseFailures: Array<[RemoveCourseOutcome, number, string, string]> = [
+  ['not_enrolled', 404, 'not_enrolled', 'CSE 3311 is not one of your courses.'],
+  ['leads_group', 409, 'leads_group_in_course', 'You lead a study group in CSE 3311, so you cannot remove the course.'],
+  [
+    'in_group',
+    409,
+    'in_group_for_course',
+    'You are in a study group for CSE 3311. Leave the group first, then remove the course.',
+  ],
+];
+for (const [outcome, expectedStatus, expectedCode, expectedMessage] of removeCourseFailures) {
+  test(`removing a course answers ${expectedStatus} ${expectedCode} when the outcome is ${outcome}`, async () => {
+    repository.removeCourseOutcome = outcome;
+    const { status, json } = await send('DELETE', `/api/me/courses/${COURSE.id}`);
+    assert.equal(status, expectedStatus);
+    assert.equal(json.error.code, expectedCode);
+    assert.equal(json.error.message, expectedMessage);
+  });
+}
+
+test('removing a course answers 404 for an unknown course and 400 for a bad id, without touching enrollments', async () => {
+  const before = repository.removedCourses.length;
+  const unknown = await send('DELETE', `/api/me/courses/${UNKNOWN_ID}`);
+  assert.equal(unknown.status, 404);
+  assert.equal(unknown.json.error.code, 'course_not_found');
+  const malformed = await send('DELETE', '/api/me/courses/nope');
+  assert.equal(malformed.status, 400);
+  assert.equal(malformed.json.error.code, 'invalid_courseId');
+  assert.equal(repository.removedCourses.length, before);
 });
 
 // ---- my groups --------------------------------------------------------

@@ -85,10 +85,17 @@ export type UpdateGroupOutcome = 'updated' | 'group_not_found' | 'not_leader' | 
 
 export type LeaveGroupOutcome = 'left' | 'group_not_found' | 'is_leader' | 'not_member';
 
+export type RemoveCourseOutcome = 'removed' | 'not_enrolled' | 'leads_group' | 'in_group';
+
 export interface GroupRepository {
   listCourses(search: string, viewerId: string): Promise<CourseSearchResult[]>;
   listMyCourses(viewerId: string): Promise<EnrolledCourse[]>;
   enrollInCourse(viewerId: string, courseId: string): Promise<void>;
+  /**
+   * Takes a course off the viewer's list. Refused while they lead or belong
+   * to one of its groups; otherwise their requests to its groups go with it.
+   */
+  removeCourse(viewerId: string, courseId: string): Promise<RemoveCourseOutcome>;
   findCourse(courseId: string): Promise<Course | null>;
   listGroupsForCourse(courseId: string, viewerId: string): Promise<GroupSummary[]>;
   /** Groups the viewer leads, belongs to, or has a pending or declined request for. */
@@ -213,6 +220,45 @@ export const postgresGroupRepository: GroupRepository = {
        ON CONFLICT (user_id, course_id) DO NOTHING`,
       [viewerId, courseId],
     );
+  },
+
+  async removeCourse(viewerId, courseId) {
+    // One statement, so the check and both deletes happen together or not
+    // at all. The rule: a student in one of the course's groups (leading it
+    // or not) keeps the course until they leave; a leader cannot leave, so
+    // a leader keeps it. That way My groups never lists a group whose
+    // course is missing from My courses. Pending and declined requests to
+    // the course's groups are withdrawn, so no leader is left answering a
+    // student who has dropped the course.
+    const rows = await query<{ leads: boolean; member: boolean; removed: boolean }>(
+      `WITH course_groups AS (
+         SELECT id, leader_id FROM study_groups WHERE course_id = $2
+       ), blockers AS (
+         SELECT EXISTS (SELECT 1 FROM course_groups WHERE leader_id = $1) AS leads,
+                EXISTS (SELECT 1 FROM group_members m JOIN course_groups g ON g.id = m.group_id
+                         WHERE m.user_id = $1) AS member
+       ), removed_enrollment AS (
+         DELETE FROM course_enrollments e
+          USING blockers b
+          WHERE e.user_id = $1 AND e.course_id = $2 AND NOT b.leads AND NOT b.member
+          RETURNING e.course_id
+       ), withdrawn_requests AS (
+         DELETE FROM group_join_requests r
+          WHERE EXISTS (SELECT 1 FROM removed_enrollment)
+            AND r.user_id = $1 AND r.status IN ('pending', 'declined')
+            AND r.group_id IN (SELECT id FROM course_groups)
+       )
+       SELECT b.leads, b.member, EXISTS (SELECT 1 FROM removed_enrollment) AS removed
+         FROM blockers b`,
+      [viewerId, courseId],
+    );
+    const state = rows[0];
+    if (state === undefined) {
+      throw new Error('removeCourse: the blockers row is always produced');
+    }
+    if (state.leads) return 'leads_group';
+    if (state.member) return 'in_group';
+    return state.removed ? 'removed' : 'not_enrolled';
   },
 
   async findCourse(courseId) {

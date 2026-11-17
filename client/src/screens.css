@@ -204,6 +204,23 @@
 }
 
 
+/* ---- My courses: removing a course ------------------------------------ */
+
+/* Remove and its question sit above the card's stretched link, so they get
+   the clicks. The closed button takes the top-right corner, beside the
+   course code; the open question takes the foot of the card. */
+.cm-course-card .cm-confirm {
+  position: relative;
+  z-index: 1;
+}
+
+.cm-course-card__remove {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 1;
+}
+
 /* ---- Study groups: filters and cards ---------------------------------- */
 
 .cm-toolbar {

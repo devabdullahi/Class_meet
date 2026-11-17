@@ -270,6 +270,13 @@ export const api = {
       body: JSON.stringify({ courseId }),
     }),
 
+  /**
+   * Refused (409) while the student leads or is in one of the course's
+   * groups; otherwise their requests to its groups are withdrawn with it.
+   */
+  removeCourse: (courseId: string): Promise<null> =>
+    request<null>(`/api/me/courses/${courseId}`, { method: 'DELETE' }),
+
   fetchMyGroups: (): Promise<MyGroups> => request<MyGroups>('/api/me/groups'),
 
   /** Join requests waiting across every group the student leads. */
