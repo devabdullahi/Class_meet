@@ -20,7 +20,7 @@
  * an `HttpError` 503 with an actionable message, which the route error handler
  * turns into a clean JSON response. The server never crashes over it.
  */
-import { Pool, type PoolConfig, type QueryResultRow } from 'pg';
+import { Pool, type PoolClient, type PoolConfig, type QueryResultRow } from 'pg';
 import { env } from '../env.js';
 import { HttpError } from '../errors.js';
 
@@ -74,7 +74,7 @@ export function isDatabaseConfigured(): boolean {
   return env.databaseUrl.length > 0;
 }
 
-export function getPool(): Pool {
+function getPool(): Pool {
   if (!isDatabaseConfigured()) {
     throw HttpError.serviceUnavailable(
       'database_not_configured',
@@ -96,43 +96,98 @@ export function getPool(): Pool {
   return pool;
 }
 
+/** Runs one SQL statement and returns its rows. */
+export type QueryRunner = <Row extends QueryResultRow>(sql: string, params?: readonly unknown[]) => Promise<Row[]>;
+
 /**
- * Run a query, translating connection-level failures into a 503 with a
- * message that says what to check. Callers never see a raw pg error.
+ * What the repositories need from a database. An interface rather than the
+ * pool itself, so the integration tests can run the same SQL against an
+ * in-process Postgres (PGlite) instead of a server.
  */
-export async function query<Row extends QueryResultRow>(
-  sql: string,
-  params: readonly unknown[] = [],
-): Promise<Row[]> {
-  const activePool = getPool();
-  try {
-    const result = await activePool.query<Row>(sql, params as unknown[]);
-    return result.rows;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('[db] query failed:', message);
+export interface Database {
+  query: QueryRunner;
+  /**
+   * Runs `work` inside one transaction on one connection: committed when it
+   * resolves, rolled back when it throws. For a rule that needs a lock to be
+   * held between two statements, which a single statement cannot do.
+   */
+  transaction<Result>(work: (query: QueryRunner) => Promise<Result>): Promise<Result>;
+}
 
-    if (/duplicate key value violates unique constraint/i.test(message)) {
-      throw HttpError.badRequest(
-        'duplicate_record',
-        'That record conflicts with one that already exists. If this happened during sign-in, ' +
-          'your email address may already be attached to a different account.',
-      );
-    }
+/**
+ * Translates a pg failure into an HttpError with a message that says what to
+ * check, so callers never see a raw pg error.
+ */
+function toHttpError(error: unknown): HttpError {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error('[db] query failed:', message);
 
-    if (/relation .* does not exist/i.test(message)) {
-      throw HttpError.serviceUnavailable(
-        'database_not_migrated',
-        'The database is reachable but the schema is missing. Run `npm run migrate` from the repo root.',
-      );
-    }
-
-    throw HttpError.serviceUnavailable(
-      'database_unavailable',
-      'Could not reach the database. Check DATABASE_URL in server/.env and that the Neon project is awake.',
+  if (/duplicate key value violates unique constraint/i.test(message)) {
+    return HttpError.badRequest(
+      'duplicate_record',
+      'That record conflicts with one that already exists. If this happened during sign-in, ' +
+        'your email address may already be attached to a different account.',
     );
   }
+
+  if (/relation .* does not exist/i.test(message)) {
+    return HttpError.serviceUnavailable(
+      'database_not_migrated',
+      'The database is reachable but the schema is missing. Run `npm run migrate` from the repo root.',
+    );
+  }
+
+  return HttpError.serviceUnavailable(
+    'database_unavailable',
+    'Could not reach the database. Check DATABASE_URL in server/.env and that the Neon project is awake.',
+  );
 }
+
+async function runQuery<Row extends QueryResultRow>(
+  executor: Pool | PoolClient,
+  sql: string,
+  params: readonly unknown[],
+): Promise<Row[]> {
+  try {
+    const result = await executor.query<Row>(sql, params as unknown[]);
+    return result.rows;
+  } catch (error) {
+    throw toHttpError(error);
+  }
+}
+
+export function query<Row extends QueryResultRow>(sql: string, params: readonly unknown[] = []): Promise<Row[]> {
+  return runQuery<Row>(getPool(), sql, params);
+}
+
+async function transaction<Result>(work: (query: QueryRunner) => Promise<Result>): Promise<Result> {
+  let client: PoolClient;
+  try {
+    client = await getPool().connect();
+  } catch (error) {
+    throw toHttpError(error);
+  }
+  const queryInTransaction: QueryRunner = (sql, params = []) => runQuery(client, sql, params);
+
+  // Set when ROLLBACK itself fails: such a connection is in an unknown state,
+  // and handing the error to release() makes the pool discard it.
+  let brokenConnection: Error | undefined;
+  try {
+    await queryInTransaction('BEGIN');
+    const result = await work(queryInTransaction);
+    await queryInTransaction('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch((rollbackError: unknown) => {
+      brokenConnection = rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError));
+    });
+    throw error;
+  } finally {
+    client.release(brokenConnection);
+  }
+}
+
+export const poolDatabase: Database = { query, transaction };
 
 export async function closePool(): Promise<void> {
   if (pool !== null) {
