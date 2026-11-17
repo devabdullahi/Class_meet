@@ -1,0 +1,62 @@
+# Render Blueprint: Class Meet on Render's free plan, created in one step from
+# Render's dashboard (New > Blueprint). docs/DEPLOY.md walks through it.
+# Spec: https://render.com/docs/blueprint-spec
+#
+# What it creates:
+#   - class-meet: a free web service built from the Dockerfile. Each start
+#     runs the migrations, then serves the API and the built client on one
+#     origin (see the Dockerfile's CMD).
+#   - class-meet-db: a free Render Postgres database, wired into DATABASE_URL.
+#
+# Render asks for the two values marked `sync: false` when the Blueprint is
+# first applied; they are never stored here. Deliberately absent:
+#   - ALLOW_DEV_LOGIN: the development sign-in bypass. A production server
+#     refuses to start with it on.
+#   - ENABLE_MICROSOFT_LOGIN and the ENTRA_* / VITE_ENTRA_* values: Microsoft
+#     sign-in stays off until UTA approves the app (docs/DEPLOY.md, appendix).
+#   - CLIENT_ORIGIN: the server allows the service's own address, which Render
+#     provides as RENDER_EXTERNAL_URL. Set it only to add a custom domain.
+#   - PORT: Render sets it.
+
+services:
+  - type: web
+    name: class-meet
+    runtime: docker
+    plan: free
+    # The internal database address only resolves within one region, so the
+    # service and the database must share it.
+    region: ohio
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: class-meet-db
+          property: connectionString
+      # Signs every session cookie: a random 256-bit value, generated once.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Brevo's HTTPS API, because Render's free web services cannot reach
+      # SMTP ports (25, 465, 587): https://render.com/docs/free
+      - key: EMAIL_PROVIDER
+        value: brevo
+      - key: BREVO_API_KEY
+        sync: false
+      # A sender verified in Brevo, e.g. "Class Meet <classmeet.uta@gmail.com>".
+      - key: EMAIL_FROM
+        sync: false
+
+databases:
+  - name: class-meet-db
+    plan: free
+    region: ohio
+    # Migration 007 needs PostgreSQL 15 or later (NULLS NOT DISTINCT). 18 is
+    # the version the tests run against (PGlite) and Render's current default;
+    # pinned so a later default cannot change it underneath us.
+    postgresMajorVersion: "18"
+    databaseName: classmeet
+    user: classmeet
