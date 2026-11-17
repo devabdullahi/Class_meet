@@ -5,6 +5,12 @@ export interface ApiData<T> {
   data: T | null;
   /** A message that is safe to show, or null. */
   error: string | null;
+  /**
+   * The thing in the URL does not exist. A 400 counts too: for these GETs it
+   * only means the id in the address is malformed, which to a student is the
+   * same dead end. Pages show a way out instead of "Try again".
+   */
+  notFound: boolean;
   loading: boolean;
   /** Fetch again, keeping the current data on screen until the reply arrives. */
   reload: () => void;
@@ -36,6 +42,7 @@ export function useApiData<T>(
 ): ApiData<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reloadCount, setReloadCount] = useState(0);
 
@@ -47,11 +54,13 @@ export function useApiData<T>(
         if (cancelled) return;
         setData(result);
         setError(null);
+        setNotFound(false);
         setLoading(false);
       },
       (failure: unknown) => {
         if (cancelled) return;
         setError(describeError(failure, failureMessage));
+        setNotFound(failure instanceof ApiError && (failure.status === 404 || failure.status === 400));
         setLoading(false);
       },
     );
@@ -63,5 +72,5 @@ export function useApiData<T>(
   }, [...deps, reloadCount]);
 
   const reload = useCallback(() => setReloadCount((count) => count + 1), []);
-  return { data, error, loading, reload };
+  return { data, error, notFound, loading, reload };
 }

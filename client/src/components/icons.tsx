@@ -123,3 +123,20 @@ export function MinusIcon(): ReactNode {
     </svg>
   );
 }
+
+export function ChevronDownIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m6 9.5 6 6 6-6" {...STROKE} />
+    </svg>
+  );
+}
+
+export function ExternalLinkIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M13.5 5.5h5v5M18.5 5.5l-8 8" {...STROKE} />
+      <path d="M16.5 13.5v4a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 7 8h4" {...STROKE} />
+    </svg>
+  );
+}

@@ -4,7 +4,7 @@ import { api, type GroupSummary } from '../api';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { SeatMeter, StatusPill, TimeTile } from '../components/groupParts';
 import { AlertIcon, ChevronLeftIcon, PinIcon, PlusIcon, VideoIcon } from '../components/icons';
-import { formatLabel, isGroupFull } from '../groupFormat';
+import { formatLabel, isGroupFull, isViewersGroup } from '../groupFormat';
 import { useApiData } from '../hooks/useApiData';
 
 const ANY_DAY = 'Any Day';
@@ -148,7 +148,11 @@ export function StudyGroupsPage(): ReactNode {
             return (
               <article className="cm-card" key={group.id}>
                 <div className="cm-group__top">
-                  <TimeTile day={group.meetingDay} time={group.meetingTime} muted={full} />
+                  <TimeTile
+                    day={group.meetingDay}
+                    time={group.meetingTime}
+                    tone={isViewersGroup(group) ? 'yours' : full ? 'full' : 'open'}
+                  />
                   <h2 className="cm-card__title">{group.goal}</h2>
                 </div>
                 <ul className="cm-meta">

@@ -7,22 +7,17 @@ import type { MeetingDay } from '../api';
 import { formatMeetingTime } from '../groupFormat';
 
 /**
- * When the group meets, as a tile: the weekday above the clock time. It is the
- * one orange element in the app, and it turns slate when the group is full, so
- * a scan down the list shows which meetings can still be joined.
+ * How a time tile is coloured: solid orange for groups you lead or belong to,
+ * a light orange tint for groups you could join, slate for full ones. Only
+ * your own meetings get the loudest colour on the page.
  */
-export function TimeTile({
-  day,
-  time,
-  muted = false,
-}: {
-  day: MeetingDay;
-  time: string;
-  muted?: boolean;
-}): ReactNode {
+export type TimeTileTone = 'yours' | 'open' | 'full';
+
+/** When the group meets, as a tile: the weekday above the clock time. */
+export function TimeTile({ day, time, tone }: { day: MeetingDay; time: string; tone: TimeTileTone }): ReactNode {
   const [clock = '', period = ''] = formatMeetingTime(time).split(' ');
   return (
-    <span className={muted ? 'cm-time cm-time--muted' : 'cm-time'}>
+    <span className={`cm-time cm-time--${tone}`}>
       <span className="cm-time__day">{day.slice(0, 3)}</span>
       <span className="cm-time__clock">{clock}</span>
       <span className="cm-time__period">{period}</span>
@@ -30,14 +25,27 @@ export function TimeTile({
   );
 }
 
-/** "2 of 6 seats filled" with a bar that shows the same thing at a glance. */
+/**
+ * "2 seats left of 4", with a bar showing how full the group is. Seats left
+ * is what a student deciding whether to ask wants to know, so it leads.
+ */
 export function SeatMeter({ taken, max }: { taken: number; max: number }): ReactNode {
+  const left = Math.max(0, max - taken);
   const percent = Math.min(100, Math.round((taken / max) * 100));
   return (
-    <span className="cm-seats">
-      <span>
-        {taken} of {max} seats filled
-      </span>
+    <span className={left === 0 ? 'cm-seats cm-seats--full' : 'cm-seats'}>
+      {left === 0 ? (
+        <span>
+          <strong>All {max} seats taken</strong>
+        </span>
+      ) : (
+        <span>
+          <strong>
+            {left} {left === 1 ? 'seat' : 'seats'} left
+          </strong>{' '}
+          of {max}
+        </span>
+      )}
       <span className="cm-seats__bar" aria-hidden="true">
         <span className="cm-seats__fill" style={{ width: `${percent}%` }} />
       </span>

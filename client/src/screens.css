@@ -243,12 +243,20 @@
   width: 68px;
   padding: var(--space-2) 0;
   border-radius: var(--radius-sm);
-  background: var(--time);
-  color: var(--on-time);
   line-height: 1.05;
 }
 
-.cm-time--muted {
+.cm-time--yours {
+  background: var(--time);
+  color: var(--on-time);
+}
+
+.cm-time--open {
+  background: var(--time-tint);
+  color: var(--time-text);
+}
+
+.cm-time--full {
   background: var(--surface-3);
   color: var(--text-muted);
 }
@@ -284,6 +292,11 @@
   overflow: hidden;
 }
 
+.cm-seats strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .cm-seats__fill {
   display: block;
   height: 100%;
@@ -291,7 +304,23 @@
   background: var(--accent-text);
 }
 
+.cm-seats--full .cm-seats__fill {
+  background: var(--text-muted);
+}
+
 /* ---- Group details ---------------------------------------------------- */
+
+.cm-details-header h1 {
+  font-size: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.cm-details-header h1.cm-details-title--long {
+  font-size: var(--font-heading);
+}
 
 .cm-details-head {
   display: flex;
@@ -302,12 +331,19 @@
   color: var(--text-muted);
 }
 
+/* The action panel comes first in the page (and first on a phone) but sits
+   in the right-hand column on wide screens. */
 .cm-details-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: var(--space-5);
   align-items: start;
   margin-top: var(--space-6);
+}
+
+.cm-details-main {
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .cm-stack {
@@ -317,8 +353,39 @@
 }
 
 .cm-aside {
+  grid-column: 2;
+  grid-row: 1;
   position: sticky;
   top: var(--space-6);
+}
+
+.cm-action {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+
+.cm-action h2 {
+  margin-bottom: 0;
+}
+
+.cm-action > .cm-btn--sm,
+.cm-action > a:not(.cm-btn) {
+  align-self: flex-start;
+}
+
+.cm-action .cm-notice {
+  margin-top: 0;
+}
+
+.cm-action .cm-action__headline {
+  font-size: var(--font-heading);
+  font-weight: 700;
+}
+
+.cm-action__place {
+  font-size: var(--font-title);
 }
 
 .cm-info {
@@ -363,36 +430,59 @@
   gap: var(--space-3);
 }
 
+.cm-members__you {
+  color: var(--text-muted);
+}
+
+.cm-requests {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* avatar · name · Approve · Decline, 52px tall. */
 .cm-request {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 52px;
   border-top: 1px solid var(--border);
 }
 
-.cm-request:first-of-type {
-  padding-top: 0;
+.cm-request:first-child {
   border-top: none;
 }
 
-.cm-request__who {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.cm-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+.cm-request__name {
+  overflow-wrap: anywhere;
 }
 
 .cm-calendar {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin-top: var(--space-3);
+}
+
+.cm-calendar__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.cm-calendar__options[hidden] {
+  display: none;
+}
+
+.cm-calendar__options .cm-btn {
+  justify-content: flex-start;
+}
+
+.cm-calendar__options .cm-hint {
+  padding: var(--space-1) var(--space-3) 0;
 }
 
 /* ---- Sign-in ---------------------------------------------------------- */
@@ -643,6 +733,12 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .cm-details-main,
+  .cm-aside {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
   .cm-aside {
     position: static;
   }
@@ -688,7 +784,8 @@
     padding: var(--space-6) var(--space-5) var(--space-12);
   }
 
-  .cm-pagehead h1 {
+  .cm-pagehead h1,
+  .cm-details-header h1 {
     font-size: var(--font-heading);
   }
 

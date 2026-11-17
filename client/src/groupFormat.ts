@@ -16,3 +16,31 @@ export function formatLabel(format: GroupFormat): string {
 export function isGroupFull(group: Pick<GroupSummary, 'memberCount' | 'maxMembers'>): boolean {
   return group.memberCount >= group.maxMembers;
 }
+
+export function seatsLeft(group: Pick<GroupSummary, 'memberCount' | 'maxMembers'>): number {
+  return Math.max(0, group.maxMembers - group.memberCount);
+}
+
+/** Whether the viewer leads or belongs to the group: it is one of "your" meetings. */
+export function isViewersGroup(group: Pick<GroupSummary, 'viewerRole'>): boolean {
+  return group.viewerRole !== 'none';
+}
+
+const PLATFORM_NAMES: Record<string, string> = {
+  'zoom.us': 'Zoom',
+  'teams.microsoft.com': 'Microsoft Teams',
+  'teams.live.com': 'Microsoft Teams',
+  'meet.google.com': 'Google Meet',
+};
+
+/** What a meeting link opens, by name where we know it ("Zoom"), else its host. */
+export function meetingPlatform(link: string): string {
+  let host: string;
+  try {
+    host = new URL(link).hostname.replace(/^www\./, '');
+  } catch {
+    return 'Online meeting';
+  }
+  const known = Object.keys(PLATFORM_NAMES).find((domain) => host === domain || host.endsWith(`.${domain}`));
+  return known === undefined ? host : (PLATFORM_NAMES[known] ?? host);
+}
