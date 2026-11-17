@@ -323,10 +323,19 @@
 /* ---- Group details ---------------------------------------------------- */
 
 .cm-details-header h1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
   font-size: var(--font-display);
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.cm-goal {
+  margin-bottom: var(--space-4);
   overflow-wrap: anywhere;
 }
 

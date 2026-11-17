@@ -93,6 +93,19 @@ test('shows the meeting, seats left and the members, leader first', async () => 
   expect(members[0]!.textContent).toContain('Alex Rivera');
 });
 
+test('a long goal is repeated in full in the Meeting panel; a short one is not', async () => {
+  const longGoal = 'Review '.repeat(40).trim();
+  fetchGroup.mockResolvedValue({ group: { ...BASE, goal: longGoal } });
+  renderPage();
+  await screen.findByRole('heading', { level: 1 });
+  expect(screen.getAllByText(longGoal)).toHaveLength(2);
+  cleanup();
+  fetchGroup.mockResolvedValue({ group: BASE });
+  renderPage();
+  await screen.findByRole('heading', { level: 1 });
+  expect(screen.getAllByText('Review SOLID')).toHaveLength(1);
+});
+
 test('marks the viewer in the member list', async () => {
   fetchGroup.mockResolvedValue({ group: AS_MEMBER });
   renderPage();

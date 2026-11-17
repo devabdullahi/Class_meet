@@ -11,6 +11,13 @@ import { AlertIcon, CheckCircleIcon, ChevronLeftIcon, PeopleIcon, PinIcon, Video
 import { isGroupFull, meetingPlatform } from '../groupFormat';
 import { describeError, useApiData } from '../hooks/useApiData';
 
+/**
+ * The heading shows at most three lines of the goal (up to 500 characters).
+ * Past roughly this length it may be cut, so the Meeting panel repeats it
+ * in full.
+ */
+const LONG_GOAL_LENGTH = 120;
+
 function nextMeetingLabel(group: GroupDetails): string {
   const next = nextOccurrence(group.meetingDay, group.meetingTime, new Date());
   const date = next.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
@@ -22,6 +29,7 @@ function MeetingPanel({ group }: { group: GroupDetails }): ReactNode {
   return (
     <section className="cm-panel" aria-labelledby="meeting-heading">
       <h2 id="meeting-heading">Meeting</h2>
+      {group.goal.length > LONG_GOAL_LENGTH && <p className="cm-goal">{group.goal}</p>}
       <div className="cm-info">
         <div className="cm-info__row">
           <TimeTile day={group.meetingDay} time={group.meetingTime} full={isGroupFull(group)} />
