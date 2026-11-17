@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { Avatar } from './Avatar';
-import { BookIcon, LogoutIcon, PlusIcon } from './icons';
+import { BookIcon, LogoutIcon, PeopleIcon, PlusIcon } from './icons';
 import { Wordmark } from './Wordmark';
 
 interface ClassMeetLayoutProps {
@@ -54,6 +54,14 @@ export function ClassMeetLayout({ children }: ClassMeetLayoutProps): ReactNode {
           <Link to="/" className="cm-nav__link" aria-current={inMyCourses ? 'page' : undefined}>
             <BookIcon />
             My courses
+          </Link>
+          <Link
+            to="/my-groups"
+            className="cm-nav__link"
+            aria-current={pathname === '/my-groups' ? 'page' : undefined}
+          >
+            <PeopleIcon />
+            My groups
           </Link>
           <Link
             to="/groups/create"

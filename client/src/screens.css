@@ -271,6 +271,48 @@
   gap: var(--space-2) var(--space-3);
 }
 
+/* ---- My groups -------------------------------------------------------- */
+
+/* One section per relationship: a name and a count, then the cards. */
+.cm-section {
+  margin-top: var(--space-8);
+}
+
+.cm-section__title {
+  font-size: var(--font-title);
+  font-weight: 600;
+}
+
+.cm-section__count {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.cm-section .cm-card-grid {
+  margin-top: var(--space-3);
+}
+
+.cm-my-group__heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* "2 requests waiting": the number is the heaviest thing on the card. */
+.cm-waiting {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-waiting__count {
+  color: var(--text);
+  font-size: var(--font-heading);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
 /* ---- Meeting tile and seats ------------------------------------------- */
 
 .cm-time {
@@ -850,12 +892,16 @@
     border-top: 1px solid var(--border);
   }
 
+  /* Three tabs do not fit side by side with their labels at 375px, so
+     each stacks its icon over a caption. */
   .cm-nav__link {
     flex: 1;
+    flex-direction: column;
     justify-content: center;
-    gap: var(--space-2);
+    gap: 2px;
+    padding: 0 var(--space-1);
     border-radius: 0;
-    font-size: var(--font-label);
+    font-size: var(--font-caption);
   }
 
   .cm-nav__link[aria-current='page'] {

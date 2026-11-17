@@ -128,6 +128,7 @@ client/                  Vite + React + TypeScript single-page app
       icons.tsx
     pages/
       LoginPage.tsx      sign-in screen
+      MyGroupsPage.tsx   groups you lead, are in and asked to join; what needs you first
       HomePage.tsx       signed-in landing page
     types/
       vite-env.d.ts      typings for the VITE_ variables

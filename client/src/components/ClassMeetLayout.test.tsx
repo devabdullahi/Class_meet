@@ -49,3 +49,8 @@ test('the account button says whether its menu is open, and Escape closes it', a
   await user.keyboard('{Escape}');
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
 });
+
+test('My Groups is the current page at /my-groups', () => {
+  renderAt('/my-groups');
+  expect(current()).toEqual(['My groups']);
+});

@@ -111,6 +111,25 @@ export interface GroupDetails extends GroupSummary {
   pendingRequests: PendingJoinRequest[];
 }
 
+/** A group as My groups lists it: the summary plus the course it belongs to. */
+export interface MyGroupSummary extends GroupSummary {
+  courseCode: string;
+  courseTitle: string;
+}
+
+export interface LedGroupSummary extends MyGroupSummary {
+  /** Join requests waiting for the student's answer. */
+  pendingRequestCount: number;
+}
+
+/** Mirrors `GET /api/me/groups`. */
+export interface MyGroups {
+  leading: LedGroupSummary[];
+  member: MyGroupSummary[];
+  /** Groups the student asked to join; `viewerRequestStatus` is 'pending' or 'declined'. */
+  requested: MyGroupSummary[];
+}
+
 export interface CreateGroupRequest {
   courseId: string;
   goal: string;
@@ -242,6 +261,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ courseId }),
     }),
+
+  fetchMyGroups: (): Promise<MyGroups> => request<MyGroups>('/api/me/groups'),
 
   fetchCourseGroups: (courseId: string): Promise<{ course: Course; groups: GroupSummary[] }> =>
     request<{ course: Course; groups: GroupSummary[] }>(`/api/courses/${courseId}/groups`),
