@@ -176,5 +176,3 @@ export const env = {
   /** Direct/unpooled connection string, preferred for migrations. May be empty. */
   directDatabaseUrl: optional('DIRECT_DATABASE_URL', ''),
 } as const;
-
-export type Env = typeof env;

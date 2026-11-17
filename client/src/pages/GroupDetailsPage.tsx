@@ -8,7 +8,7 @@ import { ClassMeetLayout } from '../components/ClassMeetLayout';
 import { JoinPanel, JoinRequestsPanel, YourMeetingPanel } from '../components/GroupActionPanels';
 import { SeatCount, TimeTile } from '../components/groupParts';
 import { AlertIcon, CheckCircleIcon, ChevronLeftIcon, PeopleIcon, PinIcon, VideoIcon } from '../components/icons';
-import { groupGoalLine, groupTitle, isGroupFull, meetingPlatform } from '../groupFormat';
+import { groupGoalLine, groupTitle, isGroupFull, meetingPlaceLabel } from '../groupFormat';
 import { describeError, useApiData } from '../hooks/useApiData';
 import { usePendingRequests } from '../pending-requests/usePendingRequests';
 
@@ -48,7 +48,7 @@ function MeetingPanel({ group }: { group: GroupDetails }): ReactNode {
           <div>
             {group.format === 'online' ? (
               <>
-                <strong>{group.location === null ? 'Online' : `Online · ${meetingPlatform(group.location)}`}</strong>
+                <strong>{meetingPlaceLabel(group)}</strong>
                 <span className="cm-info__label">
                   {group.location === null
                     ? 'The meeting link is shared with members.'

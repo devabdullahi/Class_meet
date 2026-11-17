@@ -54,8 +54,6 @@ export interface SessionClaims {
 }
 
 interface SessionTokenPayload extends SessionClaims {
-  /** DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT. */
-  dev?: true;
   iss?: string;
   aud?: string;
   sub?: string;

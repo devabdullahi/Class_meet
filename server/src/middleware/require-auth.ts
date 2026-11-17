@@ -17,8 +17,8 @@ declare module 'express-serve-static-core' {
   }
 }
 
-/** Reads the session without rejecting. Useful for routes that adapt to it. */
-export function readSession(req: Request): SessionClaims | null {
+/** The signed-in session from the cookie, or null when it is missing or invalid. */
+function readSession(req: Request): SessionClaims | null {
   const cookies: unknown = req.cookies;
   if (typeof cookies !== 'object' || cookies === null) return null;
   const raw = (cookies as Record<string, unknown>)[SESSION_COOKIE_NAME];

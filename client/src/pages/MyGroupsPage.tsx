@@ -13,6 +13,10 @@ import { AlertIcon, PinIcon, PlusIcon, VideoIcon } from '../components/icons';
 import { groupGoalLine, groupTitle, isGroupFull, meetingPlaceLabel, sortByNextMeeting } from '../groupFormat';
 import { useApiData } from '../hooks/useApiData';
 
+// Both sorts below order by the next meeting first and then by the main key.
+// Array.prototype.sort is stable, so groups that tie on the main key keep
+// their soonest-meeting-first order.
+
 /** Most join requests first; groups with the same number, soonest meeting first. */
 function sortLedGroups(groups: readonly LedGroupSummary[], now: Date): LedGroupSummary[] {
   return sortByNextMeeting(groups, now).sort((first, second) => second.pendingRequestCount - first.pendingRequestCount);

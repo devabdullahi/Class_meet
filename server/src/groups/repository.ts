@@ -164,6 +164,11 @@ const GROUP_SUMMARY_COLUMNS = `g.id, g.course_id, g.name, g.goal, g.meeting_day,
 
 const MAX_COURSE_SEARCH_RESULTS = 50;
 
+/**
+ * Every group the API returns (course lists, My groups, Group Details) is
+ * built here, so the meeting-link rule in visibility.ts is applied in one
+ * place and no route can forget it.
+ */
 function toGroupSummary(row: GroupRow): GroupSummary {
   return {
     id: row.id,
