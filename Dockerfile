@@ -2,15 +2,14 @@
 # and the built SPA (client/dist) for everything else, on one origin.
 # Render builds it from this file; see docs/DEPLOY.md.
 #
-#   docker build \
-#     --build-arg VITE_ENTRA_CLIENT_ID=<application-client-id> \
-#     -t class-meet .
+#   docker build -t class-meet .
 #   docker run -p 4000:4000 --env-file <your production env file> class-meet
 #
-# VITE_* values are compiled into the client bundle by Vite, so they are
-# build arguments, not runtime environment. Neither is a secret: the SPA is a
-# public client. Everything the server reads (SESSION_SECRET, DATABASE_URL,
-# ENTRA_CLIENT_ID, CLIENT_ORIGIN, ...) is passed when the container starts
+# VITE_* values (needed only if Microsoft sign-in is turned on) are compiled
+# into the client bundle by Vite, so they are build arguments, not runtime
+# environment. Neither is a secret: the SPA is a public client. Everything
+# the server reads (SESSION_SECRET, DATABASE_URL, SMTP_PASS, CLIENT_ORIGIN,
+# ...) is passed when the container starts
 # and is never baked into the image. Render passes a service's environment
 # variables to `docker build` as build arguments, so the two VITE_* values
 # can be set alongside the others in its dashboard.

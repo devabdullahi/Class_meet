@@ -228,41 +228,41 @@ function configureEnvironment() {
     );
   }
 
-  const entraConfigured = serverClientId !== null;
+  const databaseConfigured = readValue(serverText, 'DATABASE_URL') !== null;
+  const smtpConfigured = readValue(serverText, 'SMTP_HOST') !== null;
   const nodeEnv = readValue(serverText, 'NODE_ENV') ?? 'development';
   const devLoginRequested = (readValue(serverText, 'ALLOW_DEV_LOGIN') ?? '').toLowerCase() === 'true';
 
-  // No app registration means no way in at all, so turn on the bypass that
+  // Signing in with an emailed code stores the code and the account, so
+  // without a database there is no way in at all: turn on the bypass that
   // exists for exactly this. Never in production: the server refuses to boot
   // on that combination, and this script must not be the thing that trips it.
   let devLoginEnabled = devLoginRequested;
-  if (!entraConfigured && nodeEnv !== 'production' && !devLoginRequested) {
+  if (!databaseConfigured && nodeEnv !== 'production' && !devLoginRequested) {
     serverText = withValue(serverText, 'ALLOW_DEV_LOGIN', 'true');
     devLoginEnabled = true;
     note(
-      'No Entra app registration is configured, so the development sign-in bypass was switched ' +
-        'on (ALLOW_DEV_LOGIN=true in server/.env). It signs you in as a fake student. Remove it ' +
+      'No database is configured, so the development sign-in bypass was switched on ' +
+        '(ALLOW_DEV_LOGIN=true in server/.env). It signs you in as a fake student. Remove it ' +
         'once real sign-in works, and before anything is deployed.',
     );
   }
 
-  if (!entraConfigured && nodeEnv === 'production') {
+  if (!smtpConfigured && nodeEnv === 'production') {
     note(
-      'NODE_ENV=production with no ENTRA_CLIENT_ID: nobody can sign in, and the bypass cannot ' +
-        'be used in production. Set ENTRA_CLIENT_ID, or set NODE_ENV=development for local work.',
+      'NODE_ENV=production with no SMTP_HOST: the server will refuse to start, because sign-in ' +
+        'codes must be emailed in production. Set the SMTP_ values, or NODE_ENV=development.',
     );
   }
 
   if (serverText !== originalServerText) writeFileSync(paths.serverEnv, serverText);
   if (clientText !== originalClientText) writeFileSync(paths.clientEnv, clientText);
 
-  const databaseUrl = readValue(serverText, 'DATABASE_URL');
-
-  info(`sign-in: ${entraConfigured ? 'Microsoft Entra ID' : 'not configured'}`);
-  info(`database: ${databaseUrl === null ? 'not configured' : 'configured'}`);
+  info(`sign-in codes: ${smtpConfigured ? 'emailed through SMTP' : 'printed in the server output ([dev email])'}`);
+  info(`database: ${databaseConfigured ? 'configured' : 'not configured'}`);
   info(`dev bypass: ${devLoginEnabled ? 'ON' : 'off'}`);
 
-  return { entraConfigured, databaseConfigured: databaseUrl !== null, devLoginEnabled };
+  return { databaseConfigured, smtpConfigured, devLoginEnabled };
 }
 
 /**
@@ -277,7 +277,7 @@ async function migrate(databaseConfigured) {
   if (!databaseConfigured) {
     info('DATABASE_URL is not set, skipping migrations');
     note(
-      'Without a database, real sign-in returns 503 database_not_configured. Add your Neon ' +
+      'Without a database, signing in with an emailed code returns 503 database_not_configured. Add your Neon ' +
         'connection string to server/.env and run this again. The dev bypass needs no database.',
     );
     return;
@@ -304,8 +304,12 @@ async function typecheck() {
 function printSummary(state) {
   console.log('\n\u001b[1mReady.\u001b[0m');
 
-  if (state.entraConfigured) {
-    console.log('  Sign in with your UTA account.');
+  if (state.databaseConfigured) {
+    console.log(
+      state.smtpConfigured
+        ? '  Sign in with your UTA email; the code arrives by email.'
+        : '  Sign in with any @mavs.uta.edu address; the code appears below as a [dev email] line.',
+    );
   } else if (state.devLoginEnabled) {
     console.log('  Use "Skip sign-in (development only)" on the login page.');
   }

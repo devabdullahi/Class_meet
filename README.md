@@ -48,7 +48,7 @@ Application code begins with iteration 1 — see **Running the app** below.
 | Routing | React Router | Two routes so far: `/login` and `/` |
 | Styling | Hand-written CSS with custom properties | No UI framework; two screens do not justify one |
 | Backend | Node.js + Express 5 + TypeScript | `server/` workspace |
-| Auth | Microsoft Entra ID via MSAL (authorization code + PKCE) -> access token verified server-side -> our own session cookie | See **How sign-in works** |
+| Auth | One-time code emailed to a UTA address (SMTP via `nodemailer`) -> our own session cookie. Microsoft Entra ID sign-in kept, off by default | See **How sign-in works** |
 | Database | Neon serverless PostgreSQL, via `pg` | Migrations are numbered `.sql` files |
 | Repo | npm workspaces monorepo | `npm install` once at the root |
 
@@ -94,16 +94,13 @@ scripts/
   dev.mjs                `npm run up` — install, configure, migrate, start
 
 client/                  Vite + React + TypeScript single-page app
-  index.html             the SPA entry. No provider script to load — MSAL is
-                         library code in our own bundle
+  index.html             the SPA entry
   redirect.html          the MSAL redirect bridge, and nothing else. The
-                         sign-in popup lands here
+                         Microsoft sign-in popup lands here (when it is on)
   vite.config.ts         dev server; proxies /api to the Express server; two
                          build entries (the app and the bridge)
   src/
-    main.tsx             creates and awaits the MSAL instance, then renders.
-                         With no client ID it renders the app anyway, so the
-                         dev bypass is reachable before Entra is registered
+    main.tsx             renders the app; nothing to wait for first
     App.tsx              routes: /login and / (guarded)
     api.ts               the only place that calls fetch; AuthUser type
     styles.css           the design system: one dark token set on :root (two
@@ -114,8 +111,11 @@ client/                  Vite + React + TypeScript single-page app
     groupFormat.ts       meeting times, seats left, next-meeting order
     courseLink.ts        course links (/join/CSE-3311): the code with its space as a hyphen
     chatLink.ts          which group chat links the form accepts (mirrors the server's list)
+    emailSignIn.ts       the sign-in form's rules: allowed domains, the code, the countdown
     auth/
-      msal.ts            the MSAL instance: authority, redirect URI, cache
+      msal.ts            the MSAL instance and its error wording; imported on
+                         demand, only when the server turns Microsoft sign-in on
+      entraClientId.ts   VITE_ENTRA_CLIENT_ID, readable without loading MSAL
       auth-context.ts    the context object and its value type
       AuthProvider.tsx   holds "who is signed in"; owns sign-in and sign-out
       useAuth.ts         the hook components use
@@ -138,7 +138,8 @@ client/                  Vite + React + TypeScript single-page app
                          when a moderator took it down, else "Group not found"
       reportWording.ts   reason and outcome wording, dates
     components/
-      EntraSignInButton.tsx  an ordinary button — MSAL ships no widget
+      EmailCodeSignIn.tsx  the sign-in form: UTA email, then the emailed code
+      EntraSignInButton.tsx  "Sign in with Microsoft", shown only when it is on
       Avatar.tsx         initials in a circle (there is no profile picture)
       ClassMeetLayout.tsx  the signed-in shell: sidebar, or top and tab bars on phones
       GroupForm.tsx      the group fields, inline errors and submit; creates a group or edits one
@@ -175,6 +176,8 @@ server/                  Express + TypeScript API
     006_add_group_chat_link.sql  study_groups.chat_link (optional; members only)
     007_add_reports_and_moderators.sql  users.is_moderator, reports (one open
                          per student per target), removed_groups
+    008_create_email_login_codes.sql  email_login_codes: one hashed sign-in code
+                         per address (users unchanged; see the file's comment)
   src/
     index.ts             listen, startup warnings, graceful shutdown
     app.ts               middleware wiring and route mounting; in production
@@ -182,9 +185,17 @@ server/                  Express + TypeScript API
     static-client.ts     serves client/dist: SPA fallback, cache headers
     env.ts               reads and validates every environment variable
     errors.ts            HttpError: status + code + safe message
-    entra.ts             verifies the Entra access token, applies the tenant policy
+    entra.ts             verifies the Entra access token, applies the tenant policy;
+                         whether Microsoft sign-in is on
     session.ts           session JWT and cookie attributes
     users.ts             the users table: upsert and lookup
+    email-login/
+      email-address.ts   which addresses may sign in, and their canonical form
+      login-code.ts      making a code; its keyed hash; constant-time check
+      smtp-config.ts     reads SMTP_* and EMAIL_FROM; refuses a partial set
+      mailer.ts          the email itself; SMTP, or [dev email] console lines
+      repository.ts      the codes table and finding the account by email
+                         (tested against PGlite in repository.test.ts)
     groups/
       validation.ts      rules for creating and editing a group (pure, unit-tested)
       visibility.ts      what outsiders may see: no online meeting links, no group chat links
@@ -204,12 +215,15 @@ server/                  Express + TypeScript API
                          (tested against PGlite in repository.test.ts)
     dev-login.ts         development sign-in bypass — remove before the pilot
     db/pool.ts           pg Pool, TLS, and the deliberate "no database" path
+    db/pglite-test-database.ts  for tests: PGlite with the migrations applied
     middleware/
       require-auth.ts    auth middleware for protected routes
       csrf.ts            custom-header + Origin check on unsafe methods
+      rate-limit.ts      per-key request limits, in memory, for sign-in
       security-headers.ts  Content-Security-Policy and friends, on every response
       error-handler.ts   one JSON error shape, 404 handler
-    routes/auth.ts       POST /api/auth/entra, GET /me, POST /logout, GET /config
+    routes/email-login.ts  POST /api/auth/email/start and /verify: sign-in by emailed code
+    routes/auth.ts       POST /api/auth/entra (off by default), GET /me, POST /logout, GET /config
     routes/me.ts         GET/POST /api/me/courses, DELETE /api/me/courses/:id
                          (refused while you lead or are in one of its groups;
                          withdraws your requests to its groups), GET /api/me/groups,
@@ -234,84 +248,96 @@ server/                  Express + TypeScript API
 
 ## How sign-in works
 
-Feature **F1**. The short version: Microsoft proves who the student is, the
-server decides whether that student is allowed in, and then the server issues
-its own session.
+Feature **F1**. Students sign in with a **one-time code emailed to their UTA
+address**: they type `netid@mavs.uta.edu` (or `@uta.edu`), we email a 6-digit
+code, they type it in, and the server issues its own session cookie. Proving
+you can read mail sent to a UTA address is the access policy.
 
-**Why Microsoft and not Google.** A UTA account *is* a Microsoft identity:
-`@mavs.uta.edu` and `@uta.edu` both resolve to one Microsoft Entra ID tenant.
-Signing in with Google would have meant depending on a Google Workspace domain
-the university does not run, so "sign in with your UTA account" and "sign in
-with Google" were never the same thing. The first version of this code used
-Google Identity Services; it was replaced, and the two places where the change
-is more than a rename are called out below.
+**Why not Microsoft.** A UTA account is a Microsoft identity, and the first
+version of sign-in used it (it is still in the code — see **Microsoft sign-in**
+below). But UTA's Microsoft tenant requires an administrator to approve every
+third-party app, so students see "Need admin approval" and cannot consent to
+Class Meet themselves. An emailed code needs nobody's approval and still
+admits only people with a UTA mailbox.
 
-1. MSAL — in our own bundle, no script loaded from the provider — opens a popup
-   to UTA's Microsoft sign-in page.
-2. The student signs in. MSAL runs the OAuth 2.0 **authorization code flow with
-   PKCE**: it generates the code challenge and redeems the code at the token
-   endpoint itself.
-3. The popup lands on `/redirect.html`, whose only job is MSAL's redirect
-   bridge. Since MSAL v5 that page is required: `Cross-Origin-Opener-Policy`
-   severs `window.opener`, so the bridge hands the response back to the app's
-   tab over a `BroadcastChannel` instead. It loads no router and no app code,
-   which is why it is a second Vite entry rather than a route.
-4. The token MSAL asks for is an **access token for this app's own API scope**,
-   `api://<client-id>/access_as_user` — not an ID token.
-5. The client POSTs that access token to `POST /api/auth/entra`.
-6. The server verifies it with `jose` against UTA's **tenant-scoped** key set:
-   RS256 signature, then `iss`, `aud`, `exp` and `nbf`.
-7. It then applies the checks a signature cannot make: `ver` must be `2.0`,
-   `tid` must be UTA's tenant, `scp` must contain `access_as_user`, and `oid`
-   must be present.
-8. The user row is inserted (or refreshed) keyed on the pair (`tid`, `oid`).
-9. The server signs a small session JWT and returns it in an **httpOnly**
-   cookie. The Microsoft access token is discarded.
-
-Three decisions worth knowing about, because they are the ones people ask about.
-
-**Why an access token and not an ID token.** Microsoft's guidance here is the
-opposite of Google's, and getting it backwards is the common mistake: "You
-shouldn't use an ID token to call an API", and a web API "must only accept
-tokens containing one of their AppId URIs as the `aud` claim". So the SPA
-acquires a token for the scope this app publishes under **Expose an API**, the
-server verifies that, and the ID token stays in the browser where it belongs.
-Class Meet reads nothing from Microsoft — no Graph, no Outlook, no Calendar —
-so no other scope is requested. If a later iteration wants the student's
-calendar, that is a *separate*, incremental consent step, not a change to
-sign-in.
-
-**Why the tenant ID is the access policy, and not the email domain.** The
-Google version of this file matched the address against a domain allowlist.
-That cannot be carried over, and should not be: Entra has no `email_verified`
-claim to lean on, and documents `email`, `upn` and `preferred_username` as
-mutable and explicitly not for authorization decisions. What Microsoft *does*
-sign is `tid`, the immutable tenant ID of the organisation the student signed
-in to — "always check that the `tid` in a token matches the tenant ID used to
-store data with the application". A student cannot present UTA's `tid` without
-a UTA account, which is a far stronger statement than "their address ends in
-uta.edu". The policy is enforced in `server/src/entra.ts` and nowhere else.
-
-A rejected tenant looks like this:
+1. The login page asks for the UTA email. It checks the domain against the
+   list `GET /api/auth/config` sends, so a typo is caught without a round trip.
+2. `POST /api/auth/email/start {email}` — the server normalises the address
+   (trimmed, lowercased, plus tag removed), checks the domain **exactly**
+   (`x@mavs.uta.edu.evil.com` is refused), stores a hash of a new code and
+   emails the code.
+3. The page asks for the code ("Enter the code we sent to …"), with **Resend
+   code** after a one-minute countdown and **Change email**.
+4. `POST /api/auth/email/verify {email, code}` — a correct code is deleted
+   (single use), the account is found or created, and the server sets the same
+   httpOnly session cookie Microsoft sign-in used to. The student goes back to
+   the page they were sent from, `/join/...` course links included.
 
 ```
-403 {"error":{"code":"tenant_not_allowed","message":"Class Meet is only open to
-The University of Texas at Arlington accounts. The account you signed in with
-belongs to a different organisation. Sign in again with your UTA account (the
-one ending in @mavs.uta.edu or @uta.edu)."}}
+POST /api/auth/email/start  {"email":"jane@mavs.uta.edu"}
+200 {"email":"jane@mavs.uta.edu","expiresInSeconds":600,"resendAfterSeconds":60}
+400 email_not_allowed     not an @mavs.uta.edu / @uta.edu address
+429 resend_too_soon       a code was sent less than a minute ago (retryAfterSeconds)
+429 too_many_requests     a rate limit (retryAfterSeconds, Retry-After header)
+503 email_send_failed     the mail server refused or timed out; retry at once
+
+POST /api/auth/email/verify {"email":"jane@mavs.uta.edu","code":"042817"}
+200 {"user":{...}}  + Set-Cookie: cm_session=...; HttpOnly; SameSite=Lax
+400 code_invalid          not six digits (does not use up a try)
+400 code_incorrect        wrong code; the message says how many tries are left
+400 code_used_up          the fifth wrong code; the code is now dead
+400 code_expired          expired, already used, replaced, or never sent
+429 too_many_requests     a rate limit
 ```
 
-The tenant-specific authority in `client/src/auth/msal.ts` sends students
-straight to the sign-in page they already know, but that is a convenience: a
-client can be pointed anywhere, so the boundary is the server's `tid` check.
+**What keeps a six-digit code safe.** A million possible codes is a small
+space; the limits around it make guessing hopeless. All of them are in
+`server/src/routes/email-login.ts` and `server/src/email-login/`:
 
-**Why `oid` and not the email is the account key.** `oid` is immutable and
-never reused, and Microsoft's advice is blunt: "your application mustn't use
-human-readable data to identify a user". The key is the *pair* (`tid`, `oid`),
-because `oid` is only unique within a tenant — so opening Class Meet to a
-second university later does not require a schema change. The email is stored
-for display and is still `UNIQUE`, so one address cannot end up on two rows,
-but an account survives the student's address changing.
+- **Random**: `crypto.randomInt`, the operating system's CSPRNG.
+- **Never stored**: the `email_login_codes` table (migration 008) holds an
+  HMAC-SHA256 of the address and code, keyed from `SESSION_SECRET`. An
+  unkeyed hash — scrypt included — of one of a million values is reversed by
+  trying them all; a keyed one is not, so a leaked copy of the table is
+  useless. Checked with a constant-time comparison.
+- **Ten minutes, once, five tries**: a correct code is deleted; the fifth wrong
+  guess kills the code even if the sixth would have been right. Both are single
+  SQL statements, so parallel requests cannot get extra guesses or reuse a code.
+- **One code per address**: a new code replaces the old one, and at most one is
+  sent a minute.
+- **Rate limits** per client address and per email address on both endpoints
+  (`EMAIL_LOGIN_RATE_LIMITS`). The per-client limits are generous because a
+  lecture hall on campus Wi-Fi reaches us from a few NAT addresses; the
+  per-email ones are tight. They are kept in memory, which is right for the one
+  process Class Meet runs as — see **Known limits** below.
+- **No account enumeration**: `start` never looks at the users table, and
+  answers and emails every allowed address alike. The only refusal is a
+  non-UTA domain, which says nothing about who has an account.
+- **CSRF**: both endpoints are writes, under the same `X-Class-Meet` header and
+  `Origin` check as every other.
+- **No codes in logs**: in development without SMTP the code is printed to the
+  server console as a `[dev email]` line; in production the server **refuses to
+  start** without SMTP, so that fallback can never run there.
+
+**Plus-addressing is stripped**: `jane+cm@mavs.uta.edu` signs in as
+`jane@mavs.uta.edu`, and the code goes there. Exchange delivers both to one
+mailbox, so keeping the tag would let one student hold any number of accounts
+(and dodge a moderator) by varying it.
+
+**How accounts are matched.** By email (`users.email` is `UNIQUE` and
+lowercase). A new address gets a new row with `provider_tenant_id = 'email'`
+and `provider_object_id` = the address; the `users` table did not change. An
+address that already belongs to an account — including one created by
+Microsoft sign-in — signs in to **that** account, keeping its name, groups and
+Microsoft identifiers. A new email account's name is made from the address
+(`jane.doe@` becomes "Jane Doe"), since a code proves only the address.
+
+**Sending the email.** Plain SMTP through [`nodemailer`](https://nodemailer.com)
+(MIT-0, no dependencies), so any provider works by changing six environment
+variables — see `server/.env.example` and `docs/DEPLOY.md`. The zero-cost
+option is a Gmail account with an App Password. The email is plain text with a
+minimal HTML twin: the code, its expiry, and "If you didn't ask for this,
+ignore this email." No links, images or tracking.
 
 **Session cookie.** `httpOnly` (so an XSS bug cannot read it, which is the
 thing `localStorage` cannot promise), `sameSite=Lax`, `secure` in production,
@@ -320,27 +346,68 @@ holds is never a session the server accepts. `SameSite` is defence in depth
 rather than a complete CSRF defence, so every unsafe method also requires the
 custom `X-Class-Meet` header (which a cross-origin form cannot set) and a
 recognised `Origin`. There is no refresh token: when the session expires the
-student presses the button again, which — because the browser still holds a
-live Microsoft session — is usually one click and no password prompt.
+student signs in again.
 
-**Signing out signs you out of Class Meet only.** `signOut` clears MSAL's
-tab-scoped token cache; it deliberately does *not* call `logoutPopup`, which
-would end the student's Microsoft session everywhere. Leaving a study-group app
-should not sign someone out of their university email.
+**Known limits.** The rate limits live in one process's memory: a deployment
+running several instances would give each its own count (the five-tries,
+one-a-minute and single-use rules are in the database and hold regardless).
+A new email account's name comes from the address, and there is no screen yet
+for a student to change it.
+
+### Microsoft sign-in (switched off)
+
+The Microsoft Entra ID sign-in is still in the code, **off unless**
+`ENABLE_MICROSOFT_LOGIN=true` **and** `ENTRA_CLIENT_ID` are both set on the
+server. While it is off, `POST /api/auth/entra` answers `403
+microsoft_login_disabled`, the login page shows no Microsoft button, and the
+browser never downloads MSAL: `client/src/auth/msal.ts` is imported on demand
+only when `GET /api/auth/config` reports `microsoftLoginEnabled: true`. If UTA
+grants admin consent, turning it on adds **Sign in with Microsoft** under the
+email form. How it works, for then:
+
+1. MSAL — in our own bundle, no script loaded from the provider — opens a popup
+   to UTA's Microsoft sign-in page and runs the OAuth 2.0 **authorization code
+   flow with PKCE**.
+2. The popup lands on `/redirect.html`, whose only job is MSAL's redirect
+   bridge (required since MSAL v5, because `Cross-Origin-Opener-Policy` severs
+   `window.opener`). It loads no router and no app code, which is why it is a
+   second Vite entry rather than a route.
+3. The token MSAL asks for is an **access token for this app's own API scope**,
+   `api://<client-id>/access_as_user` — not an ID token. Microsoft: "You
+   shouldn't use an ID token to call an API", and a web API "must only accept
+   tokens containing one of their AppId URIs as the `aud` claim".
+4. `POST /api/auth/entra` verifies it with `jose` against UTA's
+   **tenant-scoped** key set (RS256 signature, `iss`, `aud`, `exp`, `nbf`), then
+   requires `ver` 2.0, UTA's `tid`, the `access_as_user` scope and an `oid`.
+5. The user row is inserted (or refreshed) keyed on the pair (`tid`, `oid`),
+   and the same session cookie is issued.
+
+The **tenant ID is the access policy** for this path, not the email domain:
+Entra has no `email_verified` claim and documents `email`, `upn` and
+`preferred_username` as mutable and not for authorization, while `tid` is
+signed and immutable. A rejected tenant is `403 tenant_not_allowed`. The
+account key is (`tid`, `oid`) because Microsoft's advice is "your application
+mustn't use human-readable data to identify a user". Signing out clears MSAL's
+tab-scoped cache but deliberately does not call `logoutPopup`, which would end
+the student's Microsoft session everywhere.
 
 ---
 
 ## Running the app
 
-You need **Node.js 22.22.2 or newer** (`node -v`) and a Microsoft work or school
-account. You do not need Docker or a local Postgres. You do need a tenant you
-can register an application in — see the note at the end of step 1.
+You need **Node.js 22.22.2 or newer** (`node -v`) and a Neon database (step 2).
+You do not need Docker, a local Postgres, a Microsoft account or a mail
+server: in development, sign-in codes are printed in the server's terminal.
 
 ```bash
 npm install     # once, at the repo root — installs both workspaces
 ```
 
-### 1. Register the app in Microsoft Entra ID
+### 1. Optional: register the app in Microsoft Entra ID
+
+**Skip this step.** Microsoft sign-in is off unless `ENABLE_MICROSOFT_LOGIN=true`
+(see **How sign-in works**), because UTA's tenant requires admin consent. It is
+kept here for the day UTA grants it, or for testing in a tenant of your own.
 
 1. Go to <https://portal.azure.com/> and sign in, then open **Microsoft Entra
    ID -> App registrations -> New registration**.
@@ -418,7 +485,9 @@ Then edit them. Both files are git-ignored; never commit a filled-in one.
 
 | File | Variable | Where it comes from |
 |---|---|---|
-| `server/.env` | `ENTRA_CLIENT_ID` | Step 1, the Application (client) ID |
+| `server/.env` | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | Leave blank locally: codes are printed in the server terminal as `[dev email]` lines. To send real email, see **Sending sign-in emails** in [`docs/DEPLOY.md`](docs/DEPLOY.md) |
+| `server/.env` | `EMAIL_LOGIN_DOMAINS` | Optional. Defaults to `mavs.uta.edu,uta.edu` |
+| `server/.env` | `ENABLE_MICROSOFT_LOGIN`, `ENTRA_CLIENT_ID` | Leave unset. Only with step 1: `true` and the Application (client) ID |
 | `server/.env` | `UTA_TENANT_ID` | Already set to UTA's tenant. Change it only if you registered the app elsewhere |
 | `server/.env` | `ENTRA_API_SCOPE` | Already set to `access_as_user`. Must match the scope published in step 1.5 |
 | `server/.env` | `SESSION_SECRET` | Generate it (below). Any long random string. |
@@ -426,8 +495,8 @@ Then edit them. Both files are git-ignored; never commit a filled-in one.
 | `server/.env` | `DIRECT_DATABASE_URL` | Step 2, the **direct** connection string |
 | `server/.env` | `CLIENT_ORIGIN` | Already set to `http://localhost:5173` |
 | `server/.env` | `PORT`, `NODE_ENV`, `SESSION_TTL_DAYS` | Defaults are fine |
-| `server/.env` | `ALLOW_DEV_LOGIN` | Leave it unset unless you need **Working before Entra and Neon exist**, below |
-| `client/.env` | `VITE_ENTRA_CLIENT_ID` | Step 1 — the **same** client ID |
+| `server/.env` | `ALLOW_DEV_LOGIN` | Leave it unset unless you need **Working before Neon exists**, below |
+| `client/.env` | `VITE_ENTRA_CLIENT_ID` | Only with step 1 — the **same** client ID |
 | `client/.env` | `VITE_ENTRA_TENANT_ID` | Already set to UTA's tenant, as above |
 
 Generate the session secret:
@@ -436,7 +505,7 @@ Generate the session secret:
 node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```
 
-The client ID must be identical in both files. The server checks the access
+If you do turn Microsoft sign-in on, the client ID must be identical in both files. The server checks the access
 token's `aud` claim against its copy, so a mismatch would otherwise show up as
 a `401` from a token that looks perfectly valid; the login page compares the
 two on load and says so in a sentence instead.
@@ -484,14 +553,22 @@ The server takes a few seconds longer to come up than Vite does. If the first
 page load reports that it cannot reach the server, wait for
 `[api] Class Meet API listening` in the terminal and reload.
 
-### Working before Entra and Neon exist
+To sign in, type any `@mavs.uta.edu` or `@uta.edu` address and press **Email
+me a code**. Without SMTP settings nothing is sent; the server's terminal
+prints the code instead:
 
-Registering the app and creating the Neon project are both blocked on things
-outside the code, and until they exist nobody can get past the login screen. So
-there is a development sign-in bypass — **iteration-1 scaffolding that is
-removed before the pilot**.
+```
+[dev email] to jane.doe@mavs.uta.edu: Class Meet sign-in code 042817 (expires in 10 minutes)
+```
 
-`npm run up` switches it on for you when no `ENTRA_CLIENT_ID` is configured,
+### Working before Neon exists
+
+Signing in with an emailed code stores the code and the account, so until the
+Neon project exists nobody can get past the login screen. So there is a
+development sign-in bypass — **iteration-1 scaffolding that is removed before
+the pilot**.
+
+`npm run up` switches it on for you when no `DATABASE_URL` is configured,
 and says so. To do it by hand, add this to `server/.env`:
 
 ```
@@ -500,7 +577,7 @@ ALLOW_DEV_LOGIN=true
 
 and restart. The login page then shows **Skip sign-in (development only)**,
 which signs you in as a hard-coded fake student (`dev.student@mavs.uta.edu`)
-with no Microsoft account and no database.
+with no email and no database.
 
 What keeps it from being a hole:
 
@@ -566,20 +643,29 @@ npm test
 
 - **Server** (`node:test` via `tsx`, `server/src/**/*.test.ts`): the pure
   rules (group validation, meeting-link visibility, My groups sorting), the
-  Entra access policy, session tokens, the CSRF guard and the error handler;
-  every route against an in-memory repository; and
+  Entra access policy, session tokens, the CSRF guard, the rate limiter and
+  the error handler; every route against an in-memory repository; and
   `groups/repository.test.ts`, which runs the real SQL against
   [PGlite](https://pglite.dev) (Postgres compiled to WebAssembly, in-process)
   with the project's migrations applied: the seat cap, leaving, deleting a
   group, the remove-course rule, My groups, meeting-link privacy, and that a
   student's profile is shown to the leader of a group they asked to join
   and to no one else.
-  group, the remove-course rule, My groups and meeting-link privacy.
   `moderation/repository.test.ts` does the same for reports: one open report
   per target, the queue's order, and what removing a group or a member does.
+  Email sign-in is tested the same way: the address rule, the code's hash,
+  SMTP settings and the email itself as pure units;
+  `email-login/repository.test.ts` for the cooldown, five tries, expiry and
+  matching an existing Microsoft account; and `routes/email-login.test.ts`,
+  which drives both endpoints over HTTP against PGlite with a recording mail
+  sender — wrong codes, expiry, single use, rate limits, the
+  enumeration-safe answer and the session cookie. `env.test.ts` checks that
+  production will not start without SMTP.
 - **Client** (Vitest, jsdom, Testing Library, `client/src/**/*.test.ts(x)`):
   form rules, calendar export, each page's states and actions, the
-  navigation badge, and the sign-in redirect when a session expires.
+  navigation badge, both steps of email sign-in and their errors, that MSAL
+  is not loaded while Microsoft sign-in is off, and the sign-in redirect
+  when a session expires.
 
 Check responsive layout and the native time picker manually in a browser.
 
@@ -601,7 +687,12 @@ Check responsive layout and the native time picker manually in a browser.
 
 | Symptom | Cause |
 |---|---|
-| The login page loads, but pressing sign-in says the server has no app registration | `ENTRA_CLIENT_ID` is not set in `server/.env`. The app still runs on purpose, so the dev bypass is usable |
+| No code arrives in development | Without SMTP nothing is emailed: look for the `[dev email]` line in the server's terminal |
+| `503 email_send_failed` | The mail server refused or timed out. The server log says why (e.g. `535`: wrong `SMTP_USER`/`SMTP_PASS` — for Gmail, an App Password, not the account password) |
+| `429 resend_too_soon` | A code was sent to that address less than a minute ago. The page goes straight to entering it |
+| `400 code_expired` | The code is over ten minutes old, was already used, was replaced by a newer one, or used up its five tries. Send a new one |
+| The server will not start: `NODE_ENV=production without SMTP_HOST` | Production must email codes. Set the SMTP variables, or `NODE_ENV=development` locally |
+| `403 microsoft_login_disabled` | Microsoft sign-in is off. It needs `ENABLE_MICROSOFT_LOGIN=true` and `ENTRA_CLIENT_ID` |
 | "Could not reach Microsoft sign-in" before the login screen | No network, or `VITE_ENTRA_CLIENT_ID` is set to a client ID that does not exist |
 | The login page says the two client IDs disagree | `ENTRA_CLIENT_ID` and `VITE_ENTRA_CLIENT_ID` differ, or the server was not restarted after editing `.env` |
 | `503 entra_not_configured` | `ENTRA_CLIENT_ID` is empty. The server boots without it on purpose, but sign-in needs it |
@@ -626,8 +717,10 @@ The app deploys as one Docker container on Render's free plan, backed by a
 fresh Neon database: the container runs pending migrations, then serves the
 API and the built client from one origin. Follow
 [`docs/DEPLOY.md`](docs/DEPLOY.md) step by step; it covers the Neon database,
-the Render service and its environment variables, the one redirect URI to add
-in the Azure portal, seeding more courses, and troubleshooting.
+the email account that sends sign-in codes, the Render service and its
+environment variables, seeding more courses, and troubleshooting. Render's
+free plan blocks outgoing email (SMTP), so sending sign-in codes from Render
+needs a paid instance type — see step 3 there.
 
 ---
 
@@ -637,7 +730,7 @@ Iteration 1 is in progress. As of now:
 
 | Feature | State |
 |---|---|
-| F1 — university sign-in with a UTA Microsoft account | **Done** |
+| F1 — university sign-in with a code emailed to a UTA address (Microsoft sign-in kept, off) | **Done** |
 | Signed-in home screen (shell, with honest empty states) | **Done** |
 | F2–F10 | Not started |
 
@@ -647,6 +740,6 @@ fills them in. It shows no seeded or placeholder groups, because a demo that
 looks finished and is not is worse than one that is honest.
 
 One piece of scaffolding is in the tree on purpose, and is tracked for removal:
-the development sign-in bypass described above. It exists because the Entra app
-registration and the Neon project are prerequisites the team does not all have
-yet, and it is deleted before the iteration-2 pilot.
+the development sign-in bypass described above. It exists because the Neon
+project is a prerequisite the team does not all have yet, and it is deleted
+before the iteration-2 pilot.

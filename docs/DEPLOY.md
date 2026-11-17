@@ -1,17 +1,17 @@
 # Deploying Class Meet to Render
 
 This puts Class Meet on the internet at an address like
-`https://class-meet-cse3311.onrender.com`, so classmates can sign in with their
-UTA accounts and try it without installing anything.
+`https://class-meet-cse3311.onrender.com`, so classmates can sign in with a
+code emailed to their UTA address and try it without installing anything.
 
 It takes about 30 minutes the first time. You need:
 
 - the GitHub repository (`devabdullahi/Class_meet`), with the branch you want to
   deploy pushed to GitHub;
 - the Neon project the team already uses;
-- access to the **Class Meet** app registration in the Azure portal — the same
-  one your local `server/.env` uses;
-- a Render account (free; sign up with GitHub at <https://render.com/>).
+- an email account the server can send sign-in codes from (step 3);
+- a Render account (sign up with GitHub at <https://render.com/>). Read the
+  note at the top of step 3 before choosing the free plan.
 
 ## How the deployed app is put together
 
@@ -57,7 +57,7 @@ reads it for you; you never run Docker yourself.
    `DATABASE_URL`.
 6. Turn **Connection pooling** off and copy the string again (the same, minus
    `-pooler`). This is `DIRECT_DATABASE_URL`; migrations use it.
-7. Paste both somewhere private for step 3. They contain the database password:
+7. Paste both somewhere private for step 4. They contain the database password:
    never commit them or post them in chat.
 
 Both strings must end in `/classmeet_iter4?...`. If either ends in
@@ -76,7 +76,63 @@ cookie. Use a new one for production rather than the one in your local
 `server/.env`, and keep it private. Changing it later signs everyone out, and
 nothing else.
 
-## Step 3 — Create the web service on Render
+## Step 3 — Set up sending sign-in emails
+
+Students sign in with a 6-digit code emailed to their UTA address, so the
+server needs an outgoing-mail (SMTP) account. Without one, a production server
+**refuses to start** — on purpose, so codes can never end up in a log instead.
+
+> **Render's free plan blocks outgoing email.** Since 26 September 2025, free
+> Render web services cannot open connections to the SMTP ports 25, 465 and
+> 587 ([Render changelog](https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports)).
+> On the **Free** instance type the server starts, but every "Email me a
+> code" fails after about ten seconds with `503 email_send_failed`, and the
+> log says the connection to the mail server timed out. To send sign-in
+> emails from Render, choose a **paid** instance type in step 4 (the
+> cheapest, Starter, is enough); Render's changelog names that as the fix.
+> Everything below works unchanged locally, and on any host that allows SMTP.
+
+**The zero-cost option: a Gmail account with an App Password.** Use an account
+made for the project (for example `classmeet.uta@gmail.com`) rather than
+someone's personal one: the address is what students see, and the password
+belongs to whoever runs the deployment.
+
+1. Sign in to the Gmail account and open <https://myaccount.google.com/security>.
+2. Under **How you sign in to Google**, turn on **2-Step Verification**. App
+   Passwords do not exist until it is on.
+3. Open <https://myaccount.google.com/apppasswords>, type `Class Meet` as the
+   app name, and click **Create**.
+4. Copy the 16-character password Google shows. It is shown **once**; if you
+   lose it, delete it and create another. It is a password: keep it private,
+   never commit it.
+5. Your values for step 4 are:
+
+   | Key | Value |
+   |---|---|
+   | `SMTP_HOST` | `smtp.gmail.com` |
+   | `SMTP_PORT` | `465` |
+   | `SMTP_SECURE` | `true` |
+   | `SMTP_USER` | the Gmail address |
+   | `SMTP_PASS` | the app password from step 3.4 (spaces or not, both work) — **not** the account password |
+   | `EMAIL_FROM` | `Class Meet <the same Gmail address>` — Gmail sends only as the signed-in account |
+
+6. Try it locally first: put the same six values in your own `server/.env`,
+   restart `npm run dev`, and sign in with your own UTA address. The server
+   log says `sign-in codes ... are emailed through smtp.gmail.com:465`. If the
+   email lands in **Junk**, mark it as not junk; UTA's mail filter learns.
+
+A personal Gmail account can send about 500 emails a day, far more than a
+class project needs.
+
+**Other providers work the same way** — only the six values change. Brevo's
+free plan (300 emails a day), for example: verify your sender address in
+Brevo, create an SMTP key under **SMTP & API**, and use `SMTP_HOST`
+`smtp-relay.brevo.com`, `SMTP_PORT` `587`, `SMTP_SECURE` `false`, `SMTP_USER`
+your Brevo SMTP login, `SMTP_PASS` the SMTP key, and `EMAIL_FROM` the verified
+address. On port 587 the server insists on upgrading to TLS before it sends
+the password.
+
+## Step 4 — Create the web service on Render
 
 1. Sign in at <https://dashboard.render.com/>.
 2. Click **+ New** (top right) → **Web Service**.
@@ -94,7 +150,7 @@ nothing else.
    | **Region** | the one closest to your Neon project's region (e.g. **Ohio** for Neon's `us-east-2`) |
    | **Root Directory** | leave empty |
    | **Dockerfile Path** | leave as `./Dockerfile` |
-   | **Instance Type** | **Free** |
+   | **Instance Type** | a paid type such as **Starter**, so sign-in emails can be sent (see step 3). **Free** runs everything else, but cannot send them |
 
 5. Under **Environment Variables**, add each row below with **+ Add
    Environment Variable** (or paste them all at once with **Add from .env**).
@@ -105,15 +161,12 @@ nothing else.
    | `DATABASE_URL` | the **pooled** string from step 1.5 |
    | `DIRECT_DATABASE_URL` | the **direct** string from step 1.6 |
    | `SESSION_SECRET` | the value from step 2 |
-   | `CLIENT_ORIGIN` | `https://<Name>.onrender.com` — your **Name** from step 3.4, no trailing slash. Step 4 checks it |
-   | `ENTRA_CLIENT_ID` | the Application (client) ID — the same value as in your local `server/.env` |
-   | `VITE_ENTRA_CLIENT_ID` | the **same** client ID again |
-   | `UTA_TENANT_ID` | `5cdc5b43-d7be-4caa-8173-729e3b0a62d9` (UTA), or the value from your local `server/.env` if it differs |
-   | `VITE_ENTRA_TENANT_ID` | the same tenant ID as `UTA_TENANT_ID` |
-   | `ENTRA_API_SCOPE` | `access_as_user` (or your local value, if different) |
+   | `CLIENT_ORIGIN` | `https://<Name>.onrender.com` — your **Name** from step 4.4, no trailing slash. Step 5 checks it |
+   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | the six values from step 3 |
 
    Do **not** add `ALLOW_DEV_LOGIN` (the server refuses to start in production
-   with it on), and do not add `PORT` (Render sets it).
+   with it on), and do not add `PORT` (Render sets it). The Microsoft
+   variables are not needed; see **Optional — Microsoft sign-in** below.
 
 6. Click **Advanced** and set **Health Check Path** to `/api/health`. Leave the
    rest as it is.
@@ -124,16 +177,17 @@ The first build takes 3–6 minutes. The log should end with lines like:
 ```
 [migrate] applying 001_create_users.sql
 ...
-[migrate] applied 4 migration(s)
+[migrate] applied 8 migration(s)
 [api] serving the client from /app/client/dist
 [api] Class Meet API listening on http://localhost:10000 (production)
+[api] sign-in codes for @mavs.uta.edu, @uta.edu addresses are emailed through smtp.gmail.com:465
 ==> Your service is live
 ```
 
 (The `localhost` in that line is the address inside the container; Render
 forwards your public `https://` address to it.)
 
-## Step 4 — Check the address, and fix `CLIENT_ORIGIN` if Render changed it
+## Step 5 — Check the address, and fix `CLIENT_ORIGIN` if Render changed it
 
 At the top of the service page, under its name, Render shows the real address,
 e.g. `https://class-meet-cse3311.onrender.com`. If the name was taken, Render
@@ -143,28 +197,6 @@ If it differs from what you entered for `CLIENT_ORIGIN`: open **Environment**
 in the left sidebar, edit `CLIENT_ORIGIN` to the exact address (with
 `https://`, without a trailing `/`), and click **Save, rebuild, and deploy**.
 Until it matches, signing in fails with `403 origin_not_allowed`.
-
-## Step 5 — Let Microsoft send students back to the new address
-
-Microsoft only returns a signed-in user to addresses listed on the app
-registration, so add the deployed one:
-
-1. Go to <https://portal.azure.com/> → **Microsoft Entra ID** → **App
-   registrations** → **All applications** → **Class Meet**.
-2. Open **Authentication** in the left menu.
-3. Under the existing **Single-page application** platform (the one that
-   already lists `http://localhost:5173/redirect.html`), click **Add URI** and
-   enter, exactly:
-
-   ```
-   https://<your-address>.onrender.com/redirect.html
-   ```
-
-   It must be under **Single-page application**, not **Web**.
-4. Click **Save** at the bottom.
-
-That is the only portal change. The client ID, scope and token settings are
-the ones the app already uses locally.
 
 ## Step 6 — Check that it works
 
@@ -176,8 +208,8 @@ the ones the app already uses locally.
 
 2. Open `https://<your-address>.onrender.com/`. The Class Meet sign-in page
    appears.
-3. Click **Sign in with your UTA account**, finish the Microsoft popup, and
-   check you land on **My courses**.
+3. Type your UTA email, click **Email me a code**, and enter the code from the
+   email (check **Junk** the first time). Check you land on **My courses**.
 4. Add a course, create a group, and have a classmate (signed in on their own
    device) find the group and ask to join.
 
@@ -229,6 +261,45 @@ straight away; no redeploy is needed.
 
 ---
 
+## Optional — Microsoft sign-in
+
+Microsoft sign-in is **off** unless `ENABLE_MICROSOFT_LOGIN=true`, because UTA's
+tenant requires an administrator to approve the app before students can use
+it ("Need admin approval"). If UTA grants that consent, turn it on:
+
+1. Add these to the service's **Environment**, then **Save, rebuild, and deploy**
+   (the two `VITE_` values are compiled into the browser code):
+
+   | Key | Value |
+   |---|---|
+   | `ENABLE_MICROSOFT_LOGIN` | `true` |
+   | `ENTRA_CLIENT_ID` | the Application (client) ID of the app registration |
+   | `VITE_ENTRA_CLIENT_ID` | the **same** client ID again |
+   | `UTA_TENANT_ID` | `5cdc5b43-d7be-4caa-8173-729e3b0a62d9` (UTA) |
+   | `VITE_ENTRA_TENANT_ID` | the same tenant ID |
+   | `ENTRA_API_SCOPE` | `access_as_user` |
+
+2. Microsoft only returns a signed-in user to addresses listed on the app
+   registration, so add the deployed one:
+
+   1. Go to <https://portal.azure.com/> → **Microsoft Entra ID** → **App
+      registrations** → **All applications** → **Class Meet**.
+   2. Open **Authentication** in the left menu.
+   3. Under the existing **Single-page application** platform (the one that
+      already lists `http://localhost:5173/redirect.html`), click **Add URI** and
+      enter, exactly:
+
+      ```
+      https://<your-address>.onrender.com/redirect.html
+      ```
+
+      It must be under **Single-page application**, not **Web**.
+   4. Click **Save** at the bottom.
+
+The login page then shows **Sign in with Microsoft** under the email form.
+Emailed codes keep working, and an address that signed in either way is the
+same account.
+
 ## Before you present: wake it up
 
 On Render's free plan the service **goes to sleep after 15 minutes without
@@ -251,7 +322,7 @@ Push to the deployed branch. Render rebuilds and redeploys automatically
 new version starts. To redeploy without a push, use **Manual Deploy → Deploy
 latest commit** on the service page.
 
-Changing `VITE_ENTRA_CLIENT_ID` or `VITE_ENTRA_TENANT_ID` needs a rebuild,
+Changing `VITE_ENTRA_CLIENT_ID` or `VITE_ENTRA_TENANT_ID` (Microsoft sign-in only) needs a rebuild,
 because they are compiled into the browser code. Render rebuilds on every
 deploy, so **Save, rebuild, and deploy** covers it.
 
@@ -264,13 +335,21 @@ deploy, so **Save, rebuild, and deploy** covers it.
 | `DIRECT_DATABASE_URL` | recommended | runtime (migrations) | Neon **direct** string for the same database. Migrations fall back to `DATABASE_URL` without it |
 | `SESSION_SECRET` | yes | runtime | At least 32 random characters; signs the session cookie. Secret |
 | `CLIENT_ORIGIN` | yes | runtime | The site's exact address, `https://<name>.onrender.com`. Write requests from any other origin are refused |
-| `ENTRA_CLIENT_ID` | yes | runtime | Application (client) ID of the app registration |
+| `SMTP_HOST` | yes | runtime | Outgoing mail server for sign-in codes, e.g. `smtp.gmail.com`. Without it production refuses to start |
+| `SMTP_PORT` | no (default `465`, or `587` with `SMTP_SECURE=false`) | runtime | `465` for TLS from the start, `587` for STARTTLS |
+| `SMTP_SECURE` | no (default: `true` on 465) | runtime | `true` or `false`, matching the port |
+| `SMTP_USER` | yes, with `SMTP_PASS` | runtime | The mail account's login (the Gmail address) |
+| `SMTP_PASS` | yes, with `SMTP_USER` | runtime | Its password — for Gmail an **App Password**. Secret |
+| `EMAIL_FROM` | yes | runtime | The From line, e.g. `Class Meet <classmeet.uta@gmail.com>` |
+| `EMAIL_LOGIN_DOMAINS` | no (default `mavs.uta.edu,uta.edu`) | runtime | Which addresses may ask for a code; matched exactly after the `@` |
+| `ENABLE_MICROSOFT_LOGIN` | no (default off) | runtime | `true` turns Microsoft sign-in on, together with `ENTRA_CLIENT_ID` |
+| `ENTRA_CLIENT_ID` | only for Microsoft sign-in | runtime | Application (client) ID of the app registration |
 | `ENTRA_API_SCOPE` | no (default `access_as_user`) | runtime | Scope name under **Expose an API** |
-| `UTA_TENANT_ID` | no (default UTA) | runtime | The only tenant whose users may sign in |
+| `UTA_TENANT_ID` | no (default UTA) | runtime | The only tenant whose Microsoft accounts may sign in |
 | `SESSION_TTL_DAYS` | no (default `7`) | runtime | How long a sign-in lasts |
 | `PORT` | no — **leave unset** | runtime | Render provides it (`10000`) |
 | `ALLOW_DEV_LOGIN` | **must be unset** | runtime | Development-only bypass. With `NODE_ENV=production` the server refuses to start |
-| `VITE_ENTRA_CLIENT_ID` | yes | **build** | Same client ID, compiled into the browser code. Not a secret |
+| `VITE_ENTRA_CLIENT_ID` | only for Microsoft sign-in | **build** | Same client ID, compiled into the browser code. Not a secret |
 | `VITE_ENTRA_TENANT_ID` | no (default UTA) | **build** | Tenant whose sign-in page students see. Not a secret |
 
 Render passes every environment variable to the Docker build as a build
@@ -292,12 +371,17 @@ are never stored in the image.
 | `502 Bad Gateway`, or Render's loading page for more than ~2 minutes | The service is waking up (wait a minute), or it crashed on start: open **Logs** on the service page and look at the last lines |
 | `/api/health` says `"databaseConfigured":false` | `DATABASE_URL` is not set on the service |
 | Pages load but actions fail with `503 database_unavailable` | Neon was waking up (retry), or the connection string is wrong |
-| Signing in fails with `403 origin_not_allowed` | `CLIENT_ORIGIN` is not exactly the address in the browser's address bar (step 4) |
-| The Microsoft popup shows `AADSTS50011` / redirect URI mismatch | The `/redirect.html` URI is missing or mistyped in the portal (step 5) |
+| Deploy fails: `NODE_ENV=production without SMTP_HOST` | The SMTP variables from step 3 are missing. Add them |
+| Deploy fails: `... is set but SMTP_HOST is empty`, `EMAIL_FROM is required`, or `Set both SMTP_USER and SMTP_PASS` | A partial SMTP set. Add the missing value (step 3) |
+| "Email me a code" fails with `503 email_send_failed` and the log says the connection timed out | The service is on Render's **Free** instance type, which blocks SMTP. Change **Instance Type** to a paid one (step 3) |
+| `503 email_send_failed` and the log says `535` or `Invalid login` | Wrong `SMTP_USER`/`SMTP_PASS`. For Gmail, use an App Password, not the account password (step 3) |
+| The code never arrives | Look in **Junk**. Check the Render log for `could not send a sign-in code` |
+| Signing in fails with `403 origin_not_allowed` | `CLIENT_ORIGIN` is not exactly the address in the browser's address bar (step 5) |
+| The Microsoft popup shows `AADSTS50011` / redirect URI mismatch | The `/redirect.html` URI is missing or mistyped in the portal (**Optional — Microsoft sign-in**) |
 | A CORS error as the popup closes | The redirect URI was added under **Web** instead of **Single-page application** |
-| The login page says the client IDs disagree | `ENTRA_CLIENT_ID` and `VITE_ENTRA_CLIENT_ID` differ. Fix one, then **Save, rebuild, and deploy** |
+| The login page says the client IDs disagree (Microsoft sign-in on) | `ENTRA_CLIENT_ID` and `VITE_ENTRA_CLIENT_ID` differ. Fix one, then **Save, rebuild, and deploy** |
 | `403 tenant_not_allowed` | A personal or non-UTA Microsoft account, or `UTA_TENANT_ID` differs from your working local value |
-| Microsoft says "Need admin approval" | The tenant does not let students consent to apps on their own. Ask whoever registered the app, or the course staff; it is a tenant setting, not a code problem |
+| Microsoft says "Need admin approval" | UTA's tenant does not let students consent to apps on their own — the reason sign-in uses emailed codes. Turn `ENABLE_MICROSOFT_LOGIN` off again unless UTA has granted admin consent |
 | The browser console shows `Refused to ... because it violates the following Content Security Policy directive` | Something new is loading from a domain the policy does not allow. The policy is in `server/src/middleware/security-headers.ts`; add the domain to the matching directive there, with a reason |
 | The site works, then is slow once | It went to sleep after 15 idle minutes. Expected on the free plan |
 
@@ -317,17 +401,18 @@ $env:NODE_ENV = 'production'; $env:PORT = '4100'; $env:CLIENT_ORIGIN = 'http://l
 node server/dist/scripts/migrate.js; node server/dist/index.js
 ```
 
-Other values (database, Entra, secret) come from `server/.env`, and the app is
-at <http://localhost:4100>. Sign-in there additionally needs
-`http://localhost:4100/redirect.html` registered in the portal. Set
+Other values (database, secret, SMTP) come from `server/.env`, and the app is
+at <http://localhost:4100>. Production refuses to start without the SMTP
+values, so `server/.env` needs them (step 3) for this rehearsal. Set
 `ALLOW_DEV_LOGIN` to `false` explicitly rather than leaving it empty, so that a
 `true` in `server/.env` does not stop the server from starting.
 
 With Docker installed, the same image Render builds can be run with:
 
 ```bash
-docker build --build-arg VITE_ENTRA_CLIENT_ID=<client-id> -t class-meet .
+docker build -t class-meet .
 docker run --rm -p 4100:4000 -e CLIENT_ORIGIN=http://localhost:4100 \
   -e SESSION_SECRET=<secret> -e DATABASE_URL=<connection-string> \
-  -e ENTRA_CLIENT_ID=<client-id> class-meet
+  -e SMTP_HOST=smtp.gmail.com -e SMTP_USER=<gmail-address> -e SMTP_PASS=<app-password> \
+  -e EMAIL_FROM="Class Meet <gmail-address>" class-meet
 ```
