@@ -61,7 +61,6 @@
 .cm-nav__link[aria-current='page'] {
   background: var(--surface-2);
   color: var(--text);
-  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .cm-account {
