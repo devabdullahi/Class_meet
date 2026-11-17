@@ -97,7 +97,9 @@ function MembersPanel({ group, viewerId }: { group: GroupDetails; viewerId: stri
 export function GroupDetailsPage(): ReactNode {
   const { courseId = '', groupId = '' } = useParams();
   const location = useLocation();
-  const justCreated = (location.state as { created?: boolean } | null)?.created === true;
+  const arrivedFrom = location.state as { created?: boolean; saved?: boolean } | null;
+  const justCreated = arrivedFrom?.created === true;
+  const justSaved = arrivedFrom?.saved === true;
   const { user } = useAuth();
   const { refresh: refreshPendingRequestCount } = usePendingRequests();
 
@@ -173,14 +175,21 @@ export function GroupDetailsPage(): ReactNode {
       {group !== null && (
         <>
           <header className="cm-details-header">
-            <h1>{groupTitle(group)}</h1>
-            {goalLine !== null && <p className="cm-details-header__goal">{goalLine}</p>}
-            <div className="cm-details-head">
-              <span>
-                {group.courseCode} · {group.courseTitle}
-              </span>
-              {leader !== undefined && <span>Leader: {leader.name}</span>}
+            <div className="cm-details-header__text">
+              <h1>{groupTitle(group)}</h1>
+              {goalLine !== null && <p className="cm-details-header__goal">{goalLine}</p>}
+              <div className="cm-details-head">
+                <span>
+                  {group.courseCode} · {group.courseTitle}
+                </span>
+                {leader !== undefined && <span>Leader: {leader.name}</span>}
+              </div>
             </div>
+            {group.viewerRole === 'leader' && (
+              <Link className="cm-btn cm-btn--secondary cm-btn--sm" to={`/groups/${courseId}/${groupId}/edit`}>
+                Edit group
+              </Link>
+            )}
           </header>
 
           {justCreated && (
@@ -189,6 +198,13 @@ export function GroupDetailsPage(): ReactNode {
               <span className="cm-notice__body">
                 Group created. You lead it, so join requests will appear here for you to answer.
               </span>
+            </div>
+          )}
+
+          {justSaved && (
+            <div className="cm-notice" role="status">
+              <CheckCircleIcon />
+              <span className="cm-notice__body">Changes saved.</span>
             </div>
           )}
 

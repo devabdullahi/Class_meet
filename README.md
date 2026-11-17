@@ -125,7 +125,7 @@ client/                  Vite + React + TypeScript single-page app
       EntraSignInButton.tsx  an ordinary button — MSAL ships no widget
       Avatar.tsx         profile picture with an initials fallback
       ClassMeetLayout.tsx  the signed-in shell: sidebar, or top and tab bars on phones
-      CreateGroupForm.tsx  the Create Group fields, inline errors and submit
+      GroupForm.tsx      the group fields, inline errors and submit; creates a group or edits one
       FormField.tsx      label, control, then hint or error, wired with aria
       GroupActionPanels.tsx  Group Details' state-driven action panel
       Wordmark.tsx       inline-SVG logo
@@ -134,6 +134,7 @@ client/                  Vite + React + TypeScript single-page app
     pages/
       LoginPage.tsx      sign-in screen
       MyGroupsPage.tsx   groups you lead, are in and asked to join; what needs you first
+      EditGroupPage.tsx  the leader edits a group, using GroupForm
       HomePage.tsx       signed-in landing page
     types/
       vite-env.d.ts      typings for the VITE_ variables
@@ -167,7 +168,7 @@ server/                  Express + TypeScript API
     routes/me.ts         GET/POST /api/me/courses, GET /api/me/groups,
                          GET /api/me/groups/pending-request-count             (sign-in required)
     routes/courses.ts    GET /api/courses?q=, GET /api/courses/:id/groups   (sign-in required)
-    routes/groups.ts     POST /api/groups, GET /api/groups/:id, join requests
+    routes/groups.ts     POST /api/groups, GET /api/groups/:id, PATCH /api/groups/:id (leader), join requests
                          (ask, withdraw your own, leader decides)            (sign-in required)
     scripts/migrate.ts   the migration runner
 ```

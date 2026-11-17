@@ -9,6 +9,7 @@ import { PendingRequestsProvider } from './pending-requests/PendingRequestsProvi
 import { StudyGroupsPage } from './pages/StudyGroupsPage';
 import { GroupDetailsPage } from './pages/GroupDetailsPage';
 import { CreateGroupPage } from './pages/CreateGroupPage';
+import { EditGroupPage } from './pages/EditGroupPage';
 export function App(): ReactNode {
   return (
     <BrowserRouter>
@@ -24,6 +25,10 @@ export function App(): ReactNode {
             <Route
               path="/groups/:courseId/:groupId"
               element={<RequireAuth><GroupDetailsPage /></RequireAuth>}
+            />
+            <Route
+              path="/groups/:courseId/:groupId/edit"
+              element={<RequireAuth><EditGroupPage /></RequireAuth>}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

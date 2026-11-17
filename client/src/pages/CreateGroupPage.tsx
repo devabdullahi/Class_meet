@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { AddCourseForm } from '../components/AddCourseForm';
 import { ClassMeetLayout } from '../components/ClassMeetLayout';
-import { CreateGroupForm } from '../components/CreateGroupForm';
+import { GroupForm } from '../components/GroupForm';
 import { AlertIcon, ChevronLeftIcon } from '../components/icons';
 import { useApiData } from '../hooks/useApiData';
 
@@ -75,7 +75,7 @@ export function CreateGroupPage(): ReactNode {
       )}
 
       {courses.length > 0 && (
-        <CreateGroupForm courses={courses} presetCourse={presetCourse} cancelTo={backTo} />
+        <GroupForm mode="create" courses={courses} presetCourse={presetCourse} cancelTo={backTo} />
       )}
 
       {isAddCourseOpen && <AddCourseForm onClose={closeAddCourse} onAdded={reload} />}

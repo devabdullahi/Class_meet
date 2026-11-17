@@ -14,8 +14,10 @@ import type {
   GroupRepository,
   GroupSummary,
   JoinRequestOutcome,
+  UpdateGroupOutcome,
   WithdrawOutcome,
 } from '../groups/repository.js';
+import type { GroupSettings } from '../groups/validation.js';
 import type { MyGroups } from '../groups/my-groups.js';
 import { createCoursesRouter } from './courses.js';
 import { createGroupsRouter } from './groups.js';
@@ -61,6 +63,8 @@ class FakeRepository implements GroupRepository {
   joinOutcome: JoinRequestOutcome = 'created';
   decisionOutcome: DecisionOutcome = 'decided';
   withdrawOutcome: WithdrawOutcome = 'withdrawn';
+  updateOutcome: UpdateGroupOutcome = 'updated';
+  updates: Array<{ groupId: string; viewerId: string; settings: GroupSettings }> = [];
   withdrawals: Array<{ groupId: string; viewerId: string }> = [];
   decisions: Array<{ requestId: string; decision: string; viewerId: string }> = [];
   myGroupsByViewer = new Map<string, MyGroups>();
@@ -96,6 +100,10 @@ class FakeRepository implements GroupRepository {
   async findGroup(groupId: string, viewerId: string): Promise<GroupDetails | null> {
     this.viewersOfGroup.push(viewerId);
     return groupId === GROUP_ID ? GROUP : null;
+  }
+  async updateGroup(groupId: string, viewerId: string, settings: GroupSettings): Promise<UpdateGroupOutcome> {
+    this.updates.push({ groupId, viewerId, settings });
+    return this.updateOutcome;
   }
   async requestToJoin(): Promise<JoinRequestOutcome> {
     return this.joinOutcome;
@@ -152,6 +160,7 @@ beforeEach(() => {
   repository.joinOutcome = 'created';
   repository.decisionOutcome = 'decided';
   repository.withdrawOutcome = 'withdrawn';
+  repository.updateOutcome = 'updated';
 });
 
 async function send(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }> {
@@ -303,6 +312,49 @@ test('GET /api/groups/:id returns 404 for an unknown group', async () => {
   const { status, json } = await send('GET', `/api/groups/${UNKNOWN_ID}`);
   assert.equal(status, 404);
   assert.equal(json.error.code, 'group_not_found');
+});
+
+// ---- editing a group --------------------------------------------------
+
+const { courseId: _courseId, ...validSettings } = validGroupBody;
+
+test('PATCH /api/groups/:id passes the trimmed settings and the viewer, and returns the group', async () => {
+  const { status, json } = await send('PATCH', `/api/groups/${GROUP_ID}`, { ...validSettings, name: '  New name ' });
+  assert.equal(status, 200);
+  assert.equal(json.group.id, GROUP_ID);
+  const update = repository.updates.at(-1);
+  assert.equal(update?.groupId, GROUP_ID);
+  assert.equal(update?.viewerId, VIEWER_ID);
+  assert.equal(update?.settings.name, 'New name');
+  assert.equal('courseId' in (update?.settings ?? {}), false);
+});
+
+test('PATCH /api/groups/:id rejects invalid settings before reaching the repository', async () => {
+  const before = repository.updates.length;
+  const { status, json } = await send('PATCH', `/api/groups/${GROUP_ID}`, { ...validSettings, goal: '' });
+  assert.equal(status, 400);
+  assert.equal(json.error.code, 'invalid_goal');
+  assert.equal(repository.updates.length, before);
+});
+
+const updateFailures: Array<[UpdateGroupOutcome, number, string]> = [
+  ['group_not_found', 404, 'group_not_found'],
+  ['not_leader', 403, 'not_leader'],
+  ['size_below_member_count', 400, 'invalid_maxMembers'],
+];
+for (const [outcome, expectedStatus, expectedCode] of updateFailures) {
+  test(`editing answers ${expectedStatus} ${expectedCode} when the outcome is ${outcome}`, async () => {
+    repository.updateOutcome = outcome;
+    const { status, json } = await send('PATCH', `/api/groups/${GROUP_ID}`, validSettings);
+    assert.equal(status, expectedStatus);
+    assert.equal(json.error.code, expectedCode);
+  });
+}
+
+test('editing rejects a malformed group id', async () => {
+  const { status, json } = await send('PATCH', '/api/groups/nope', validSettings);
+  assert.equal(status, 400);
+  assert.equal(json.error.code, 'invalid_groupId');
 });
 
 // ---- join requests ----------------------------------------------------

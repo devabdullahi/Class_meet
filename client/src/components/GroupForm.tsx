@@ -1,6 +1,12 @@
+/**
+ * The study group form, for creating a group and for its leader editing it.
+ * Both ask the same questions under the same rules; editing starts from the
+ * group's current settings, keeps its course, and will not shrink the group
+ * below the members already in it.
+ */
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, type EnrolledCourse, type GroupFormat } from '../api';
+import { api, type Course, type EnrolledCourse, type GroupDetails, type GroupFormat } from '../api';
 import {
   DEFAULT_GROUP_SIZE,
   GROUP_FORM_FIELD_ORDER,
@@ -10,7 +16,10 @@ import {
   MAX_NAME_LENGTH,
   MEETING_DAYS,
   MIN_GROUP_SIZE,
+  groupFormValuesFrom,
+  minimumGroupSize,
   toCreateGroupRequest,
+  toGroupSettings,
   validateGroupForm,
   type GroupFormErrors,
   type GroupFormField,
@@ -32,17 +41,21 @@ const FIELD_IDS: Record<GroupFormField, string> = {
   groupSize: 'group-size',
 };
 
-interface CreateGroupFormProps {
-  courses: EnrolledCourse[];
-  /** The course the student came from. Shown fixed instead of as a choice. */
-  presetCourse: EnrolledCourse | null;
+type GroupFormProps = {
   /** Where Cancel goes. */
   cancelTo: string;
-}
+} & (
+  | {
+      mode: 'create';
+      courses: EnrolledCourse[];
+      /** The course the student came from. Shown fixed instead of as a choice. */
+      presetCourse: EnrolledCourse | null;
+    }
+  | { mode: 'edit'; group: GroupDetails }
+);
 
-export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroupFormProps): ReactNode {
-  const navigate = useNavigate();
-  const [values, setValues] = useState<GroupFormValues>({
+function emptyValues(presetCourse: Course | null): GroupFormValues {
+  return {
     courseId: presetCourse?.id ?? '',
     name: '',
     goal: '',
@@ -51,7 +64,24 @@ export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroup
     format: 'in_person',
     location: '',
     groupSize: String(DEFAULT_GROUP_SIZE),
-  });
+  };
+}
+
+export function GroupForm(props: GroupFormProps): ReactNode {
+  const { cancelTo } = props;
+  const editedGroup = props.mode === 'edit' ? props.group : null;
+  const courses = props.mode === 'create' ? props.courses : [];
+  const presetCourse = props.mode === 'create' ? props.presetCourse : null;
+  // A group's course never changes, so editing shows it fixed like a preset one.
+  const fixedCourse: Pick<Course, 'code' | 'title'> | null =
+    editedGroup !== null ? { code: editedGroup.courseCode, title: editedGroup.courseTitle } : presetCourse;
+  const memberCount = editedGroup?.memberCount ?? 0;
+  const smallestSize = minimumGroupSize(memberCount);
+
+  const navigate = useNavigate();
+  const [values, setValues] = useState<GroupFormValues>(() =>
+    editedGroup !== null ? groupFormValuesFrom(editedGroup) : emptyValues(presetCourse),
+  );
   const [errors, setErrors] = useState<GroupFormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -71,13 +101,13 @@ export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroup
   function stepGroupSize(change: number): void {
     const current = Number(values.groupSize);
     const start = Number.isInteger(current) ? current : DEFAULT_GROUP_SIZE;
-    const next = Math.min(MAX_GROUP_SIZE, Math.max(MIN_GROUP_SIZE, start + change));
+    const next = Math.min(MAX_GROUP_SIZE, Math.max(smallestSize, start + change));
     update('groupSize', String(next));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    const problems = validateGroupForm(values);
+    const problems = validateGroupForm(values, memberCount);
     setErrors(problems);
     const firstProblem = GROUP_FORM_FIELD_ORDER.find((field) => problems[field] !== undefined);
     if (firstProblem !== undefined) {
@@ -88,24 +118,35 @@ export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroup
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const { group } = await api.createGroup(toCreateGroupRequest(values));
-      navigate(`/groups/${group.courseId}/${group.id}`, { state: { created: true } });
+      const { group } =
+        editedGroup !== null
+          ? await api.updateGroup(editedGroup.id, toGroupSettings(values))
+          : await api.createGroup(toCreateGroupRequest(values));
+      navigate(`/groups/${group.courseId}/${group.id}`, {
+        state: editedGroup !== null ? { saved: true } : { created: true },
+      });
     } catch (failure) {
-      setSubmitError(describeError(failure, 'We could not create the group. Please try again.'));
+      const fallback =
+        editedGroup !== null
+          ? 'We could not save your changes. Please try again.'
+          : 'We could not create the group. Please try again.';
+      setSubmitError(describeError(failure, fallback));
       setSubmitting(false);
     }
   }
 
   const online = values.format === 'online';
+  const submitLabels =
+    editedGroup !== null ? { idle: 'Save changes', busy: 'Saving…' } : { idle: 'Create group', busy: 'Creating…' };
 
   return (
     <form className="cm-panel cm-create-form" noValidate onSubmit={(event) => void handleSubmit(event)}>
-      {presetCourse !== null ? (
+      {fixedCourse !== null ? (
         <div className="cm-form-field">
           <span className="cm-label">Course</span>
           <p className="cm-course-chip">
-            <span className="cm-code">{presetCourse.code}</span>
-            {presetCourse.title}
+            <span className="cm-code">{fixedCourse.code}</span>
+            {fixedCourse.title}
           </p>
         </div>
       ) : (
@@ -250,7 +291,11 @@ export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroup
       <FormField
         id={FIELD_IDS.groupSize}
         label="Group size"
-        hint={`Including you, from ${MIN_GROUP_SIZE} to ${MAX_GROUP_SIZE}.`}
+        hint={
+          memberCount > MIN_GROUP_SIZE
+            ? `Including you. At least ${memberCount}, the members already in it, up to ${MAX_GROUP_SIZE}.`
+            : `Including you, from ${MIN_GROUP_SIZE} to ${MAX_GROUP_SIZE}.`
+        }
         error={errors.groupSize}
       >
         {(control) => (
@@ -268,7 +313,7 @@ export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroup
               className="cm-input"
               type="number"
               inputMode="numeric"
-              min={MIN_GROUP_SIZE}
+              min={smallestSize}
               max={MAX_GROUP_SIZE}
               step={1}
               value={values.groupSize}
@@ -299,7 +344,7 @@ export function CreateGroupForm({ courses, presetCourse, cancelTo }: CreateGroup
           Cancel
         </Link>
         <button className="cm-btn cm-btn--primary cm-form__submit" type="submit" disabled={submitting}>
-          {submitting ? 'Creating…' : 'Create group'}
+          {submitting ? submitLabels.busy : submitLabels.idle}
         </button>
       </div>
     </form>

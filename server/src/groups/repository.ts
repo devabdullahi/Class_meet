@@ -8,6 +8,7 @@ import {
   courseSearchPatterns,
   type CreateGroupInput,
   type GroupFormat,
+  type GroupSettings,
   type JoinDecision,
   type MeetingDay,
 } from './validation.js';
@@ -80,6 +81,8 @@ export type DecisionOutcome = 'decided' | 'group_not_found' | 'not_leader' | 're
 
 export type WithdrawOutcome = 'withdrawn' | 'request_not_found';
 
+export type UpdateGroupOutcome = 'updated' | 'group_not_found' | 'not_leader' | 'size_below_member_count';
+
 export interface GroupRepository {
   listCourses(search: string, viewerId: string): Promise<CourseSearchResult[]>;
   listMyCourses(viewerId: string): Promise<EnrolledCourse[]>;
@@ -92,6 +95,8 @@ export interface GroupRepository {
   countPendingRequestsForLeader(viewerId: string): Promise<number>;
   createGroup(leaderId: string, input: CreateGroupInput): Promise<string>;
   findGroup(groupId: string, viewerId: string): Promise<GroupDetails | null>;
+  /** Leader only. The size may not drop below the members already in the group. */
+  updateGroup(groupId: string, viewerId: string, settings: GroupSettings): Promise<UpdateGroupOutcome>;
   requestToJoin(groupId: string, viewerId: string): Promise<JoinRequestOutcome>;
   /** Removes the viewer's own request while it is still pending. */
   withdrawJoinRequest(groupId: string, viewerId: string): Promise<WithdrawOutcome>;
@@ -338,6 +343,41 @@ export const postgresGroupRepository: GroupRepository = {
       })),
       pendingRequests: pending.map((row) => ({ id: row.id, userId: row.user_id, name: row.name })),
     };
+  },
+
+  async updateGroup(groupId, viewerId, settings) {
+    // Lock the group row, as approving a request does, so a request approved
+    // at the same moment cannot fill a seat this edit is taking away.
+    const rows = await query<{ leader_id: string; updated: boolean }>(
+      `WITH locked_group AS (
+         SELECT id, leader_id FROM study_groups WHERE id = $1 FOR UPDATE
+       ), updated_group AS (
+         UPDATE study_groups g
+            SET name = $3, goal = $4, meeting_day = $5, meeting_time = $6,
+                format = $7, location = $8, max_members = $9
+           FROM locked_group l
+          WHERE g.id = l.id AND l.leader_id = $2
+            AND (SELECT count(*) FROM group_members m WHERE m.group_id = l.id) <= $9
+          RETURNING g.id
+       )
+       SELECT l.leader_id, EXISTS (SELECT 1 FROM updated_group) AS updated
+         FROM locked_group l`,
+      [
+        groupId,
+        viewerId,
+        settings.name,
+        settings.goal,
+        settings.meetingDay,
+        settings.meetingTime,
+        settings.format,
+        settings.location,
+        settings.maxMembers,
+      ],
+    );
+    const group = rows[0];
+    if (group === undefined) return 'group_not_found';
+    if (group.leader_id !== viewerId) return 'not_leader';
+    return group.updated ? 'updated' : 'size_below_member_count';
   },
 
   async requestToJoin(groupId, viewerId) {

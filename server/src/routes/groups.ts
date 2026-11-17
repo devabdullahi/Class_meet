@@ -1,13 +1,14 @@
 /**
  *   POST /api/groups                                       create a group; the creator becomes leader and first member
  *   GET  /api/groups/:id                                   one group, its members, and the viewer's relationship to it
+ *   PATCH /api/groups/:id                                  leader changes the group's settings (all of them, not the course)
  *   POST /api/groups/:id/join-requests                     ask to join
  *   DELETE /api/groups/:id/join-requests/mine              withdraw your own pending request
  *   POST /api/groups/:id/join-requests/:requestId/decision leader approves or declines: { decision }
  */
 import { Router, type Request, type Response } from 'express';
 import { HttpError } from '../errors.js';
-import { isUuid, parseCreateGroupInput, parseJoinDecision } from '../groups/validation.js';
+import { isUuid, parseCreateGroupInput, parseJoinDecision, parseUpdateGroupInput } from '../groups/validation.js';
 import type { GroupRepository } from '../groups/repository.js';
 import { requireViewerId } from './me.js';
 
@@ -40,6 +41,29 @@ export function createGroupsRouter(repository: GroupRepository): Router {
       throw HttpError.notFound('group_not_found', 'That group does not exist.');
     }
     res.status(200).json({ group });
+  });
+
+  router.patch('/:groupId', async (req: Request, res: Response) => {
+    const groupId = requireGroupId(req.params['groupId']);
+    const settings = parseUpdateGroupInput(req.body);
+    const viewerId = requireViewerId(req);
+    const outcome = await repository.updateGroup(groupId, viewerId, settings);
+    switch (outcome) {
+      case 'updated': {
+        const group = await repository.findGroup(groupId, viewerId);
+        res.status(200).json({ group });
+        return;
+      }
+      case 'group_not_found':
+        throw HttpError.notFound('group_not_found', 'That group does not exist.');
+      case 'not_leader':
+        throw HttpError.forbidden('not_leader', 'Only the group leader can edit the group.');
+      case 'size_below_member_count':
+        throw HttpError.badRequest(
+          'invalid_maxMembers',
+          'Group size cannot be less than the number of members already in the group.',
+        );
+    }
   });
 
   router.post('/:groupId/join-requests', async (req: Request, res: Response) => {

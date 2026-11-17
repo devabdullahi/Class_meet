@@ -132,8 +132,8 @@ export interface MyGroups {
   requested: MyGroupSummary[];
 }
 
-export interface CreateGroupRequest {
-  courseId: string;
+/** Everything about a group its leader chooses, and may later change. */
+export interface GroupSettings {
   name: string;
   goal: string;
   meetingDay: MeetingDay;
@@ -141,6 +141,11 @@ export interface CreateGroupRequest {
   format: GroupFormat;
   location: string;
   maxMembers: number;
+}
+
+/** A group's course is fixed when it is created, so only creating names one. */
+export interface CreateGroupRequest extends GroupSettings {
+  courseId: string;
 }
 
 export type JoinDecision = 'approve' | 'decline';
@@ -281,6 +286,13 @@ export const api = {
     request<{ group: GroupDetails }>('/api/groups', {
       method: 'POST',
       body: JSON.stringify(input),
+    }),
+
+  /** Leader only. Sends every setting; returns the updated group. */
+  updateGroup: (groupId: string, settings: GroupSettings): Promise<{ group: GroupDetails }> =>
+    request<{ group: GroupDetails }>(`/api/groups/${groupId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
     }),
 
   requestToJoin: (groupId: string): Promise<{ status: 'pending' }> =>

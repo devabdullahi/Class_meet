@@ -69,11 +69,12 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
-function renderPage(state?: { created: boolean }, path = '/groups/c1/g1') {
+function renderPage(state?: { created?: boolean; saved?: boolean }, path = '/groups/c1/g1') {
   render(
     <MemoryRouter initialEntries={[{ pathname: path, state }]}>
       <Routes>
         <Route path="/groups/:courseId/:groupId" element={<GroupDetailsPage />} />
+        <Route path="/groups/:courseId/:groupId/edit" element={<h1>Edit page</h1>} />
         <Route path="/groups/:courseId" element={<h1>Groups page</h1>} />
       </Routes>
     </MemoryRouter>,
@@ -241,6 +242,26 @@ test('the leader sees a created notice, the join requests with a count, and the 
   expect(screen.getByRole('heading', { name: 'Join requests (1)' })).toBeTruthy();
   expect(screen.getByText('Pat Doe')).toBeTruthy();
   expect(screen.getByRole('button', { name: /Add to calendar/ })).toBeTruthy();
+});
+
+test('the leader can open Edit group; members and other students cannot', async () => {
+  fetchGroup.mockResolvedValue({ group: { ...BASE, viewerRole: 'leader' } });
+  const user = renderPage();
+  await user.click(await screen.findByRole('link', { name: 'Edit group' }));
+  expect(screen.getByRole('heading', { name: 'Edit page' })).toBeTruthy();
+  for (const group of [AS_MEMBER, BASE]) {
+    cleanup();
+    fetchGroup.mockResolvedValue({ group });
+    renderPage();
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('link', { name: 'Edit group' })).toBeNull();
+  }
+});
+
+test('after an edit, the group says the changes were saved', async () => {
+  fetchGroup.mockResolvedValue({ group: { ...BASE, viewerRole: 'leader' } });
+  renderPage({ saved: true });
+  expect((await screen.findByRole('status')).textContent).toBe('Changes saved.');
 });
 
 test('the leader can approve a request, and the list refreshes', async () => {

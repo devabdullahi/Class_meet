@@ -1,6 +1,7 @@
 /**
- * Request validation for creating a study group. Pure functions, no I/O, so
- * the rules are testable on their own and the client form can mirror them.
+ * Request validation for creating and editing a study group. Pure functions,
+ * no I/O, so the rules are testable on their own and the client form can
+ * mirror them.
  */
 import { HttpError } from '../errors.js';
 
@@ -27,8 +28,8 @@ export const MAX_LOCATION_LENGTH = 300;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export interface CreateGroupInput {
-  courseId: string;
+/** Everything about a group its leader chooses, and may later change. */
+export interface GroupSettings {
   name: string;
   goal: string;
   meetingDay: MeetingDay;
@@ -37,6 +38,11 @@ export interface CreateGroupInput {
   format: GroupFormat;
   location: string;
   maxMembers: number;
+}
+
+/** A group's course is fixed when it is created, so only creating names one. */
+export interface CreateGroupInput extends GroupSettings {
+  courseId: string;
 }
 
 export function isUuid(value: unknown): value is string {
@@ -64,15 +70,30 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-export function parseCreateGroupInput(body: unknown): CreateGroupInput {
+function readBody(body: unknown): Record<string, unknown> {
   if (typeof body !== 'object' || body === null) {
     throw HttpError.badRequest('invalid_body', 'Expected a JSON object.');
   }
-  const fields = body as Record<string, unknown>;
+  return body as Record<string, unknown>;
+}
 
+export function parseCreateGroupInput(body: unknown): CreateGroupInput {
+  const fields = readBody(body);
   const courseId = fields['courseId'];
   if (!isUuid(courseId)) throw invalid('courseId', 'Choose a course.');
+  return { courseId, ...parseGroupSettings(fields) };
+}
 
+/**
+ * An edit sends every setting, as the form holds them all; there is no
+ * partial update. Whether the new size still fits the members already in the
+ * group depends on the database, so the repository checks that.
+ */
+export function parseUpdateGroupInput(body: unknown): GroupSettings {
+  return parseGroupSettings(readBody(body));
+}
+
+function parseGroupSettings(fields: Record<string, unknown>): GroupSettings {
   const name = readTrimmedString(fields, 'name', 'Group name');
   if (name.length > MAX_NAME_LENGTH) {
     throw invalid('name', `Group name must be ${MAX_NAME_LENGTH} characters or fewer.`);
@@ -120,7 +141,6 @@ export function parseCreateGroupInput(body: unknown): CreateGroupInput {
   }
 
   return {
-    courseId,
     name,
     goal,
     meetingDay: meetingDay as MeetingDay,

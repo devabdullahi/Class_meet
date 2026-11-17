@@ -391,6 +391,21 @@
 
 /* ---- Group details ---------------------------------------------------- */
 
+/* Title, goal and course on the left; the leader's Edit group on the right,
+   or under them when the screen is too narrow for both. */
+.cm-details-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-6);
+}
+
+.cm-details-header__text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
 .cm-details-header h1 {
   display: -webkit-box;
   -webkit-box-orient: vertical;

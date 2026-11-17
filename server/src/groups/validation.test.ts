@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HttpError } from '../errors.js';
-import { courseSearchPatterns, parseCreateGroupInput } from './validation.js';
+import { courseSearchPatterns, parseCreateGroupInput, parseUpdateGroupInput } from './validation.js';
 
 const COURSE_ID = '3f2b8c1e-5d4a-4c0e-9b7a-1a2b3c4d5e6f';
 
@@ -105,6 +105,16 @@ for (const link of ['not-a-link', 'ftp://example.com/room', 'javascript:alert(1)
     assert.equal(rejectionCode(validBody({ format: 'online', location: link })), 'invalid_location');
   });
 }
+
+test('an edit is checked by the same rules, and takes no course', () => {
+  const { courseId: _courseId, ...settings } = validBody();
+  const input = parseUpdateGroupInput(settings);
+  assert.equal(input.name, 'Pattern crew');
+  assert.equal('courseId' in input, false);
+  assert.throws(() => parseUpdateGroupInput({ ...settings, maxMembers: 1 }), { code: 'invalid_maxMembers' });
+  assert.throws(() => parseUpdateGroupInput({ ...settings, name: ' ' }), { code: 'invalid_name' });
+  assert.throws(() => parseUpdateGroupInput(null), { code: 'invalid_body' });
+});
 
 test('course search also matches a code typed without its space', () => {
   assert.deepEqual(courseSearchPatterns('cse3311'), { text: '%cse3311%', compact: '%cse3311%' });
