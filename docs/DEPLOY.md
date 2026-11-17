@@ -216,6 +216,12 @@ add a few real UTA CSE courses:
        ('CSE 4360', 'Autonomous Robot Design and Programming'),
        ('CSE 4380', 'Information Security')
    ON CONFLICT (code) DO NOTHING;
+
+   -- The starter catalog titles CSE 4316 "Computer Networks", but at UTA that
+   -- is CSE 4344 (added above); CSE 4316 is Senior Design I. The title check
+   -- makes this a no-op if the row has already been corrected.
+   UPDATE courses SET title = 'Senior Design I'
+   WHERE code = 'CSE 4316' AND title = 'Computer Networks';
    ```
 
 The app reads the catalog live, so the new courses show up in **Add course**
