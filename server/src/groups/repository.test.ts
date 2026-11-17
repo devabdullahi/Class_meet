@@ -201,6 +201,13 @@ test('an online group shares its meeting link with its members only', async () =
   assert.equal((await repository.listGroupsForCourse(cse3311, outsider))[0]?.location, null);
   assert.equal((await repository.findGroup(groupId, member))?.location, link);
   assert.equal((await repository.findGroup(groupId, leader))?.location, link);
+
+  // A student who has only asked to join sees the group in My groups, still without the link.
+  await repository.enrollInCourse(outsider, cse3311);
+  assert.equal(await repository.requestToJoin(groupId, outsider), 'created');
+  const { requested } = await repository.listMyGroups(outsider);
+  assert.equal(requested[0]?.id, groupId);
+  assert.equal(requested[0]?.location, null);
 });
 
 test('only the leader is shown who is waiting to join', async () => {

@@ -436,38 +436,44 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
     },
 
     async updateGroup(groupId, viewerId, settings) {
-      // Lock the group row, as approving a request does, so a request approved
-      // at the same moment cannot fill a seat this edit is taking away.
-      const rows = await query<{ leader_id: string; updated: boolean }>(
-        `WITH locked_group AS (
-           SELECT id, leader_id FROM study_groups WHERE id = $1 FOR UPDATE
-         ), updated_group AS (
-           UPDATE study_groups g
-              SET name = $3, goal = $4, meeting_day = $5, meeting_time = $6,
-                  format = $7, location = $8, max_members = $9
-             FROM locked_group l
-            WHERE g.id = l.id AND l.leader_id = $2
-              AND (SELECT count(*) FROM group_members m WHERE m.group_id = l.id) <= $9
-            RETURNING g.id
-         )
-         SELECT l.leader_id, EXISTS (SELECT 1 FROM updated_group) AS updated
-           FROM locked_group l`,
-        [
-          groupId,
-          viewerId,
-          settings.name,
-          settings.goal,
-          settings.meetingDay,
-          settings.meetingTime,
-          settings.format,
-          settings.location,
-          settings.maxMembers,
-        ],
-      );
-      const group = rows[0];
-      if (group === undefined) return 'group_not_found';
-      if (group.leader_id !== viewerId) return 'not_leader';
-      return group.updated ? 'updated' : 'size_below_member_count';
+      // Lock the group row first, as approving a request does, so an approval
+      // landing at the same moment cannot fill a seat this edit takes away.
+      // The member count is a separate, later statement for the reason given
+      // in removeCourse: a single statement that waited on the lock would
+      // still count the members from before the approval committed.
+      return db.transaction(async (query) => {
+        const groups = await query<{ leader_id: string }>(
+          'SELECT leader_id FROM study_groups WHERE id = $1 FOR UPDATE',
+          [groupId],
+        );
+        const group = groups[0];
+        if (group === undefined) return 'group_not_found';
+        if (group.leader_id !== viewerId) return 'not_leader';
+
+        const counts = await query<{ members: number }>(
+          'SELECT count(*)::int AS members FROM group_members WHERE group_id = $1',
+          [groupId],
+        );
+        if ((counts[0]?.members ?? 0) > settings.maxMembers) return 'size_below_member_count';
+
+        await query(
+          `UPDATE study_groups
+              SET name = $2, goal = $3, meeting_day = $4, meeting_time = $5,
+                  format = $6, location = $7, max_members = $8
+            WHERE id = $1`,
+          [
+            groupId,
+            settings.name,
+            settings.goal,
+            settings.meetingDay,
+            settings.meetingTime,
+            settings.format,
+            settings.location,
+            settings.maxMembers,
+          ],
+        );
+        return 'updated';
+      });
     },
 
     async deleteGroup(groupId, viewerId) {
@@ -594,34 +600,45 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
         return declined.length > 0 ? 'decided' : 'request_not_found';
       }
 
-      // Approve: lock the group row so two approvals cannot both take the last
-      // seat, then mark the request and add the member in one statement.
-      const approved = await query<{ approved: number }>(
-        `WITH locked_group AS (
-           SELECT id, max_members FROM study_groups WHERE id = $2 FOR UPDATE
-         ), approved_request AS (
-           UPDATE group_join_requests r
-              SET status = 'approved', decided_at = now()
-             FROM locked_group g
-            WHERE r.id = $1 AND r.group_id = g.id AND r.status = 'pending'
-              AND (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) < g.max_members
-           RETURNING r.group_id, r.user_id
-         ), new_member AS (
-           INSERT INTO group_members (group_id, user_id)
-           SELECT group_id, user_id FROM approved_request
-           ON CONFLICT (group_id, user_id) DO NOTHING
-         )
-         SELECT count(*)::int AS approved FROM approved_request`,
-        [requestId, groupId],
-      );
-      if ((approved[0]?.approved ?? 0) > 0) return 'decided';
+      // Approve: lock the group row so two approvals (or an approval and an
+      // edit that shrinks the group) cannot both take the last seat. The
+      // checks and writes are separate, later statements for the reason given
+      // in removeCourse: a single statement that waited on the lock would
+      // still count the members from before the other transaction committed.
+      return db.transaction(async (query) => {
+        const groups = await query<{ max_members: number }>(
+          'SELECT max_members FROM study_groups WHERE id = $1 FOR UPDATE',
+          [groupId],
+        );
+        const group = groups[0];
+        if (group === undefined) return 'group_not_found';
 
-      // Nothing changed: either the request is not pending, or the group is full.
-      const stillPending = await query<{ id: string }>(
-        `SELECT id FROM group_join_requests WHERE id = $1 AND group_id = $2 AND status = 'pending'`,
-        [requestId, groupId],
-      );
-      return stillPending.length > 0 ? 'group_full' : 'request_not_found';
+        const requests = await query<{ user_id: string }>(
+          `SELECT user_id FROM group_join_requests
+            WHERE id = $1 AND group_id = $2 AND status = 'pending'
+            FOR UPDATE`,
+          [requestId, groupId],
+        );
+        const request = requests[0];
+        if (request === undefined) return 'request_not_found';
+
+        const counts = await query<{ members: number }>(
+          'SELECT count(*)::int AS members FROM group_members WHERE group_id = $1',
+          [groupId],
+        );
+        if ((counts[0]?.members ?? 0) >= group.max_members) return 'group_full';
+
+        await query(
+          `UPDATE group_join_requests SET status = 'approved', decided_at = now() WHERE id = $1`,
+          [requestId],
+        );
+        await query(
+          `INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)
+           ON CONFLICT (group_id, user_id) DO NOTHING`,
+          [groupId, request.user_id],
+        );
+        return 'decided';
+      });
     },
   };
 }
