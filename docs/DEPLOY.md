@@ -9,9 +9,8 @@ It takes about 30 minutes the first time. You need:
 - the GitHub repository (`devabdullahi/Class_meet`), with the branch you want to
   deploy pushed to GitHub;
 - the Neon project the team already uses;
-- an email account the server can send sign-in codes from (step 3);
-- a Render account (sign up with GitHub at <https://render.com/>). Read the
-  note at the top of step 3 before choosing the free plan.
+- a free Brevo account to send sign-in codes from (step 3);
+- a Render account (free; sign up with GitHub at <https://render.com/>).
 
 ## How the deployed app is put together
 
@@ -79,58 +78,84 @@ nothing else.
 ## Step 3 — Set up sending sign-in emails
 
 Students sign in with a 6-digit code emailed to their UTA address, so the
-server needs an outgoing-mail (SMTP) account. Without one, a production server
-**refuses to start** — on purpose, so codes can never end up in a log instead.
+server needs a way to send email. Without one, a production server **refuses
+to start** — on purpose, so codes can never end up in a log instead. It sends
+through exactly one of two providers:
 
-> **Render's free plan blocks outgoing email.** Since 26 September 2025, free
-> Render web services cannot open connections to the SMTP ports 25, 465 and
-> 587 ([Render changelog](https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports)).
-> On the **Free** instance type the server starts, but every "Email me a
-> code" fails after about ten seconds with `503 email_send_failed`, and the
-> log says the connection to the mail server timed out. To send sign-in
-> emails from Render, choose a **paid** instance type in step 4 (the
-> cheapest, Starter, is enough); Render's changelog names that as the fix.
-> Everything below works unchanged locally, and on any host that allows SMTP.
+- **Brevo's email API (recommended, free, works on Render's free plan).** It
+  sends over HTTPS. Render's free web services block the ordinary email ports
+  (25, 465 and 587) since 26 September 2025
+  ([Render changelog](https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports)),
+  but not HTTPS, so this is the option that works on the **Free** instance
+  type. Brevo's free plan sends up to 300 emails a day.
+- **SMTP**, such as a Gmail account with an App Password. Good for local
+  development, and on a **paid** Render instance or any host that allows SMTP.
+  On Render's free plan every "Email me a code" would time out with
+  `503 email_send_failed`.
 
-**The zero-cost option: a Gmail account with an App Password.** Use an account
-made for the project (for example `classmeet.uta@gmail.com`) rather than
-someone's personal one: the address is what students see, and the password
-belongs to whoever runs the deployment.
+### Brevo (recommended)
+
+Use an email address made for the project (for example
+`classmeet.uta@gmail.com`) rather than someone's personal one: it is the
+address students see the code come from.
+
+1. **Create a free Brevo account** at <https://www.brevo.com/> (**Sign up
+   free**). Confirm your email address and answer the onboarding questions;
+   the free plan is enough.
+2. **Verify a sender address.** In Brevo, open the profile menu (top right) →
+   **Senders, Domains & Dedicated IPs** → **Senders** → **Add a sender**. Enter
+   `Class Meet` as the name and the project address, then click the link in the
+   verification email Brevo sends to it. Brevo only sends from verified
+   senders, so this exact address goes into `EMAIL_FROM` below. (Menu names
+   move around; if yours differ, search Brevo's help for "add a sender".)
+3. **Create an API key.** Profile menu → **SMTP & API** → **API Keys** (it may
+   read **API Keys & MCP**) → **Generate a new API key**, name it
+   `Class Meet on Render`, and copy it. It starts with `xkeysib-` and is shown
+   **once**; if you lose it, delete it and generate another. It is a password:
+   keep it private, never commit it. (An *SMTP key*, from the neighbouring
+   tab, is a different thing and will not work here.)
+4. Your values for step 4 are:
+
+   | Key | Value |
+   |---|---|
+   | `EMAIL_PROVIDER` | `brevo` |
+   | `BREVO_API_KEY` | the key from step 3.3 |
+   | `EMAIL_FROM` | `Class Meet <the verified sender address>` |
+
+5. **Try it locally first:** put the same three values in your own
+   `server/.env` (with the `SMTP_` values blank), restart `npm run dev`, and
+   sign in with your own UTA address. The server log says
+   `sign-in codes ... are emailed through the Brevo API`. If the email lands in
+   **Junk**, mark it as not junk; UTA's mail filter learns. Brevo's
+   **Transactional** → **Logs** page shows every email it sent or refused.
+
+### Gmail over SMTP (local development, or a paid instance)
 
 1. Sign in to the Gmail account and open <https://myaccount.google.com/security>.
 2. Under **How you sign in to Google**, turn on **2-Step Verification**. App
    Passwords do not exist until it is on.
 3. Open <https://myaccount.google.com/apppasswords>, type `Class Meet` as the
-   app name, and click **Create**.
-4. Copy the 16-character password Google shows. It is shown **once**; if you
-   lose it, delete it and create another. It is a password: keep it private,
-   never commit it.
-5. Your values for step 4 are:
+   app name, and click **Create**. Copy the 16-character password; it is shown
+   once.
+4. Your values are:
 
    | Key | Value |
    |---|---|
+   | `EMAIL_PROVIDER` | `smtp` |
    | `SMTP_HOST` | `smtp.gmail.com` |
    | `SMTP_PORT` | `465` |
    | `SMTP_SECURE` | `true` |
    | `SMTP_USER` | the Gmail address |
-   | `SMTP_PASS` | the app password from step 3.4 (spaces or not, both work) — **not** the account password |
+   | `SMTP_PASS` | the app password — **not** the account password |
    | `EMAIL_FROM` | `Class Meet <the same Gmail address>` — Gmail sends only as the signed-in account |
 
-6. Try it locally first: put the same six values in your own `server/.env`,
-   restart `npm run dev`, and sign in with your own UTA address. The server
-   log says `sign-in codes ... are emailed through smtp.gmail.com:465`. If the
-   email lands in **Junk**, mark it as not junk; UTA's mail filter learns.
+Any other SMTP service works the same way with its own host, port and login.
+Brevo also offers SMTP (`smtp-relay.brevo.com`, port `587`, `SMTP_SECURE`
+`false`, with an SMTP key), but on Render's free plan use its API as above.
 
-A personal Gmail account can send about 500 emails a day, far more than a
-class project needs.
-
-**Other providers work the same way** — only the six values change. Brevo's
-free plan (300 emails a day), for example: verify your sender address in
-Brevo, create an SMTP key under **SMTP & API**, and use `SMTP_HOST`
-`smtp-relay.brevo.com`, `SMTP_PORT` `587`, `SMTP_SECURE` `false`, `SMTP_USER`
-your Brevo SMTP login, `SMTP_PASS` the SMTP key, and `EMAIL_FROM` the verified
-address. On port 587 the server insists on upgrading to TLS before it sends
-the password.
+Set one provider only: the server refuses to start with settings for both, or
+with `EMAIL_PROVIDER` naming one whose values are incomplete, and says which
+variables are missing.
 
 ## Step 4 — Create the web service on Render
 
@@ -150,7 +175,7 @@ the password.
    | **Region** | the one closest to your Neon project's region (e.g. **Ohio** for Neon's `us-east-2`) |
    | **Root Directory** | leave empty |
    | **Dockerfile Path** | leave as `./Dockerfile` |
-   | **Instance Type** | a paid type such as **Starter**, so sign-in emails can be sent (see step 3). **Free** runs everything else, but cannot send them |
+   | **Instance Type** | **Free** (with Brevo's API from step 3). Choose a paid type only if you send through SMTP |
 
 5. Under **Environment Variables**, add each row below with **+ Add
    Environment Variable** (or paste them all at once with **Add from .env**).
@@ -162,7 +187,12 @@ the password.
    | `DIRECT_DATABASE_URL` | the **direct** string from step 1.6 |
    | `SESSION_SECRET` | the value from step 2 |
    | `CLIENT_ORIGIN` | `https://<Name>.onrender.com` — your **Name** from step 4.4, no trailing slash. Step 5 checks it |
-   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | the six values from step 3 |
+   | `EMAIL_PROVIDER` | `brevo` (step 3) |
+   | `BREVO_API_KEY` | the Brevo API key from step 3 |
+   | `EMAIL_FROM` | `Class Meet <the verified sender address>` from step 3 |
+
+   Sending through SMTP on a paid instance instead? Use `EMAIL_PROVIDER` `smtp`
+   and the SMTP values from step 3, and leave `BREVO_API_KEY` out.
 
    Do **not** add `ALLOW_DEV_LOGIN` (the server refuses to start in production
    with it on), and do not add `PORT` (Render sets it). The Microsoft
@@ -180,7 +210,7 @@ The first build takes 3–6 minutes. The log should end with lines like:
 [migrate] applied 8 migration(s)
 [api] serving the client from /app/client/dist
 [api] Class Meet API listening on http://localhost:10000 (production)
-[api] sign-in codes for @mavs.uta.edu, @uta.edu addresses are emailed through smtp.gmail.com:465
+[api] sign-in codes for @mavs.uta.edu, @uta.edu addresses are emailed through the Brevo API
 ==> Your service is live
 ```
 
@@ -335,12 +365,14 @@ deploy, so **Save, rebuild, and deploy** covers it.
 | `DIRECT_DATABASE_URL` | recommended | runtime (migrations) | Neon **direct** string for the same database. Migrations fall back to `DATABASE_URL` without it |
 | `SESSION_SECRET` | yes | runtime | At least 32 random characters; signs the session cookie. Secret |
 | `CLIENT_ORIGIN` | yes | runtime | The site's exact address, `https://<name>.onrender.com`. Write requests from any other origin are refused |
-| `SMTP_HOST` | yes | runtime | Outgoing mail server for sign-in codes, e.g. `smtp.gmail.com`. Without it production refuses to start |
+| `EMAIL_PROVIDER` | yes (may be left out when only one provider's values are set) | runtime | `brevo` or `smtp`. Production refuses to start without exactly one complete provider |
+| `EMAIL_FROM` | yes | runtime | The From line, e.g. `Class Meet <classmeet.uta@gmail.com>`. With Brevo, a verified sender; with Gmail, the account itself |
+| `BREVO_API_KEY` | with `EMAIL_PROVIDER=brevo` | runtime | Brevo API key (`xkeysib-...`). Secret |
+| `SMTP_HOST` | with `EMAIL_PROVIDER=smtp` | runtime | Outgoing mail server, e.g. `smtp.gmail.com`. Blocked on Render's free plan |
 | `SMTP_PORT` | no (default `465`, or `587` with `SMTP_SECURE=false`) | runtime | `465` for TLS from the start, `587` for STARTTLS |
 | `SMTP_SECURE` | no (default: `true` on 465) | runtime | `true` or `false`, matching the port |
-| `SMTP_USER` | yes, with `SMTP_PASS` | runtime | The mail account's login (the Gmail address) |
-| `SMTP_PASS` | yes, with `SMTP_USER` | runtime | Its password — for Gmail an **App Password**. Secret |
-| `EMAIL_FROM` | yes | runtime | The From line, e.g. `Class Meet <classmeet.uta@gmail.com>` |
+| `SMTP_USER` | SMTP: with `SMTP_PASS` | runtime | The mail account's login (the Gmail address) |
+| `SMTP_PASS` | SMTP: with `SMTP_USER` | runtime | Its password — for Gmail an **App Password**. Secret |
 | `EMAIL_LOGIN_DOMAINS` | no (default `mavs.uta.edu,uta.edu`) | runtime | Which addresses may ask for a code; matched exactly after the `@` |
 | `ENABLE_MICROSOFT_LOGIN` | no (default off) | runtime | `true` turns Microsoft sign-in on, together with `ENTRA_CLIENT_ID` |
 | `ENTRA_CLIENT_ID` | only for Microsoft sign-in | runtime | Application (client) ID of the app registration |
@@ -371,11 +403,14 @@ are never stored in the image.
 | `502 Bad Gateway`, or Render's loading page for more than ~2 minutes | The service is waking up (wait a minute), or it crashed on start: open **Logs** on the service page and look at the last lines |
 | `/api/health` says `"databaseConfigured":false` | `DATABASE_URL` is not set on the service |
 | Pages load but actions fail with `503 database_unavailable` | Neon was waking up (retry), or the connection string is wrong |
-| Deploy fails: `NODE_ENV=production without SMTP_HOST` | The SMTP variables from step 3 are missing. Add them |
-| Deploy fails: `... is set but SMTP_HOST is empty`, `EMAIL_FROM is required`, or `Set both SMTP_USER and SMTP_PASS` | A partial SMTP set. Add the missing value (step 3) |
-| "Email me a code" fails with `503 email_send_failed` and the log says the connection timed out | The service is on Render's **Free** instance type, which blocks SMTP. Change **Instance Type** to a paid one (step 3) |
-| `503 email_send_failed` and the log says `535` or `Invalid login` | Wrong `SMTP_USER`/`SMTP_PASS`. For Gmail, use an App Password, not the account password (step 3) |
-| The code never arrives | Look in **Junk**. Check the Render log for `could not send a sign-in code` |
+| Deploy fails: `NODE_ENV=production without an email provider` | `EMAIL_PROVIDER`, `BREVO_API_KEY` and `EMAIL_FROM` are missing. Add them (step 3) |
+| Deploy fails: `EMAIL_PROVIDER=brevo needs ...` | The message names the missing variable. Add it |
+| Deploy fails: `... is set, but email goes through Brevo` (or `through SMTP`) | Values for both providers are set. Delete the ones for the provider you are not using |
+| `503 email_send_failed`; the log says `Brevo refused the email: HTTP 401` | Wrong or deleted `BREVO_API_KEY` — or an SMTP key pasted instead of an API key. If the reason mentions an unrecognised IP address, Brevo's **Authorised IPs** protection is on: turn it off under **Security**, since Render's addresses change |
+| `503 email_send_failed`; the log says `Brevo refused the email: HTTP 400` and mentions the sender | `EMAIL_FROM` is not a verified Brevo sender (step 3.2) |
+| `503 email_send_failed` and the log says an SMTP connection timed out | SMTP on Render's **Free** instance type, which blocks it. Use Brevo's API (step 3) |
+| `503 email_send_failed` and the log says `535` or `Invalid login` | Wrong `SMTP_USER`/`SMTP_PASS`. For Gmail, use an App Password, not the account password |
+| The code never arrives | Look in **Junk**. Check the Render log for `could not send a sign-in code`, and Brevo's **Transactional** → **Logs** |
 | Signing in fails with `403 origin_not_allowed` | `CLIENT_ORIGIN` is not exactly the address in the browser's address bar (step 5) |
 | The Microsoft popup shows `AADSTS50011` / redirect URI mismatch | The `/redirect.html` URI is missing or mistyped in the portal (**Optional — Microsoft sign-in**) |
 | A CORS error as the popup closes | The redirect URI was added under **Web** instead of **Single-page application** |
@@ -401,9 +436,9 @@ $env:NODE_ENV = 'production'; $env:PORT = '4100'; $env:CLIENT_ORIGIN = 'http://l
 node server/dist/scripts/migrate.js; node server/dist/index.js
 ```
 
-Other values (database, secret, SMTP) come from `server/.env`, and the app is
-at <http://localhost:4100>. Production refuses to start without the SMTP
-values, so `server/.env` needs them (step 3) for this rehearsal. Set
+Other values (database, secret, email provider) come from `server/.env`, and the app is
+at <http://localhost:4100>. Production refuses to start without an email
+provider, so `server/.env` needs one (step 3) for this rehearsal. Set
 `ALLOW_DEV_LOGIN` to `false` explicitly rather than leaving it empty, so that a
 `true` in `server/.env` does not stop the server from starting.
 
@@ -413,6 +448,6 @@ With Docker installed, the same image Render builds can be run with:
 docker build -t class-meet .
 docker run --rm -p 4100:4000 -e CLIENT_ORIGIN=http://localhost:4100 \
   -e SESSION_SECRET=<secret> -e DATABASE_URL=<connection-string> \
-  -e SMTP_HOST=smtp.gmail.com -e SMTP_USER=<gmail-address> -e SMTP_PASS=<app-password> \
-  -e EMAIL_FROM="Class Meet <gmail-address>" class-meet
+  -e EMAIL_PROVIDER=brevo -e BREVO_API_KEY=<api-key> \
+  -e EMAIL_FROM="Class Meet <verified-sender>" class-meet
 ```

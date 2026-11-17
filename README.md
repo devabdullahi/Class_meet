@@ -48,7 +48,7 @@ Application code begins with iteration 1 — see **Running the app** below.
 | Routing | React Router | Two routes so far: `/login` and `/` |
 | Styling | Hand-written CSS with custom properties | No UI framework; two screens do not justify one |
 | Backend | Node.js + Express 5 + TypeScript | `server/` workspace |
-| Auth | One-time code emailed to a UTA address (SMTP via `nodemailer`) -> our own session cookie. Microsoft Entra ID sign-in kept, off by default | See **How sign-in works** |
+| Auth | One-time code emailed to a UTA address (Brevo's HTTPS API, or SMTP via `nodemailer`) -> our own session cookie. Microsoft Entra ID sign-in kept, off by default | See **How sign-in works** |
 | Database | Neon serverless PostgreSQL, via `pg` | Migrations are numbered `.sql` files |
 | Repo | npm workspaces monorepo | `npm install` once at the root |
 
@@ -192,8 +192,10 @@ server/                  Express + TypeScript API
     email-login/
       email-address.ts   which addresses may sign in, and their canonical form
       login-code.ts      making a code; its keyed hash; constant-time check
-      smtp-config.ts     reads SMTP_* and EMAIL_FROM; refuses a partial set
-      mailer.ts          the email itself; SMTP, or [dev email] console lines
+      email-delivery-config.ts  which provider sends codes (EMAIL_PROVIDER: brevo or
+                         smtp); exactly one complete set, or none in development
+      smtp-config.ts     reads SMTP_*; refuses a partial set
+      mailer.ts          the email itself; Brevo API, SMTP, or [dev email] console lines
       repository.ts      the codes table and finding the account by email
                          (tested against PGlite in repository.test.ts)
     groups/
@@ -315,9 +317,11 @@ space; the limits around it make guessing hopeless. All of them are in
   non-UTA domain, which says nothing about who has an account.
 - **CSRF**: both endpoints are writes, under the same `X-Class-Meet` header and
   `Origin` check as every other.
-- **No codes in logs**: in development without SMTP the code is printed to the
-  server console as a `[dev email]` line; in production the server **refuses to
-  start** without SMTP, so that fallback can never run there.
+- **No codes or keys in logs**: in development without an email provider the
+  code is printed to the server console as a `[dev email]` line; in production
+  the server **refuses to start** without one, so that fallback can never run
+  there. Send failures are logged with the provider's reason, never the code or
+  the API key.
 
 **Plus-addressing is stripped**: `jane+cm@mavs.uta.edu` signs in as
 `jane@mavs.uta.edu`, and the code goes there. Exchange delivers both to one
@@ -332,12 +336,23 @@ Microsoft sign-in — signs in to **that** account, keeping its name, groups and
 Microsoft identifiers. A new email account's name is made from the address
 (`jane.doe@` becomes "Jane Doe"), since a code proves only the address.
 
-**Sending the email.** Plain SMTP through [`nodemailer`](https://nodemailer.com)
-(MIT-0, no dependencies), so any provider works by changing six environment
-variables — see `server/.env.example` and `docs/DEPLOY.md`. The zero-cost
-option is a Gmail account with an App Password. The email is plain text with a
-minimal HTML twin: the code, its expiry, and "If you didn't ask for this,
-ignore this email." No links, images or tracking.
+**Sending the email.** `EMAIL_PROVIDER` picks one of two ways, and production
+refuses to start unless exactly one is completely configured:
+
+- `brevo` — Brevo's transactional email API
+  ([`POST https://api.brevo.com/v3/smtp/email`](https://developers.brevo.com/reference/sendtransacemail)),
+  called with Node's built-in `fetch` and a 10-second timeout. It goes out over
+  HTTPS, so it works on Render's free plan, which blocks the SMTP ports. Free
+  for 300 emails a day. Needs `BREVO_API_KEY` and a Brevo-verified `EMAIL_FROM`.
+- `smtp` — any SMTP server through [`nodemailer`](https://nodemailer.com)
+  (MIT-0, no dependencies), e.g. Gmail with an App Password. Fine locally and
+  wherever SMTP is allowed.
+
+A refusal, an error page or a timeout from either becomes `503
+email_send_failed`, and the student can retry at once. Setup for both is in
+`docs/DEPLOY.md`, step 3. The email is plain text with a minimal HTML twin:
+the code, its expiry, and "If you didn't ask for this, ignore this email." No
+links, images or tracking.
 
 **Session cookie.** `httpOnly` (so an XSS bug cannot read it, which is the
 thing `localStorage` cannot promise), `sameSite=Lax`, `secure` in production,
@@ -485,7 +500,7 @@ Then edit them. Both files are git-ignored; never commit a filled-in one.
 
 | File | Variable | Where it comes from |
 |---|---|---|
-| `server/.env` | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | Leave blank locally: codes are printed in the server terminal as `[dev email]` lines. To send real email, see **Sending sign-in emails** in [`docs/DEPLOY.md`](docs/DEPLOY.md) |
+| `server/.env` | `EMAIL_PROVIDER`, `EMAIL_FROM`, `BREVO_API_KEY`, `SMTP_*` | Leave blank locally: codes are printed in the server terminal as `[dev email]` lines. To send real email, see step 3 of [`docs/DEPLOY.md`](docs/DEPLOY.md) |
 | `server/.env` | `EMAIL_LOGIN_DOMAINS` | Optional. Defaults to `mavs.uta.edu,uta.edu` |
 | `server/.env` | `ENABLE_MICROSOFT_LOGIN`, `ENTRA_CLIENT_ID` | Leave unset. Only with step 1: `true` and the Application (client) ID |
 | `server/.env` | `UTA_TENANT_ID` | Already set to UTA's tenant. Change it only if you registered the app elsewhere |
@@ -554,8 +569,8 @@ page load reports that it cannot reach the server, wait for
 `[api] Class Meet API listening` in the terminal and reload.
 
 To sign in, type any `@mavs.uta.edu` or `@uta.edu` address and press **Email
-me a code**. Without SMTP settings nothing is sent; the server's terminal
-prints the code instead:
+me a code**. Without an email provider configured nothing is sent; the
+server's terminal prints the code instead:
 
 ```
 [dev email] to jane.doe@mavs.uta.edu: Class Meet sign-in code 042817 (expires in 10 minutes)
@@ -654,13 +669,14 @@ npm test
   `moderation/repository.test.ts` does the same for reports: one open report
   per target, the queue's order, and what removing a group or a member does.
   Email sign-in is tested the same way: the address rule, the code's hash,
-  SMTP settings and the email itself as pure units;
+  provider selection, SMTP settings, the Brevo request (against a stand-in
+  `fetch`, including refusals and timeouts) and the email itself as pure units;
   `email-login/repository.test.ts` for the cooldown, five tries, expiry and
   matching an existing Microsoft account; and `routes/email-login.test.ts`,
   which drives both endpoints over HTTP against PGlite with a recording mail
   sender — wrong codes, expiry, single use, rate limits, the
   enumeration-safe answer and the session cookie. `env.test.ts` checks that
-  production will not start without SMTP.
+  production will not start without exactly one complete email provider.
 - **Client** (Vitest, jsdom, Testing Library, `client/src/**/*.test.ts(x)`):
   form rules, calendar export, each page's states and actions, the
   navigation badge, both steps of email sign-in and their errors, that MSAL
@@ -687,11 +703,11 @@ Check responsive layout and the native time picker manually in a browser.
 
 | Symptom | Cause |
 |---|---|
-| No code arrives in development | Without SMTP nothing is emailed: look for the `[dev email]` line in the server's terminal |
-| `503 email_send_failed` | The mail server refused or timed out. The server log says why (e.g. `535`: wrong `SMTP_USER`/`SMTP_PASS` — for Gmail, an App Password, not the account password) |
+| No code arrives in development | Without an email provider nothing is emailed: look for the `[dev email]` line in the server's terminal |
+| `503 email_send_failed` | Brevo or the mail server refused or timed out. The server log says why (e.g. `Brevo refused the email: HTTP 401` for a wrong API key; `535` for a wrong `SMTP_USER`/`SMTP_PASS`) |
 | `429 resend_too_soon` | A code was sent to that address less than a minute ago. The page goes straight to entering it |
 | `400 code_expired` | The code is over ten minutes old, was already used, was replaced by a newer one, or used up its five tries. Send a new one |
-| The server will not start: `NODE_ENV=production without SMTP_HOST` | Production must email codes. Set the SMTP variables, or `NODE_ENV=development` locally |
+| The server will not start: `NODE_ENV=production without an email provider`, or `EMAIL_PROVIDER=... needs ...` | Production must email codes. Set one provider's variables (the message names what is missing), or `NODE_ENV=development` locally |
 | `403 microsoft_login_disabled` | Microsoft sign-in is off. It needs `ENABLE_MICROSOFT_LOGIN=true` and `ENTRA_CLIENT_ID` |
 | "Could not reach Microsoft sign-in" before the login screen | No network, or `VITE_ENTRA_CLIENT_ID` is set to a client ID that does not exist |
 | The login page says the two client IDs disagree | `ENTRA_CLIENT_ID` and `VITE_ENTRA_CLIENT_ID` differ, or the server was not restarted after editing `.env` |
@@ -717,10 +733,9 @@ The app deploys as one Docker container on Render's free plan, backed by a
 fresh Neon database: the container runs pending migrations, then serves the
 API and the built client from one origin. Follow
 [`docs/DEPLOY.md`](docs/DEPLOY.md) step by step; it covers the Neon database,
-the email account that sends sign-in codes, the Render service and its
-environment variables, seeding more courses, and troubleshooting. Render's
-free plan blocks outgoing email (SMTP), so sending sign-in codes from Render
-needs a paid instance type — see step 3 there.
+the free Brevo account that sends sign-in codes (its HTTPS API works on
+Render's free plan, which blocks SMTP), the Render service and its environment
+variables, seeding more courses, and troubleshooting.
 
 ---
 
