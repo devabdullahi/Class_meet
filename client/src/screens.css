@@ -63,6 +63,22 @@
   color: var(--text);
 }
 
+/* Join requests waiting in groups you lead, on "My groups". Pale ground, dark
+   ink: no hue, so it never reads as something to press on its own. */
+.cm-nav__count {
+  min-width: 22px;
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+  color: var(--bg);
+  font-size: var(--font-caption);
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .cm-account {
   margin-top: auto;
   padding-top: var(--space-4);
@@ -895,6 +911,7 @@
   /* Three tabs do not fit side by side with their labels at 375px, so
      each stacks its icon over a caption. */
   .cm-nav__link {
+    position: relative;
     flex: 1;
     flex-direction: column;
     justify-content: center;
@@ -902,6 +919,16 @@
     padding: 0 var(--space-1);
     border-radius: 0;
     font-size: var(--font-caption);
+  }
+
+  .cm-nav__count {
+    position: absolute;
+    top: 5px;
+    left: calc(50% + 6px);
+    min-width: 18px;
+    margin-left: 0;
+    padding: 0 5px;
+    line-height: 18px;
   }
 
   .cm-nav__link[aria-current='page'] {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { usePendingRequests } from '../pending-requests/usePendingRequests';
 import { Avatar } from './Avatar';
 import { BookIcon, LogoutIcon, PeopleIcon, PlusIcon } from './icons';
 import { Wordmark } from './Wordmark';
@@ -14,6 +15,26 @@ function isInMyCourses(pathname: string): boolean {
   return pathname === '/' || (pathname.startsWith('/groups/') && pathname !== '/groups/create');
 }
 
+/** Past this the badge shows "99+"; screen readers still hear the real number. */
+const MAX_BADGE_COUNT = 99;
+
+/**
+ * How many join requests are waiting in groups the student leads. Seen as a
+ * small count; heard as part of the link's name ("My groups, 3 requests waiting").
+ */
+function PendingRequestsBadge({ count }: { count: number }): ReactNode {
+  return (
+    <>
+      <span className="cm-nav__count" aria-hidden="true">
+        {count > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : count}
+      </span>
+      <span className="cm-sr-only">
+        , {count} {count === 1 ? 'request' : 'requests'} waiting
+      </span>
+    </>
+  );
+}
+
 /**
  * The shell for every signed-in screen: navigation, the signed-in student,
  * and the content area. Wide screens get a sidebar; phones get a top bar
@@ -22,6 +43,7 @@ function isInMyCourses(pathname: string): boolean {
 export function ClassMeetLayout({ children }: ClassMeetLayoutProps): ReactNode {
   const { user, signOut } = useAuth();
   const { pathname } = useLocation();
+  const { pendingRequestCount } = usePendingRequests();
   const [signingOut, setSigningOut] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -62,6 +84,7 @@ export function ClassMeetLayout({ children }: ClassMeetLayoutProps): ReactNode {
           >
             <PeopleIcon />
             My groups
+            {pendingRequestCount > 0 && <PendingRequestsBadge count={pendingRequestCount} />}
           </Link>
           <Link
             to="/groups/create"

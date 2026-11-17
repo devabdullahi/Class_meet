@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 import { api, ApiError, type GroupDetails } from '../api';
 import { downloadTextFile } from '../download';
+import { PendingRequestsProvider } from '../pending-requests/PendingRequestsProvider';
 import { GroupDetailsPage } from './GroupDetailsPage';
 
 vi.mock('../auth/useAuth', () => ({
@@ -22,6 +23,7 @@ vi.mock('../api', async (importOriginal) => {
       requestToJoin: vi.fn(),
       withdrawJoinRequest: vi.fn(),
       decideJoinRequest: vi.fn(),
+      fetchPendingRequestCount: vi.fn(),
     },
   };
 });
@@ -30,6 +32,7 @@ const fetchGroup = vi.mocked(api.fetchGroup);
 const requestToJoin = vi.mocked(api.requestToJoin);
 const withdrawJoinRequest = vi.mocked(api.withdrawJoinRequest);
 const decideJoinRequest = vi.mocked(api.decideJoinRequest);
+const fetchPendingRequestCount = vi.mocked(api.fetchPendingRequestCount);
 
 /** Seen by Sam, who is not in it. */
 const BASE: GroupDetails = {
@@ -244,6 +247,27 @@ test('the leader can approve a request, and the list refreshes', async () => {
   await user.click(approve);
   expect(decideJoinRequest).toHaveBeenCalledWith('g1', 'r1', 'approve');
   await waitFor(() => expect(screen.getByText('No one is waiting to join.')).toBeTruthy());
+});
+
+test('answering a request updates the waiting count on My groups in the navigation', async () => {
+  fetchGroup.mockResolvedValue({
+    group: { ...BASE, viewerRole: 'leader', pendingRequests: [{ id: 'r1', userId: 'u5', name: 'Pat Doe' }] },
+  });
+  fetchPendingRequestCount.mockResolvedValueOnce({ pendingRequestCount: 2 }).mockResolvedValue({ pendingRequestCount: 1 });
+  decideJoinRequest.mockResolvedValue({ group: BASE });
+  render(
+    <MemoryRouter initialEntries={['/groups/c1/g1']}>
+      <PendingRequestsProvider>
+        <Routes>
+          <Route path="/groups/:courseId/:groupId" element={<GroupDetailsPage />} />
+        </Routes>
+      </PendingRequestsProvider>
+    </MemoryRouter>,
+  );
+  const user = userEvent.setup();
+  expect(await screen.findByRole('link', { name: /My groups.*2 requests waiting/ })).toBeTruthy();
+  await user.click(await screen.findByRole('button', { name: 'Decline Pat Doe' }));
+  expect(await screen.findByRole('link', { name: /My groups.*1 request waiting/ })).toBeTruthy();
 });
 
 test('the leader can decline a request', async () => {

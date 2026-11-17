@@ -10,6 +10,7 @@ import { SeatCount, TimeTile } from '../components/groupParts';
 import { AlertIcon, CheckCircleIcon, ChevronLeftIcon, PeopleIcon, PinIcon, VideoIcon } from '../components/icons';
 import { isGroupFull, meetingPlatform } from '../groupFormat';
 import { describeError, useApiData } from '../hooks/useApiData';
+import { usePendingRequests } from '../pending-requests/usePendingRequests';
 
 /**
  * The heading shows at most three lines of the goal (up to 500 characters).
@@ -97,6 +98,7 @@ export function GroupDetailsPage(): ReactNode {
   const location = useLocation();
   const justCreated = (location.state as { created?: boolean } | null)?.created === true;
   const { user } = useAuth();
+  const { refresh: refreshPendingRequestCount } = usePendingRequests();
 
   const { data, error, notFound, loading, reload } = useApiData(
     () => api.fetchGroup(groupId),
@@ -123,8 +125,12 @@ export function GroupDetailsPage(): ReactNode {
 
   const requestToJoin = (): void => void runAction(() => api.requestToJoin(groupId));
   const withdrawRequest = (): void => void runAction(() => api.withdrawJoinRequest(groupId));
+  // An answered request no longer waits, so the navigation badge counts again.
   const decide = (requestId: string, decision: JoinDecision): void =>
-    void runAction(() => api.decideJoinRequest(groupId, requestId, decision));
+    void runAction(async () => {
+      await api.decideJoinRequest(groupId, requestId, decision);
+      refreshPendingRequestCount();
+    });
 
   const leader = group?.members.find((member) => member.isLeader);
 

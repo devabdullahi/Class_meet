@@ -264,6 +264,10 @@ export const api = {
 
   fetchMyGroups: (): Promise<MyGroups> => request<MyGroups>('/api/me/groups'),
 
+  /** Join requests waiting across every group the student leads. */
+  fetchPendingRequestCount: (): Promise<{ pendingRequestCount: number }> =>
+    request<{ pendingRequestCount: number }>('/api/me/groups/pending-request-count'),
+
   fetchCourseGroups: (courseId: string): Promise<{ course: Course; groups: GroupSummary[] }> =>
     request<{ course: Course; groups: GroupSummary[] }>(`/api/courses/${courseId}/groups`),
 

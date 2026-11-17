@@ -116,6 +116,11 @@ client/                  Vite + React + TypeScript single-page app
       AuthProvider.tsx   holds "who is signed in"; owns sign-in and sign-out
       useAuth.ts         the hook components use
       RequireAuth.tsx    route guard -> /login when signed out
+    pending-requests/
+      PendingRequestsProvider.tsx  join requests waiting for the signed-in leader,
+                         refetched on navigation and after an answer; feeds the
+                         "My groups" badge
+      usePendingRequests.ts  the hook the layout and Group Details use
     components/
       EntraSignInButton.tsx  an ordinary button — MSAL ships no widget
       Avatar.tsx         profile picture with an initials fallback

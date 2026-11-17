@@ -1,7 +1,9 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
+import { api } from '../api';
+import { PendingRequestsProvider } from '../pending-requests/PendingRequestsProvider';
 import { ClassMeetLayout } from './ClassMeetLayout';
 
 vi.mock('../auth/useAuth', () => ({
@@ -11,7 +13,17 @@ vi.mock('../auth/useAuth', () => ({
   }),
 }));
 
-afterEach(cleanup);
+vi.mock('../api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api')>();
+  return { ...actual, api: { ...actual.api, fetchPendingRequestCount: vi.fn() } };
+});
+
+const fetchPendingRequestCount = vi.mocked(api.fetchPendingRequestCount);
+
+afterEach(() => {
+  cleanup();
+  vi.resetAllMocks();
+});
 
 function renderAt(path: string) {
   render(
@@ -53,4 +65,36 @@ test('the account button says whether its menu is open, and Escape closes it', a
 test('My Groups is the current page at /my-groups', () => {
   renderAt('/my-groups');
   expect(current()).toEqual(['My groups']);
+});
+
+function renderWithPendingRequests(path: string) {
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <PendingRequestsProvider>
+        <ClassMeetLayout>
+          <p>content</p>
+        </ClassMeetLayout>
+      </PendingRequestsProvider>
+    </MemoryRouter>,
+  );
+}
+
+test('My Groups shows how many join requests are waiting, and says so to screen readers', async () => {
+  fetchPendingRequestCount.mockResolvedValue({ pendingRequestCount: 3 });
+  renderWithPendingRequests('/');
+  const link = await screen.findByRole('link', { name: /My groups.*3 requests waiting/ });
+  expect(link.querySelector('[aria-hidden="true"].cm-nav__count')?.textContent).toBe('3');
+});
+
+test('one waiting request is counted in the singular', async () => {
+  fetchPendingRequestCount.mockResolvedValue({ pendingRequestCount: 1 });
+  renderWithPendingRequests('/');
+  expect(await screen.findByRole('link', { name: /My groups.*1 request waiting/ })).toBeTruthy();
+});
+
+test('with no requests waiting, My Groups has no badge', async () => {
+  fetchPendingRequestCount.mockResolvedValue({ pendingRequestCount: 0 });
+  renderWithPendingRequests('/');
+  await waitFor(() => expect(fetchPendingRequestCount).toHaveBeenCalled());
+  expect(screen.getByRole('link', { name: 'My groups' }).querySelector('.cm-nav__count')).toBeNull();
 });
