@@ -56,34 +56,33 @@ test.each([
   expect(await screen.findByRole('heading', { name: 'My courses' })).toBeTruthy();
 });
 
+const USUAL_HEADING = 'Find a study group for the course you’re actually in.';
+
 test('signed out from a course link, the sign-in page invites the student to that course', async () => {
   fetchCourseLinkTitle.mockResolvedValue({
     course: { code: 'CSE 3311', title: 'Object Oriented Software Engineering' },
   });
   renderLogin('/join/cse-3311', false);
-  expect(screen.getByRole('heading', { level: 1, name: 'Join the CSE 3311 study groups' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { level: 1, name: 'Join the CSE 3311 study groups' })).toBeTruthy();
   expect(
-    await screen.findByText(
+    screen.getByText(
       'Sign in to see the study groups for Object Oriented Software Engineering and add the course in one tap.',
     ),
   ).toBeTruthy();
   expect(fetchCourseLinkTitle).toHaveBeenCalledWith('cse-3311');
 });
 
-test('when the course is not in the catalog, the sign-in page names it by the code in the link', async () => {
+// The heading would otherwise repeat whatever text someone put in a /join/ link.
+test('when the link names no course in the catalog, the sign-in page is the usual one', async () => {
   fetchCourseLinkTitle.mockRejectedValue(new ApiError(404, 'course_not_found', 'No course has that code.'));
-  renderLogin('/join/cse-3399', false);
-  expect(screen.getByRole('heading', { level: 1, name: 'Join the CSE 3399 study groups' })).toBeTruthy();
-  await vi.waitFor(() => expect(fetchCourseLinkTitle).toHaveBeenCalled());
-  expect(
-    screen.getByText('Sign in to see the study groups for CSE 3399 and add the course in one tap.'),
-  ).toBeTruthy();
+  renderLogin('/join/Free-Gift-Cards-Here', false);
+  await vi.waitFor(() => expect(fetchCourseLinkTitle).toHaveBeenCalledWith('Free-Gift-Cards-Here'));
+  expect(screen.getByRole('heading', { level: 1, name: USUAL_HEADING })).toBeTruthy();
+  expect(screen.queryByText(/Free Gift Cards/i)).toBeNull();
 });
 
 test('signed out from anywhere else, the sign-in page is the usual one', () => {
   renderLogin('/groups/c1/g1', false);
-  expect(
-    screen.getByRole('heading', { level: 1, name: 'Find a study group for the course you’re actually in.' }),
-  ).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: USUAL_HEADING })).toBeTruthy();
   expect(fetchCourseLinkTitle).not.toHaveBeenCalled();
 });

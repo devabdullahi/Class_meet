@@ -5,7 +5,7 @@ import { useAuth } from '../auth/useAuth';
 import { EntraSignInButton } from '../components/EntraSignInButton';
 import { FullPageSpinner } from '../components/FullPageSpinner';
 import { Wordmark } from '../components/Wordmark';
-import { courseCodeFromLinkCode, linkCodeFromPath } from '../courseLink';
+import { linkCodeFromPath } from '../courseLink';
 import { useApiData } from '../hooks/useApiData';
 
 /**
@@ -26,8 +26,11 @@ export function LoginPage(): ReactNode {
   // Arriving from a course link (/join/CSE-3311), the page invites the
   // student to that course. Signing in still returns them to the link.
   const linkCode = status === 'signed-out' ? linkCodeFromPath(returnPath(location.state)) : null;
-  // A failed lookup is left unreported on purpose: without the title the
-  // page names the course by the code in the link, which reads just as well.
+  // Only a course the catalog knows changes the heading: the link's own text
+  // is whatever its author typed, so it is never shown. While the lookup is
+  // running, or when it fails, the page is the usual one; the failure is left
+  // unreported on purpose, since the link page itself explains it after
+  // signing in.
   const linkedCourse = useApiData(
     () => (linkCode === null ? Promise.resolve(null) : api.fetchCourseLinkTitle(linkCode)),
     [linkCode],
@@ -59,13 +62,12 @@ export function LoginPage(): ReactNode {
     config !== null
       ? `Use the account you use for email and Canvas at ${config.tenantDisplayName}.`
       : 'Use your university account.';
-  const linkedCourseCode = linkedCourse?.code ?? (linkCode === null ? null : courseCodeFromLinkCode(linkCode));
 
   return (
     <main className="cm-login">
       <section className="cm-login__card">
         <Wordmark />
-        {linkedCourseCode === null ? (
+        {linkedCourse === undefined ? (
           <>
             <h1 className="cm-login__title">Find a study group for the course you&rsquo;re actually in.</h1>
             <p className="cm-login__subtitle">
@@ -75,10 +77,9 @@ export function LoginPage(): ReactNode {
           </>
         ) : (
           <>
-            <h1 className="cm-login__title">Join the {linkedCourseCode} study groups</h1>
+            <h1 className="cm-login__title">Join the {linkedCourse.code} study groups</h1>
             <p className="cm-login__subtitle">
-              Sign in to see the study groups for {linkedCourse?.title ?? linkedCourseCode} and add the course in
-              one tap.
+              Sign in to see the study groups for {linkedCourse.title} and add the course in one tap.
             </p>
           </>
         )}
