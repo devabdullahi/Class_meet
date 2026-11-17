@@ -91,7 +91,9 @@ function groupInput(courseId: string, overrides: Partial<CreateGroupInput> = {})
 /** A student who has added the course and leads a new group in it. */
 async function groupLedBy(leaderId: string, courseId: string, overrides: Partial<CreateGroupInput> = {}) {
   await repository.enrollInCourse(leaderId, courseId);
-  return repository.createGroup(leaderId, groupInput(courseId, overrides));
+  const result = await repository.createGroup(leaderId, groupInput(courseId, overrides));
+  assert.equal(result.outcome, 'created');
+  return result.outcome === 'created' ? result.groupId : '';
 }
 
 async function requestIdOf(groupId: string, studentId: string): Promise<string> {
@@ -314,4 +316,20 @@ test('removing a course withdraws the student\'s requests to its groups, and onl
 
 test('removing a course the student does not have says so', async () => {
   assert.equal(await repository.removeCourse(await addStudent('Jo'), cse3311), 'not_enrolled');
+});
+
+// ---- Only a course's students take part in its groups -------------------------
+
+test('a student must have added the course to start a group in it', async () => {
+  const student = await addStudent('Jo');
+  assert.deepEqual(await repository.createGroup(student, groupInput(cse3311)), { outcome: 'not_enrolled' });
+  assert.deepEqual(await repository.listGroupsForCourse(cse3311, student), []);
+});
+
+test('a student must have added the course to ask to join one of its groups', async () => {
+  const leader = await addStudent('Alex');
+  const student = await addStudent('Jo');
+  const groupId = await groupLedBy(leader, cse3311);
+  assert.equal(await repository.requestToJoin(groupId, student), 'not_enrolled');
+  assert.equal(await repository.countPendingRequestsForLeader(leader), 0);
 });

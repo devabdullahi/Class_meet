@@ -6,6 +6,12 @@
  *   DELETE /api/groups/:id/members/me                      leave a group you are in (not one you lead)
  *   DELETE /api/groups/:id/join-requests/mine              withdraw your own pending request
  *   POST /api/groups/:id/join-requests/:requestId/decision leader approves or declines: { decision }
+ *
+ * Starting a group and asking to join one need the course on the student's
+ * list (403 course_not_added otherwise). That is what lets Remove course
+ * promise that My groups never shows a group of a course the student dropped.
+ * Viewing a group stays open to any signed-in student, so a link shared by a
+ * classmate works before they have added the course.
  */
 import { Router, type Request, type Response } from 'express';
 import { HttpError } from '../errors.js';
@@ -26,12 +32,19 @@ export function createGroupsRouter(repository: GroupRepository): Router {
   router.post('/', async (req: Request, res: Response) => {
     const viewerId = requireViewerId(req);
     const input = parseCreateGroupInput(req.body);
-    if ((await repository.findCourse(input.courseId)) === null) {
+    const course = await repository.findCourse(input.courseId);
+    if (course === null) {
       throw HttpError.notFound('course_not_found', 'That course does not exist.');
     }
 
-    const groupId = await repository.createGroup(viewerId, input);
-    const group = await repository.findGroup(groupId, viewerId);
+    const result = await repository.createGroup(viewerId, input);
+    if (result.outcome === 'not_enrolled') {
+      throw HttpError.forbidden(
+        'course_not_added',
+        `Add ${course.code} to your courses before starting a group in it.`,
+      );
+    }
+    const group = await repository.findGroup(result.groupId, viewerId);
     res.status(201).json({ group });
   });
 
@@ -80,6 +93,11 @@ export function createGroupsRouter(repository: GroupRepository): Router {
         throw HttpError.conflict('already_member', 'You are already in this group.');
       case 'already_requested':
         throw HttpError.conflict('already_requested', 'You have already asked to join this group.');
+      case 'not_enrolled':
+        throw HttpError.forbidden(
+          'course_not_added',
+          'Add this course to your courses before asking to join one of its groups.',
+        );
       case 'group_full':
         throw HttpError.conflict('group_full', 'This group is full.');
     }

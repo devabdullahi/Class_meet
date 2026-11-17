@@ -8,6 +8,7 @@ import type { SessionClaims } from '../session.js';
 import type {
   Course,
   CourseSearchResult,
+  CreateGroupOutcome,
   DecisionOutcome,
   EnrolledCourse,
   GroupDetails,
@@ -63,6 +64,7 @@ class FakeRepository implements GroupRepository {
   viewersOfGroup: string[] = [];
   viewersOfCourseGroups: string[] = [];
   joinOutcome: JoinRequestOutcome = 'created';
+  createOutcome: CreateGroupOutcome['outcome'] = 'created';
   decisionOutcome: DecisionOutcome = 'decided';
   withdrawOutcome: WithdrawOutcome = 'withdrawn';
   updateOutcome: UpdateGroupOutcome = 'updated';
@@ -103,9 +105,9 @@ class FakeRepository implements GroupRepository {
   async countPendingRequestsForLeader(viewerId: string): Promise<number> {
     return this.pendingRequestCountByViewer.get(viewerId) ?? 0;
   }
-  async createGroup(leaderId: string): Promise<string> {
+  async createGroup(leaderId: string): Promise<CreateGroupOutcome> {
     this.createdBy.push(leaderId);
-    return GROUP_ID;
+    return this.createOutcome === 'created' ? { outcome: 'created', groupId: GROUP_ID } : { outcome: 'not_enrolled' };
   }
   async findGroup(groupId: string, viewerId: string): Promise<GroupDetails | null> {
     this.viewersOfGroup.push(viewerId);
@@ -172,6 +174,7 @@ after(() => {
 beforeEach(() => {
   signInAs(VIEWER_ID);
   repository.joinOutcome = 'created';
+  repository.createOutcome = 'created';
   repository.decisionOutcome = 'decided';
   repository.withdrawOutcome = 'withdrawn';
   repository.updateOutcome = 'updated';
@@ -347,6 +350,14 @@ test('POST /api/groups rejects invalid input without touching the repository', a
   assert.equal(repository.createdBy.length, before);
 });
 
+test('POST /api/groups refuses a course the student has not added, and names it', async () => {
+  repository.createOutcome = 'not_enrolled';
+  const { status, json } = await send('POST', '/api/groups', validGroupBody);
+  assert.equal(status, 403);
+  assert.equal(json.error.code, 'course_not_added');
+  assert.match(json.error.message, /CSE 3311/);
+});
+
 test('POST /api/groups returns 404 when the course does not exist', async () => {
   const { status, json } = await send('POST', '/api/groups', { ...validGroupBody, courseId: UNKNOWN_ID });
   assert.equal(status, 404);
@@ -458,6 +469,7 @@ const joinFailures: Array<[JoinRequestOutcome, number, string]> = [
   ['group_not_found', 404, 'group_not_found'],
   ['already_member', 409, 'already_member'],
   ['already_requested', 409, 'already_requested'],
+  ['not_enrolled', 403, 'course_not_added'],
   ['group_full', 409, 'group_full'],
 ];
 for (const [outcome, expectedStatus, expectedCode] of joinFailures) {

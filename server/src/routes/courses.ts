@@ -2,6 +2,10 @@
  *   GET /api/courses?q=            courses, optionally filtered by code or title,
  *                                  each marked with whether the student has added it
  *   GET /api/courses/:id/groups    the course and its study groups
+ *
+ * A course's groups are listed to any signed-in student, enrolled or not, so
+ * they can look before adding the course. Taking part (creating or joining a
+ * group) needs the course added; see routes/groups.ts.
  */
 import { Router, type Request, type Response } from 'express';
 import { HttpError } from '../errors.js';

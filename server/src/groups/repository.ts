@@ -75,7 +75,15 @@ export interface GroupDetails extends GroupSummary {
   pendingRequests: PendingJoinRequest[];
 }
 
-export type JoinRequestOutcome = 'created' | 'group_not_found' | 'already_member' | 'already_requested' | 'group_full';
+export type JoinRequestOutcome =
+  | 'created'
+  | 'group_not_found'
+  | 'already_member'
+  | 'already_requested'
+  | 'not_enrolled'
+  | 'group_full';
+
+export type CreateGroupOutcome = { outcome: 'created'; groupId: string } | { outcome: 'not_enrolled' };
 
 export type DecisionOutcome = 'decided' | 'group_not_found' | 'not_leader' | 'request_not_found' | 'group_full';
 
@@ -102,10 +110,12 @@ export interface GroupRepository {
   listMyGroups(viewerId: string): Promise<MyGroups>;
   /** Pending join requests across every group the viewer leads. */
   countPendingRequestsForLeader(viewerId: string): Promise<number>;
-  createGroup(leaderId: string, input: CreateGroupInput): Promise<string>;
+  /** Only a student who has added the course may start a group in it. */
+  createGroup(leaderId: string, input: CreateGroupInput): Promise<CreateGroupOutcome>;
   findGroup(groupId: string, viewerId: string): Promise<GroupDetails | null>;
   /** Leader only. The size may not drop below the members already in the group. */
   updateGroup(groupId: string, viewerId: string, settings: GroupSettings): Promise<UpdateGroupOutcome>;
+  /** Only a student who has added the group's course may ask to join it. */
   requestToJoin(groupId: string, viewerId: string): Promise<JoinRequestOutcome>;
   /** A member gives up their seat. The leader cannot leave the group they lead. */
   leaveGroup(groupId: string, viewerId: string): Promise<LeaveGroupOutcome>;
@@ -233,15 +243,22 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
       // groups are withdrawn, so no leader is left answering a student who has
       // dropped the course.
       //
-      // Why a transaction that locks first: an approval can make the student a
-      // member at the same moment. Approving locks its group row (FOR UPDATE),
-      // so locking every group of the course (FOR SHARE) here waits for any
-      // approval in flight and holds off new ones until this commits. The
-      // membership check must be a separate, later statement: under Postgres's
+      // Why a transaction that locks first: the student can gain a group in
+      // this course at the same moment, in two ways, and each is held off by
+      // a lock taken here before anything is checked:
+      //   - an approval locks its group row FOR UPDATE, so locking every group
+      //     of the course FOR SHARE waits for an approval in flight;
+      //   - creating a group, or sending a request, locks the student's
+      //     enrolment FOR SHARE, so locking it FOR UPDATE waits for those.
+      // The checks must be separate, later statements: under Postgres's
       // default READ COMMITTED isolation a statement reads a snapshot taken
-      // when it starts, so a single statement that waited on the lock would
-      // still check memberships as they were before the approval committed.
+      // when it starts, so a single statement that waited on the locks would
+      // still see the groups and memberships from before the others committed.
       return db.transaction(async (query) => {
+        await query('SELECT 1 FROM course_enrollments WHERE user_id = $1 AND course_id = $2 FOR UPDATE', [
+          viewerId,
+          courseId,
+        ]);
         await query('SELECT id FROM study_groups WHERE course_id = $1 FOR SHARE', [courseId]);
 
         const blockers = await query<{ leads: boolean; member: boolean }>(
@@ -327,12 +344,20 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
 
     async createGroup(leaderId, input) {
       // One statement, so the group and its leader's membership are created
-      // together or not at all.
+      // together or not at all. The group is only inserted for a student who
+      // has the course; their enrolment row is locked (FOR SHARE) so a
+      // removal of the course running at the same moment waits for this, then
+      // sees the group and refuses (see removeCourse).
       const rows = await query<{ id: string }>(
-        `WITH new_group AS (
+        `WITH enrollment AS (
+           SELECT user_id FROM course_enrollments
+            WHERE course_id = $1 AND user_id = $2
+              FOR SHARE
+         ), new_group AS (
            INSERT INTO study_groups
              (course_id, leader_id, name, goal, meeting_day, meeting_time, format, location, max_members)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           SELECT $1::uuid, $2::uuid, $3::text, $4::text, $5::text, $6::time, $7::text, $8::text, $9::integer
+             FROM enrollment
            RETURNING id, leader_id
          ), leader_membership AS (
            INSERT INTO group_members (group_id, user_id)
@@ -352,10 +377,7 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
         ],
       );
       const row = rows[0];
-      if (row === undefined) {
-        throw new Error('createGroup: INSERT ... RETURNING produced no row');
-      }
-      return row.id;
+      return row === undefined ? { outcome: 'not_enrolled' } : { outcome: 'created', groupId: row.id };
     },
 
     async findGroup(groupId, viewerId) {
@@ -444,11 +466,14 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
         max_members: number;
         member_count: string;
         is_member: boolean;
+        is_enrolled: boolean;
         request_status: 'pending' | 'approved' | 'declined' | null;
       }>(
         `SELECT g.max_members,
                 (SELECT count(*) FROM group_members WHERE group_id = g.id) AS member_count,
                 EXISTS (SELECT 1 FROM group_members WHERE group_id = g.id AND user_id = $2) AS is_member,
+                EXISTS (SELECT 1 FROM course_enrollments
+                         WHERE course_id = g.course_id AND user_id = $2) AS is_enrolled,
                 (SELECT status FROM group_join_requests WHERE group_id = g.id AND user_id = $2) AS request_status
            FROM study_groups g
           WHERE g.id = $1`,
@@ -458,17 +483,28 @@ export function createPostgresGroupRepository(db: Database): GroupRepository {
       if (state === undefined) return 'group_not_found';
       if (state.is_member) return 'already_member';
       if (state.request_status === 'pending') return 'already_requested';
+      if (!state.is_enrolled) return 'not_enrolled';
       if (Number(state.member_count) >= state.max_members) return 'group_full';
 
       // A declined student may ask again: the same row goes back to 'pending'.
-      await query(
-        `INSERT INTO group_join_requests (group_id, user_id)
-         VALUES ($1, $2)
+      // The enrolment is locked and required again here, not just read above:
+      // a removal of the course in between deletes it, and then no request is
+      // left behind for a course the student no longer has.
+      const created = await query(
+        `WITH enrollment AS (
+           SELECT e.user_id FROM course_enrollments e
+             JOIN study_groups g ON g.course_id = e.course_id
+            WHERE g.id = $1 AND e.user_id = $2
+              FOR SHARE OF e
+         )
+         INSERT INTO group_join_requests (group_id, user_id)
+         SELECT $1::uuid, user_id FROM enrollment
          ON CONFLICT (group_id, user_id) DO UPDATE
-           SET status = 'pending', created_at = now(), decided_at = NULL`,
+           SET status = 'pending', created_at = now(), decided_at = NULL
+         RETURNING id`,
         [groupId, viewerId],
       );
-      return 'created';
+      return created.length > 0 ? 'created' : 'not_enrolled';
     },
 
     async leaveGroup(groupId, viewerId) {
