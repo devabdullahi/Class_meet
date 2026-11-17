@@ -98,7 +98,7 @@ test('with no courses yet, it offers to add one instead of an unusable form', as
   expect(await screen.findByRole('heading', { name: 'Add a course first' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Create group' })).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Add a course' }));
-  expect(screen.getByRole('dialog', { name: 'Add Course' })).toBeTruthy();
+  expect(screen.getByRole('dialog', { name: 'Add a course' })).toBeTruthy();
 });
 
 test('an empty form shows an error beside every missing field and focuses the first', async () => {
@@ -221,7 +221,7 @@ test('shows the server message when the group cannot be created and keeps the fo
   await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
 });
 
-test.each([/Back to My Courses/, /^Cancel$/])('%s returns to My Courses', async (name) => {
+test.each([/Back to my courses/, /^Cancel$/])('%s returns to My Courses', async (name) => {
   const user = renderPage();
   await screen.findByRole('option', { name: /CSE 3311/ });
   await user.click(screen.getByRole('link', { name }));

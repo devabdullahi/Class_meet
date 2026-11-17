@@ -71,7 +71,7 @@ test('shows each course with how many groups are open and how many the student i
   expect(screen.getByText('1 group')).toBeTruthy();
   expect(screen.getByText('No groups yet — start one')).toBeTruthy();
   expect(screen.getAllByText(/You’re in/)).toHaveLength(1);
-  expect(screen.getByRole('heading', { level: 1, name: 'My Courses' })).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: 'My courses' })).toBeTruthy();
   expect(screen.getByText('dev.student@mavs.uta.edu')).toBeTruthy();
 });
 
@@ -88,7 +88,7 @@ test('with no courses, the one primary action is adding the first course', async
   expect(await screen.findByRole('heading', { name: 'No courses yet' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Add your first course' })).toBeTruthy();
   // Create Group would be a dead end without a course; only the sidebar link remains.
-  expect(screen.getAllByRole('link', { name: 'Create Group' })).toHaveLength(1);
+  expect(screen.getAllByRole('link', { name: 'Create group' })).toHaveLength(1);
 });
 
 test('says plainly when the courses cannot be loaded, without server details', async () => {
@@ -106,7 +106,7 @@ test('Add Course opens the dialog and Escape returns focus to the button', async
   fetchMyCourses.mockResolvedValue({ courses: [OOSE] });
   const user = renderPage();
   await screen.findByText('Object Oriented Software Engineering');
-  const addCourse = screen.getByRole('button', { name: 'Add Course' });
+  const addCourse = screen.getByRole('button', { name: 'Add course' });
   await user.click(addCourse);
   expect(screen.getByRole('dialog')).toBeTruthy();
   await user.keyboard('{Escape}');
@@ -120,7 +120,7 @@ test('a course added in the dialog appears in the list', async () => {
   enrollInCourse.mockResolvedValue({ course: { id: 'c2', code: 'CSE 4308', title: 'Artificial Intelligence' } });
   const user = renderPage();
   await screen.findByRole('heading', { name: 'No courses yet' });
-  await user.click(screen.getByRole('button', { name: 'Add Course' }));
+  await user.click(screen.getByRole('button', { name: 'Add course' }));
   await user.type(screen.getByLabelText('Course name or code'), 'AI{Enter}');
   await user.click(await screen.findByRole('button', { name: 'Add CSE 4308' }));
   await waitFor(() => expect(fetchMyCourses).toHaveBeenCalledTimes(2));
@@ -132,7 +132,7 @@ test('Create Group navigates to the create group page', async () => {
   const user = renderPage();
   await screen.findByText('Object Oriented Software Engineering');
   // One link is in the sidebar and one beside the heading; both go to the same page.
-  await user.click(screen.getAllByRole('link', { name: 'Create Group' })[1]!);
+  await user.click(screen.getAllByRole('link', { name: 'Create group' })[1]!);
   expect(screen.getByRole('heading', { name: 'Create Group page' })).toBeTruthy();
 });
 

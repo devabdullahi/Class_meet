@@ -20,7 +20,7 @@ test.each([
 
 test('labels the two formats', () => {
   expect(formatLabel('online')).toBe('Online');
-  expect(formatLabel('in_person')).toBe('In Person');
+  expect(formatLabel('in_person')).toBe('In person');
 });
 
 test('a group is full when it reaches its maximum', () => {

@@ -7,8 +7,8 @@ import { AlertIcon, ChevronLeftIcon, PinIcon, PlusIcon, VideoIcon } from '../com
 import { formatLabel, isGroupFull, meetingPlatform, sortByNextMeeting } from '../groupFormat';
 import { useApiData } from '../hooks/useApiData';
 
-const ANY_DAY = 'Any Day';
-const ANY_FORMAT = 'Any Format';
+const ANY_DAY = 'Any day';
+const ANY_FORMAT = 'Any format';
 const ALL_GROUPS = 'All';
 const DAY_FILTERS = [ANY_DAY, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -77,12 +77,12 @@ export function StudyGroupsPage(): ReactNode {
     <ClassMeetLayout>
       <Link className="cm-back" to="/">
         <ChevronLeftIcon />
-        Back to My Courses
+        Back to my courses
       </Link>
 
       <header className="cm-pagehead">
         <div>
-          <h1>{data === null ? 'Study Groups' : `${data.course.code} — Study Groups`}</h1>
+          <h1>{data === null ? 'Study groups' : `${data.course.code} study groups`}</h1>
           {data !== null && <p className="cm-pagehead__sub">{data.course.title}</p>}
         </div>
         {/* With no groups yet, the empty state below holds this action instead. */}
@@ -90,7 +90,7 @@ export function StudyGroupsPage(): ReactNode {
           <div className="cm-actions">
             <Link className="cm-btn cm-btn--primary" to={createGroupPath}>
               <PlusIcon />
-              Create Group
+              Create group
             </Link>
           </div>
         )}
@@ -112,7 +112,7 @@ export function StudyGroupsPage(): ReactNode {
             <select className="cm-input" value={format} onChange={(event) => setFormat(event.target.value)}>
               <option>{ANY_FORMAT}</option>
               <option>Online</option>
-              <option>In Person</option>
+              <option>In person</option>
             </select>
           </label>
 
@@ -123,7 +123,7 @@ export function StudyGroupsPage(): ReactNode {
               value={availability}
               onChange={(event) => setAvailability(event.target.value)}
             >
-              <option value={ALL_GROUPS}>All Groups</option>
+              <option value={ALL_GROUPS}>All groups</option>
               <option value="Open">Open</option>
               <option value="Full">Full</option>
             </select>
@@ -146,9 +146,9 @@ export function StudyGroupsPage(): ReactNode {
       {notFound && (
         <div className="cm-empty">
           <h2>Course not found</h2>
-          <p>This course does not exist, or the link is incomplete. Your courses are on My Courses.</p>
+          <p>This course does not exist, or the link is incomplete. Your courses are on My courses.</p>
           <Link className="cm-btn cm-btn--secondary" to="/">
-            Go to My Courses
+            Go to my courses
           </Link>
         </div>
       )}

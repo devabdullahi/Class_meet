@@ -53,7 +53,7 @@ export function ClassMeetLayout({ children }: ClassMeetLayoutProps): ReactNode {
         <nav className="cm-nav" aria-label="Main">
           <Link to="/" className="cm-nav__link" aria-current={inMyCourses ? 'page' : undefined}>
             <BookIcon />
-            My Courses
+            My courses
           </Link>
           <Link
             to="/groups/create"
@@ -61,7 +61,7 @@ export function ClassMeetLayout({ children }: ClassMeetLayoutProps): ReactNode {
             aria-current={pathname === '/groups/create' ? 'page' : undefined}
           >
             <PlusIcon />
-            Create Group
+            Create group
           </Link>
         </nav>
 

@@ -70,18 +70,18 @@ export function MyCoursesPage(): ReactNode {
     <ClassMeetLayout>
       <header className="cm-pagehead">
         <div>
-          <h1>My Courses</h1>
+          <h1>My courses</h1>
           <p className="cm-pagehead__sub">Pick a course to see its study groups.</p>
         </div>
         <div className="cm-actions">
           <button ref={addCourseButtonRef} type="button" className="cm-btn cm-btn--secondary" onClick={openAddCourse}>
             <PlusIcon />
-            Add Course
+            Add course
           </button>
           {/* A group needs a course, so Create Group appears once there is one. */}
           {courses.length > 0 && (
             <Link className="cm-btn cm-btn--primary" to="/groups/create">
-              Create Group
+              Create group
             </Link>
           )}
         </div>

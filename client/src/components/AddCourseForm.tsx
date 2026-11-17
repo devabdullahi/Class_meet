@@ -101,8 +101,8 @@ export function AddCourseForm({ onClose, onAdded }: AddCourseFormProps): ReactNo
         onKeyDown={(event) => handleDialogKeys(event, onClose)}
       >
         <header className="cm-dialog__header">
-          <h2 id="add-course-title">Add Course</h2>
-          <button type="button" className="cm-btn cm-btn--icon" onClick={onClose} aria-label="Close Add Course">
+          <h2 id="add-course-title">Add a course</h2>
+          <button type="button" className="cm-btn cm-btn--icon" onClick={onClose} aria-label="Close">
             <CloseIcon />
           </button>
         </header>

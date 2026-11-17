@@ -27,7 +27,7 @@ export function CreateGroupPage(): ReactNode {
   // Back and Cancel return there.
   const presetCourse = courses.find((course) => course.id === searchParams.get('course')) ?? null;
   const backTo = presetCourse === null ? '/' : `/groups/${presetCourse.id}`;
-  const backLabel = presetCourse === null ? 'Back to My Courses' : `Back to ${presetCourse.code}`;
+  const backLabel = presetCourse === null ? 'Back to my courses' : `Back to ${presetCourse.code}`;
 
   return (
     <ClassMeetLayout>

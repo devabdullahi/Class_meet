@@ -11,7 +11,7 @@ export function formatMeetingTime(time: string): string {
 }
 
 export function formatLabel(format: GroupFormat): string {
-  return format === 'online' ? 'Online' : 'In Person';
+  return format === 'online' ? 'Online' : 'In person';
 }
 
 export function isGroupFull(group: Pick<GroupSummary, 'memberCount' | 'maxMembers'>): boolean {

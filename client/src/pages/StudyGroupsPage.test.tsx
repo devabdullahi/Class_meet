@@ -62,7 +62,7 @@ function renderPage() {
 test('shows the course and its groups with time, place and seats', async () => {
   fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: GROUPS });
   renderPage();
-  expect(await screen.findByRole('heading', { level: 1, name: 'CSE 3311 — Study Groups' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { level: 1, name: 'CSE 3311 study groups' })).toBeTruthy();
   expect(fetchCourseGroups).toHaveBeenCalledWith('c1');
   expect(screen.getByText('Tue')).toBeTruthy();
   expect(screen.getAllByText('2:30')).toHaveLength(3);
@@ -161,7 +161,7 @@ test('with no groups, offers one way to create the first and hides the filters',
   );
   expect(screen.queryByLabelText('Day')).toBeNull();
   // Only the sidebar's Create Group remains; the page has a single call to action.
-  expect(screen.getAllByRole('link', { name: 'Create Group' })).toHaveLength(1);
+  expect(screen.getAllByRole('link', { name: 'Create group' })).toHaveLength(1);
 });
 
 test('opens a group from its card, which is one link named by the goal', async () => {
@@ -177,13 +177,13 @@ test('an unknown course gets a way back, not filters or Create Group', async () 
   expect(await screen.findByRole('heading', { name: 'Course not found' })).toBeTruthy();
   expect(screen.queryByLabelText('Day')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
-  await user.click(screen.getByRole('link', { name: 'Go to My Courses' }));
+  await user.click(screen.getByRole('link', { name: 'Go to my courses' }));
   expect(screen.getByRole('heading', { name: 'My Courses page' })).toBeTruthy();
 });
 
 test('Back returns to My Courses', async () => {
   fetchCourseGroups.mockResolvedValue({ course: COURSE, groups: [] });
   const user = renderPage();
-  await user.click(await screen.findByRole('link', { name: /Back to My Courses/ }));
+  await user.click(await screen.findByRole('link', { name: /Back to my courses/ }));
   expect(screen.getByRole('heading', { name: 'My Courses page' })).toBeTruthy();
 });

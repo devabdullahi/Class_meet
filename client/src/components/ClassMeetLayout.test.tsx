@@ -32,12 +32,12 @@ const current = () =>
 
 test.each(['/', '/groups/c1', '/groups/c1/g1'])('My Courses is the current page at %s', (path) => {
   renderAt(path);
-  expect(current()).toEqual(['My Courses']);
+  expect(current()).toEqual(['My courses']);
 });
 
 test('Create Group is the current page while creating a group, even from a course', () => {
   renderAt('/groups/create?course=c1');
-  expect(current()).toEqual(['Create Group']);
+  expect(current()).toEqual(['Create group']);
 });
 
 test('the account button says whether its menu is open, and Escape closes it', async () => {

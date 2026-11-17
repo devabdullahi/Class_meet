@@ -21,7 +21,7 @@ afterEach(() => {
 
 test('focuses the input when the accessible dialog opens', () => {
   render(<AddCourseForm onClose={vi.fn()} />);
-  expect(screen.getByRole('dialog', { name: 'Add Course' }).getAttribute('aria-modal')).toBe('true');
+  expect(screen.getByRole('dialog', { name: 'Add a course' }).getAttribute('aria-modal')).toBe('true');
   expect(document.activeElement).toBe(screen.getByLabelText('Course name or code'));
 });
 
@@ -29,7 +29,7 @@ test('close icon calls onClose once', async () => {
   const user = userEvent.setup();
   const onClose = vi.fn();
   render(<AddCourseForm onClose={onClose} />);
-  await user.click(screen.getByRole('button', { name: 'Close Add Course' }));
+  await user.click(screen.getByRole('button', { name: 'Close' }));
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
@@ -127,7 +127,7 @@ test('wraps keyboard focus inside the modal', async () => {
   render(<AddCourseForm onClose={vi.fn()} />);
 
   const done = screen.getByRole('button', { name: 'Done' });
-  const close = screen.getByRole('button', { name: 'Close Add Course' });
+  const close = screen.getByRole('button', { name: 'Close' });
 
   done.focus();
   await user.tab();
