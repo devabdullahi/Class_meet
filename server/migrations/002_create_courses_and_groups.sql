@@ -18,8 +18,10 @@ CREATE TABLE study_groups (
     meeting_day  text        NOT NULL
                  CHECK (meeting_day IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday',
                                         'Friday', 'Saturday', 'Sunday')),
-    -- Wall-clock time in the campus time zone; the day is a weekly recurrence,
-    -- so there is no date and no zone to store.
+    -- Wall-clock time with no time zone, as the leader entered it: the form
+    -- calls it "your local time" and the calendar export makes it a floating
+    -- local time. The day is a weekly recurrence, so there is no date and no
+    -- zone to store.
     meeting_time time        NOT NULL,
     format       text        NOT NULL CHECK (format IN ('in_person', 'online')),
     -- A place for in-person groups, a meeting link for online ones.
