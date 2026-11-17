@@ -35,7 +35,7 @@ export function AddCourseForm({
       setResults(reply.courses);
     } catch (failure) {
       setResults(null);
-      setError(describeError(failure));
+      setError(describeError(failure, 'We could not search the course list. Please try again.'));
     } finally {
       setSearching(false);
     }
@@ -54,7 +54,7 @@ export function AddCourseForm({
       setAddedMessage(`${course.code} was added to your courses.`);
       onAdded?.();
     } catch (failure) {
-      setError(describeError(failure));
+      setError(describeError(failure, `We could not add ${course.code}. Please try again.`));
     } finally {
       setAddingCourseId(null);
     }

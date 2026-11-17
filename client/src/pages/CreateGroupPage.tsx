@@ -53,7 +53,7 @@ export function CreateGroupPage(): ReactNode {
       });
       navigate(`/groups/${group.courseId}/${group.id}`, { state: { created: true } });
     } catch (failure) {
-      setError(describeError(failure));
+      setError(describeError(failure, 'We could not create the group. Please try again.'));
       setSubmitting(false);
     }
   }

@@ -92,12 +92,22 @@ test('a course the student already has cannot be added again', async () => {
   expect(button.disabled).toBe(true);
 });
 
-test('shows the server message when the search fails and clears it on typing', async () => {
+test('shows the server message when the search itself is rejected', async () => {
+  searchCourses.mockRejectedValue(new ApiError(400, 'invalid_search', 'Search must be 100 characters or fewer.'));
+  const user = userEvent.setup();
+  render(<AddCourseForm onClose={vi.fn()} />);
+  await user.type(screen.getByLabelText('Course name or code'), 'CSE{Enter}');
+  expect((await screen.findByRole('alert')).textContent).toBe('Search must be 100 characters or fewer.');
+});
+
+test('says plainly when the search fails on the server and clears it on typing', async () => {
   searchCourses.mockRejectedValue(new ApiError(503, 'database_unavailable', 'Could not reach the database.'));
   const user = userEvent.setup();
   render(<AddCourseForm onClose={vi.fn()} />);
   await user.type(screen.getByLabelText('Course name or code'), 'CSE{Enter}');
-  expect((await screen.findByRole('alert')).textContent).toBe('Could not reach the database.');
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'We could not search the course list. Please try again.',
+  );
   await user.type(screen.getByLabelText('Course name or code'), 'A');
   expect(screen.queryByRole('alert')).toBeNull();
 });

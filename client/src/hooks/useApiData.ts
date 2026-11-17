@@ -10,15 +10,30 @@ export interface ApiData<T> {
   reload: () => void;
 }
 
-export function describeError(error: unknown): string {
-  return error instanceof ApiError ? error.message : 'Something went wrong. Please try again.';
+const GENERIC_FAILURE = 'Something went wrong on our side. Please try again.';
+
+/**
+ * A message that is safe to show a student. The API's 4xx messages are about
+ * the student's own request ("This group is full.") and are written for them.
+ * Anything else (the server or database being down, no network) carries
+ * details meant for developers, such as which setting to check in
+ * server/.env, so the student sees `fallback` instead.
+ */
+export function describeError(error: unknown, fallback: string = GENERIC_FAILURE): string {
+  const isAboutTheRequest = error instanceof ApiError && error.status >= 400 && error.status < 500;
+  return isAboutTheRequest ? error.message : fallback;
 }
 
 /**
  * Loads one thing from the API when the page opens and whenever `deps` change.
  * Pages use it so that loading and failure are shown instead of an empty screen.
  */
-export function useApiData<T>(load: () => Promise<T>, deps: readonly unknown[]): ApiData<T> {
+export function useApiData<T>(
+  load: () => Promise<T>,
+  deps: readonly unknown[],
+  /** What to say when the server, not the request, is the problem. */
+  failureMessage?: string,
+): ApiData<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +51,7 @@ export function useApiData<T>(load: () => Promise<T>, deps: readonly unknown[]):
       },
       (failure: unknown) => {
         if (cancelled) return;
-        setError(describeError(failure));
+        setError(describeError(failure, failureMessage));
         setLoading(false);
       },
     );

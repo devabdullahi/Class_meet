@@ -12,7 +12,11 @@ import { AlertIcon, PlusIcon } from '../components/icons';
 import { useApiData } from '../hooks/useApiData';
 
 export function MyCoursesPage(): ReactNode {
-  const { data, error, loading, reload } = useApiData(() => api.fetchMyCourses(), []);
+  const { data, error, loading, reload } = useApiData(
+    () => api.fetchMyCourses(),
+    [],
+    'We could not load your courses. Please try again.',
+  );
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
   const addCourseButtonRef = useRef<HTMLButtonElement>(null);
 

@@ -36,7 +36,11 @@ export function GroupDetailsPage(): ReactNode {
   const location = useLocation();
   const justCreated = (location.state as { created?: boolean } | null)?.created === true;
 
-  const { data, error, loading, reload } = useApiData(() => api.fetchGroup(groupId), [groupId]);
+  const { data, error, loading, reload } = useApiData(
+    () => api.fetchGroup(groupId),
+    [groupId],
+    'We could not load this group. Please try again.',
+  );
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -49,7 +53,7 @@ export function GroupDetailsPage(): ReactNode {
       await action();
       reload();
     } catch (failure) {
-      setActionError(describeError(failure));
+      setActionError(describeError(failure, 'That did not go through. Please try again.'));
     } finally {
       setBusy(false);
     }

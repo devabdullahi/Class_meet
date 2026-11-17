@@ -71,11 +71,14 @@ test('invites the student to add a course when they have none', async () => {
   expect(screen.getByRole('button', { name: 'Add your first course' })).toBeTruthy();
 });
 
-test('shows the server message when the courses cannot be loaded', async () => {
-  fetchMyCourses.mockRejectedValue(new ApiError(503, 'database_unavailable', 'Could not reach the database.'));
+test('says plainly when the courses cannot be loaded, without server details', async () => {
+  fetchMyCourses.mockRejectedValue(
+    new ApiError(503, 'database_unavailable', 'Could not reach the database. Check DATABASE_URL in server/.env.'),
+  );
   renderPage();
   const alert = await screen.findByRole('alert');
-  expect(alert.textContent).toContain('Could not reach the database.');
+  expect(alert.textContent).toContain('We could not load your courses. Please try again.');
+  expect(alert.textContent).not.toContain('DATABASE_URL');
   expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
 });
 

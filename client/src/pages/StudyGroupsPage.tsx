@@ -22,7 +22,11 @@ function matchesFilters(group: GroupSummary, day: string, format: string, availa
 
 export function StudyGroupsPage(): ReactNode {
   const { courseId = '' } = useParams();
-  const { data, error, loading, reload } = useApiData(() => api.fetchCourseGroups(courseId), [courseId]);
+  const { data, error, loading, reload } = useApiData(
+    () => api.fetchCourseGroups(courseId),
+    [courseId],
+    'We could not load the study groups for this course. Please try again.',
+  );
   const [day, setDay] = useState(ANY_DAY);
   const [format, setFormat] = useState(ANY_FORMAT);
   const [availability, setAvailability] = useState(ALL_GROUPS);
