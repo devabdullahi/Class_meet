@@ -479,12 +479,138 @@
   gap: var(--space-3);
 }
 
+.cm-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 640px;
+  margin-top: var(--space-6);
+  padding: var(--space-6);
+}
+
+/* Label, 6px, control, 6px, hint or error. */
+.cm-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cm-form-field legend {
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+/* Day | Time | Format share a row: they are one decision, "when and how". */
+.cm-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.cm-course-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+}
+
+.cm-course-chip .cm-code {
+  align-self: center;
+}
+
+/* Two radio buttons drawn as one switch. The real inputs stay in the page,
+   invisible, so keyboard and screen reader use is the native radio group. */
+.cm-segmented {
+  display: flex;
+  min-height: var(--control-height);
+  padding: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+}
+
+.cm-segmented label {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+
+.cm-segmented input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cm-segmented span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cm-segmented input:checked + span {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.cm-segmented input:focus-visible + span {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.cm-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 136px;
+}
+
+.cm-stepper .cm-btn {
+  border-color: var(--border-strong);
+}
+
+.cm-stepper .cm-input {
+  width: 56px;
+  padding: 0;
+  text-align: center;
+  appearance: textfield;
+}
+
+.cm-stepper .cm-input::-webkit-inner-spin-button,
+.cm-stepper .cm-input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
 .cm-form__actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin-top: var(--space-2);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.cm-form__submit {
+  min-width: 160px;
 }
 
 /* ---- Add course dialog ------------------------------------------------ */
@@ -564,6 +690,23 @@
 
   .cm-pagehead h1 {
     font-size: var(--font-heading);
+  }
+
+  .cm-create-form {
+    padding: var(--space-5);
+  }
+
+  .cm-form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Full-width buttons, the primary on top where the thumb reaches first. */
+  .cm-form__actions {
+    flex-direction: column-reverse;
+  }
+
+  .cm-form__actions .cm-btn {
+    width: 100%;
   }
 
   .cm-login__card {

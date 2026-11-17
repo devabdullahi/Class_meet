@@ -1,194 +1,84 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { api, type MeetingDay } from '../api';
-import { describeError, useApiData } from '../hooks/useApiData';
-
-const MEETING_DAYS: MeetingDay[] = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
-
-/** A group needs its leader and at least one more student. */
-const MIN_GROUP_MEMBERS = 2;
+import { useRef, useState, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { api } from '../api';
+import { AddCourseForm } from '../components/AddCourseForm';
+import { ClassMeetLayout } from '../components/ClassMeetLayout';
+import { CreateGroupForm } from '../components/CreateGroupForm';
+import { AlertIcon, ChevronLeftIcon } from '../components/icons';
+import { useApiData } from '../hooks/useApiData';
 
 export function CreateGroupPage(): ReactNode {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { data: courseData, loading: coursesLoading } = useApiData(() => api.fetchMyCourses(), []);
-  const courses = courseData?.courses ?? [];
+  const { data, error, loading, reload } = useApiData(
+    () => api.fetchMyCourses(),
+    [],
+    'We could not load your courses. Please try again.',
+  );
+  const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
+  const addCourseButtonRef = useRef<HTMLButtonElement>(null);
 
-  const [courseId, setCourseId] = useState(searchParams.get('course') ?? '');
-  const [goal, setGoal] = useState('');
-  const [location, setLocation] = useState('');
-  const [meetingFormat, setMeetingFormat] = useState('in-person');
-  const [meetingDay, setMeetingDay] = useState('');
-  const [meetingTime, setMeetingTime] = useState('');
-  const [sizeCap, setSizeCap] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const closeAddCourse = (): void => {
+    setIsAddCourseOpen(false);
+    addCourseButtonRef.current?.focus();
+  };
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    if (!goal.trim() || !location.trim()) {
-      setError('Enter a study goal and meeting location.');
-      return;
-    }
-
-    setError('');
-    setSubmitting(true);
-    try {
-      const { group } = await api.createGroup({
-        courseId,
-        goal: goal.trim(),
-        meetingDay: meetingDay as MeetingDay,
-        meetingTime,
-        format: meetingFormat === 'online' ? 'online' : 'in_person',
-        location: location.trim(),
-        maxMembers: Number(sizeCap),
-      });
-      navigate(`/groups/${group.courseId}/${group.id}`, { state: { created: true } });
-    } catch (failure) {
-      setError(describeError(failure, 'We could not create the group. Please try again.'));
-      setSubmitting(false);
-    }
-  }
+  const courses = data?.courses ?? [];
+  // Opened from a course's page: the group belongs to that course, and
+  // Back and Cancel return there.
+  const presetCourse = courses.find((course) => course.id === searchParams.get('course')) ?? null;
+  const backTo = presetCourse === null ? '/' : `/groups/${presetCourse.id}`;
+  const backLabel = presetCourse === null ? 'Back to My Courses' : `Back to ${presetCourse.code}`;
 
   return (
-    <main className="cm-main">
-      <Link className="cm-back" to="/">← Back</Link>
-      <section className="cm-panel" aria-labelledby="create-group-title">
-        <h1 id="create-group-title">Create Group</h1>
+    <ClassMeetLayout>
+      <Link className="cm-back" to={backTo}>
+        <ChevronLeftIcon />
+        {backLabel}
+      </Link>
+
+      <header className="cm-pagehead">
         <div>
-          <p className="cm-panel__text">Set up a study group for your course.</p>
-          <form
-            className="cm-form"
-            onSubmit={(event) => void handleSubmit(event)}
-            onChange={() => setError('')}
-          >
-            <label className="cm-label" htmlFor="group-course">Course</label>
-            <select
-              id="group-course"
-              className="cm-input"
-              value={courseId}
-              onChange={(event) => setCourseId(event.target.value)}
-              disabled={courses.length === 0}
-              aria-describedby="group-course-help"
-              required
-            >
-              <option value="">
-                {coursesLoading ? 'Loading courses…' : courses.length === 0 ? 'No courses yet' : 'Select a course'}
-              </option>
-              {courses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.code} — {course.title}
-                </option>
-              ))}
-            </select>
-            <p id="group-course-help" className="cm-hint">
-              {!coursesLoading && courses.length === 0 ? (
-                <>
-                  You have no courses yet. Add one on the <Link to="/">My Courses</Link> page first.
-                </>
-              ) : (
-                'All details below are required.'
-              )}
-            </p>
-
-            <label className="cm-label" htmlFor="group-day">Meeting day</label>
-            <select
-              id="group-day"
-              className="cm-input"
-              value={meetingDay}
-              onChange={(event) => setMeetingDay(event.target.value)}
-              required
-            >
-              <option value="">Select a day</option>
-              {MEETING_DAYS.map((day) => (
-                <option key={day} value={day}>{day}</option>
-              ))}
-            </select>
-
-            <label className="cm-label" htmlFor="group-time">Meeting time (local time)</label>
-            <input
-              id="group-time"
-              className="cm-input"
-              type="time"
-              value={meetingTime}
-              onChange={(event) => setMeetingTime(event.target.value)}
-              required
-            />
-
-            <label className="cm-label" htmlFor="group-size">Maximum members</label>
-            <input
-              id="group-size"
-              className="cm-input"
-              type="number"
-              min={MIN_GROUP_MEMBERS}
-              max={50}
-              step={1}
-              value={sizeCap}
-              onChange={(event) => setSizeCap(event.target.value)}
-              required
-            />
-            <label className="cm-label" htmlFor="group-goal">Study goal</label>
-            <textarea
-              id="group-goal"
-              className="cm-input"
-              value={goal}
-              onChange={(event) => setGoal(event.target.value)}
-              placeholder="Example: Review for the next exam"
-              rows={3}
-              maxLength={500}
-              required
-            />
-            <label className="cm-label" htmlFor="group-format">Meeting format</label>
-            <select
-              id="group-format"
-              className="cm-input"
-              value={meetingFormat}
-              onChange={(event) => {
-                setMeetingFormat(event.target.value);
-                setLocation('');
-              }}
-            >
-              <option value="in-person">In person</option>
-              <option value="online">Online</option>
-            </select>
-            <label className="cm-label" htmlFor="group-location">
-              {meetingFormat === 'online' ? 'Meeting link' : 'Meeting location'}
-            </label>
-            <input
-              id="group-location"
-              className="cm-input"
-              type={meetingFormat === 'online' ? 'url' : 'text'}
-              aria-describedby={meetingFormat === 'online' ? 'group-link-help' : undefined}
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-              placeholder={meetingFormat === 'online'
-                ? 'Example: https://teams.microsoft.com/...'
-                : 'Example: Central Library, second floor'}
-              required
-            />
-            {meetingFormat === 'online' && (
-              <p id="group-link-help" className="cm-hint">
-                Create a meeting in Teams, Zoom, or Google Meet, then paste its invite link here.
-              </p>
-            )}
-            {error && <p className="cm-notice cm-notice--error" role="alert">{error}</p>}
-            <div className="cm-form__actions">
-              <Link className="cm-btn cm-btn--quiet" to="/">Cancel</Link>
-              <button className="cm-btn cm-btn--primary" type="submit" disabled={submitting}>
-                {submitting ? 'Creating…' : 'Create Group'}
-              </button>
-            </div>
-          </form>
+          <h1>Create a study group</h1>
+          <p className="cm-pagehead__sub">Students in the course can find it and ask to join. You will lead it.</p>
         </div>
-      </section>
-    </main>
+      </header>
+
+      {error !== null && (
+        <div className="cm-notice cm-notice--error" role="alert">
+          <AlertIcon />
+          <span className="cm-notice__body">{error}</span>
+          <button type="button" className="cm-btn cm-btn--quiet cm-btn--sm" onClick={reload}>
+            Try again
+          </button>
+        </div>
+      )}
+
+      {loading && data === null && error === null && (
+        <div className="cm-create-form cm-skeleton" aria-busy="true">
+          <span className="cm-sr-only">Loading your courses</span>
+        </div>
+      )}
+
+      {data !== null && courses.length === 0 && (
+        <div className="cm-empty">
+          <h2>Add a course first</h2>
+          <p>Every study group belongs to a course. Add a course you are taking, then create its group here.</p>
+          <button
+            ref={addCourseButtonRef}
+            type="button"
+            className="cm-btn cm-btn--primary"
+            onClick={() => setIsAddCourseOpen(true)}
+          >
+            Add a course
+          </button>
+        </div>
+      )}
+
+      {courses.length > 0 && (
+        <CreateGroupForm courses={courses} presetCourse={presetCourse} cancelTo={backTo} />
+      )}
+
+      {isAddCourseOpen && <AddCourseForm onClose={closeAddCourse} onAdded={reload} />}
+    </ClassMeetLayout>
   );
 }
