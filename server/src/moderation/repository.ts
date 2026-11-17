@@ -95,7 +95,7 @@ export type RemoveGroupOutcome = 'removed' | 'group_not_found';
 export type RemoveMemberOutcome = 'removed' | 'group_not_found' | 'is_leader' | 'not_member';
 
 /** The resolved list shows recent decisions; older ones stay in the table. */
-export const RESOLVED_LIST_LIMIT = 50;
+const RESOLVED_LIST_LIMIT = 50;
 
 export interface ModerationRepository {
   /** Read on every moderation request, so granting or revoking takes effect at once. */
