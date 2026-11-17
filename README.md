@@ -87,6 +87,8 @@ at the root must pass before anything is merged.
 
 ```
 docs/                    project deliverables (inception document, slides)
+  DEPLOY.md              click-by-click deployment to Render + Neon
+Dockerfile               the production image: migrate, then serve API + client
 
 scripts/
   dev.mjs                `npm run up` — install, configure, migrate, start
@@ -148,7 +150,9 @@ server/                  Express + TypeScript API
     004_add_group_name.sql  study_groups.name (NULL for groups made before it; the goal is shown instead)
   src/
     index.ts             listen, startup warnings, graceful shutdown
-    app.ts               middleware wiring and route mounting
+    app.ts               middleware wiring and route mounting; in production
+                         also serves the built client
+    static-client.ts     serves client/dist: SPA fallback, cache headers
     env.ts               reads and validates every environment variable
     errors.ts            HttpError: status + code + safe message
     entra.ts             verifies the Entra access token, applies the tenant policy
@@ -164,6 +168,7 @@ server/                  Express + TypeScript API
     middleware/
       require-auth.ts    auth middleware for protected routes
       csrf.ts            custom-header + Origin check on unsafe methods
+      security-headers.ts  Content-Security-Policy and friends, on every response
       error-handler.ts   one JSON error shape, 404 handler
     routes/auth.ts       POST /api/auth/entra, GET /me, POST /logout, GET /config
     routes/me.ts         GET/POST /api/me/courses, DELETE /api/me/courses/:id
@@ -509,7 +514,7 @@ Check responsive layout and the native time picker manually in a browser.
 | `npm run build` | Compiles the server to `server/dist`, bundles the client to `client/dist` |
 | `npm run migrate` | Applies pending migrations |
 | `npm run migrate:status` | Lists applied and pending migrations, changes nothing |
-| `npm start` | Runs the compiled server (needs `npm run build` first) |
+| `npm start` | Runs the compiled server (needs `npm run build` first). With `NODE_ENV=production` it also serves the built client on the same port |
 
 ### Troubleshooting
 
@@ -533,6 +538,15 @@ Check responsive layout and the native time picker manually in a browser.
 | `503 database_not_migrated` | The database is reachable but `npm run migrate` has not run |
 | `503 database_unavailable` | Wrong connection string, or the Neon compute is asleep — retry once |
 | Vite prints `http proxy error: ECONNREFUSED` | The API is not up yet, or `PORT` in `server/.env` is not `4000` |
+
+## Deploying
+
+The app deploys as one Docker container on Render's free plan, backed by a
+fresh Neon database: the container runs pending migrations, then serves the
+API and the built client from one origin. Follow
+[`docs/DEPLOY.md`](docs/DEPLOY.md) step by step; it covers the Neon database,
+the Render service and its environment variables, the one redirect URI to add
+in the Azure portal, seeding more courses, and troubleshooting.
 
 ---
 
