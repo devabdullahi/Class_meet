@@ -8,6 +8,9 @@ import { createMeRouter } from './routes/me.js';
 import { createProfileRouter } from './routes/profile.js';
 import { postgresGroupRepository } from './groups/repository.js';
 import { postgresProfileRepository } from './profiles/repository.js';
+import { createModerationRouter } from './routes/moderation.js';
+import { createReportsRouter } from './routes/reports.js';
+import { postgresModerationRepository } from './moderation/repository.js';
 import { requireAuth } from './middleware/require-auth.js';
 import { requireSameOriginRequest } from './middleware/csrf.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
@@ -81,7 +84,11 @@ export function createApp(options: AppOptions = {}): Express {
   app.use('/api/course-links', createCourseLinksRouter(postgresGroupRepository));
   app.use('/api/me', requireAuth, createMeRouter(postgresGroupRepository));
   app.use('/api/courses', requireAuth, createCoursesRouter(postgresGroupRepository));
+  // Reports about a group live under the group's address. This router answers
+  // only its own paths and passes every other one on to the groups router.
+  app.use('/api/groups', requireAuth, createReportsRouter(postgresModerationRepository));
   app.use('/api/groups', requireAuth, createGroupsRouter(postgresGroupRepository));
+  app.use('/api/moderation', requireAuth, createModerationRouter(postgresModerationRepository));
 
   // Before the client router, so an unknown API path is a JSON 404 and never
   // the SPA's HTML.

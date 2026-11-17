@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { useModerationStatus } from '../moderation/useModerationStatus';
 import { usePendingRequests } from '../pending-requests/usePendingRequests';
 import { Avatar } from './Avatar';
-import { BookIcon, LogoutIcon, PeopleIcon, PlusIcon } from './icons';
+import { BookIcon, FlagIcon, LogoutIcon, PeopleIcon, PlusIcon } from './icons';
 import { Wordmark } from './Wordmark';
 
 interface ClassMeetLayoutProps {
@@ -19,18 +20,17 @@ function isInMyCourses(pathname: string): boolean {
 const MAX_BADGE_COUNT = 99;
 
 /**
- * How many join requests are waiting in groups the student leads. Seen as a
- * small count; heard as part of the link's name ("My groups, 3 requests waiting").
+ * A count on a navigation item: join requests waiting in groups the student
+ * leads, or reports waiting for a moderator. Seen as a small number; heard as
+ * part of the link's name ("My groups, 3 requests waiting").
  */
-function PendingRequestsBadge({ count }: { count: number }): ReactNode {
+function NavCountBadge({ count, spoken }: { count: number; spoken: string }): ReactNode {
   return (
     <>
       <span className="cm-nav__count" aria-hidden="true">
         {count > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : count}
       </span>
-      <span className="cm-sr-only">
-        , {count} {count === 1 ? 'request' : 'requests'} waiting
-      </span>
+      <span className="cm-sr-only">, {spoken}</span>
     </>
   );
 }
@@ -44,6 +44,7 @@ export function ClassMeetLayout({ children }: ClassMeetLayoutProps): ReactNode {
   const { user, signOut } = useAuth();
   const { pathname } = useLocation();
   const { pendingRequestCount } = usePendingRequests();
+  const { isModerator, openCount: openReportCount } = useModerationStatus();
   const [signingOut, setSigningOut] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -84,7 +85,12 @@ export function ClassMeetLayout({ children }: ClassMeetLayoutProps): ReactNode {
           >
             <PeopleIcon />
             My groups
-            {pendingRequestCount > 0 && <PendingRequestsBadge count={pendingRequestCount} />}
+            {pendingRequestCount > 0 && (
+              <NavCountBadge
+                count={pendingRequestCount}
+                spoken={`${pendingRequestCount} ${pendingRequestCount === 1 ? 'request' : 'requests'} waiting`}
+              />
+            )}
           </Link>
           <Link
             to="/groups/create"
@@ -94,6 +100,18 @@ export function ClassMeetLayout({ children }: ClassMeetLayoutProps): ReactNode {
             <PlusIcon />
             Create group
           </Link>
+          {/* Only for moderators, which the server alone decides. */}
+          {isModerator && (
+            <Link
+              to="/reports"
+              className="cm-nav__link"
+              aria-current={pathname === '/reports' ? 'page' : undefined}
+            >
+              <FlagIcon />
+              Reports
+              {openReportCount > 0 && <NavCountBadge count={openReportCount} spoken={`${openReportCount} open`} />}
+            </Link>
+          )}
         </nav>
 
         {user !== null && (

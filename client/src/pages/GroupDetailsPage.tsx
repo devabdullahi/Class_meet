@@ -11,6 +11,8 @@ import { AlertIcon, CheckCircleIcon, ChevronLeftIcon, PeopleIcon, PinIcon, Video
 import { groupGoalLine, groupTitle, isGroupFull, meetingPlaceLabel } from '../groupFormat';
 import { describeError, useApiData } from '../hooks/useApiData';
 import { usePendingRequests } from '../pending-requests/usePendingRequests';
+import { ReportEntry, ReportedNotices, useMyOpenReports } from '../reports/GroupReporting';
+import { GroupUnavailable } from '../reports/GroupUnavailable';
 
 /**
  * A group without a name has its goal as the heading, which shows at most
@@ -112,6 +114,8 @@ export function GroupDetailsPage(): ReactNode {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [justLeft, setJustLeft] = useState(false);
+  const myReports = useMyOpenReports(groupId);
+  const [justReported, setJustReported] = useState(false);
 
   const loadedGroup = data?.group ?? null;
   // The address names the course as well, and the back links follow it, so a
@@ -167,19 +171,13 @@ export function GroupDetailsPage(): ReactNode {
 
   return (
     <ClassMeetLayout>
-      <Link className="cm-back" to={`/groups/${courseId}`}>
-        <ChevronLeftIcon />
-        {group === null ? 'Back to study groups' : `Back to ${group.courseCode} groups`}
-      </Link>
-
-      {groupNotFound && (
-        <div className="cm-empty">
-          <h2>Group not found</h2>
-          <p>This group may have been removed, or the link is incomplete.</p>
-          <Link className="cm-btn cm-btn--secondary" to={`/groups/${courseId}`}>
-            See this course&rsquo;s groups
-          </Link>
-        </div>
+      {groupNotFound ? (
+        <GroupUnavailable groupId={groupId} courseId={courseId} />
+      ) : (
+        <Link className="cm-back" to={`/groups/${courseId}`}>
+          <ChevronLeftIcon />
+          {group === null ? 'Back to study groups' : `Back to ${group.courseCode} groups`}
+        </Link>
       )}
 
       {error !== null && !groupNotFound && (
@@ -242,6 +240,8 @@ export function GroupDetailsPage(): ReactNode {
             </div>
           )}
 
+          <ReportedNotices reports={myReports.reports} focusNewest={justReported} />
+
           <div className="cm-details-grid">
             {/* First in reading order and on a phone: what you can do here. */}
             <div className="cm-stack cm-aside">
@@ -270,6 +270,15 @@ export function GroupDetailsPage(): ReactNode {
             <div className="cm-stack cm-details-main">
               <MeetingPanel group={group} />
               <MembersPanel group={group} viewerId={user?.id} />
+              <ReportEntry
+                group={group}
+                viewerId={user?.id}
+                reports={myReports.reports}
+                onReported={() => {
+                  setJustReported(true);
+                  myReports.reload();
+                }}
+              />
             </div>
           </div>
         </>
