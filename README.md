@@ -112,6 +112,7 @@ client/                  Vite + React + TypeScript single-page app
     screens.css          layout of the shell and each screen, using those tokens
     groupForm.ts         Create Group's field rules (pure, unit-tested)
     groupFormat.ts       meeting times, seats left, next-meeting order
+    courseLink.ts        course links (/join/CSE-3311): the code with its space as a hyphen
     auth/
       msal.ts            the MSAL instance: authority, redirect URI, cache
       auth-context.ts    the context object and its value type
@@ -131,12 +132,17 @@ client/                  Vite + React + TypeScript single-page app
       FormField.tsx      label, control, then hint or error, wired with aria
       GroupActionPanels.tsx  Group Details' state-driven action panel
       InlineConfirm.tsx  asks in place before leaving a group or removing a course
+      ShareCourseLinkDialog.tsx  a course's link, ready to copy
+      CopyLinkField.tsx  a link with Copy link; selects it for Ctrl+C where the clipboard is unavailable
+      dialogKeys.ts      Tab stays inside a dialog; Escape closes it
       Wordmark.tsx       inline-SVG logo
       FullPageSpinner.tsx
       icons.tsx
     pages/
       LoginPage.tsx      sign-in screen
       MyGroupsPage.tsx   groups you lead, are in and asked to join; what needs you first
+      JoinCoursePage.tsx what a course link opens: the course, its classmates and soonest
+                         groups, and Add <code> to my courses
       EditGroupPage.tsx  the leader edits a group, using GroupForm
       HomePage.tsx       signed-in landing page
     types/

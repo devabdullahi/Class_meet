@@ -70,6 +70,8 @@ export interface EnrolledCourse extends Course {
   openGroupCount: number;
   /** Groups the student leads or belongs to. */
   joinedGroupCount: number;
+  /** Other students who have added the course: a count, never who. */
+  classmateCount: number;
 }
 
 export interface GroupSummary {
@@ -130,6 +132,20 @@ export interface MyGroups {
   member: MyGroupSummary[];
   /** Groups the student asked to join; `viewerRequestStatus` is 'pending' or 'declined'. */
   requested: MyGroupSummary[];
+}
+
+/** Mirrors `GET /api/courses/:id/groups`. */
+export interface CourseGroups {
+  course: Course;
+  groups: GroupSummary[];
+  /** Other students who have added the course, not counting the viewer. */
+  classmateCount: number;
+}
+
+/** Mirrors `GET /api/courses/by-code/:code`: what a course link (/join/CSE-3311) opens. */
+export interface CourseLinkCourse extends CourseGroups {
+  /** Whether the signed-in student has already added the course. */
+  enrolled: boolean;
 }
 
 /** Everything about a group its leader chooses, and may later change. */
@@ -299,8 +315,16 @@ export const api = {
   fetchPendingRequestCount: (): Promise<{ pendingRequestCount: number }> =>
     request<{ pendingRequestCount: number }>('/api/me/groups/pending-request-count'),
 
-  fetchCourseGroups: (courseId: string): Promise<{ course: Course; groups: GroupSummary[] }> =>
-    request<{ course: Course; groups: GroupSummary[] }>(`/api/courses/${courseId}/groups`),
+  fetchCourseGroups: (courseId: string): Promise<CourseGroups> =>
+    request<CourseGroups>(`/api/courses/${courseId}/groups`),
+
+  /** The course a course link names; 404 when no course has that code. */
+  fetchCourseByLinkCode: (code: string): Promise<CourseLinkCourse> =>
+    request<CourseLinkCourse>(`/api/courses/by-code/${encodeURIComponent(code)}`),
+
+  /** Works signed out: just the code and title, for the sign-in page a course link leads to. */
+  fetchCourseLinkTitle: (code: string): Promise<{ course: Pick<Course, 'code' | 'title'> }> =>
+    request<{ course: Pick<Course, 'code' | 'title'> }>(`/api/course-links/${encodeURIComponent(code)}`),
 
   fetchGroup: (groupId: string): Promise<{ group: GroupDetails }> =>
     request<{ group: GroupDetails }>(`/api/groups/${groupId}`),

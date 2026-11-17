@@ -12,8 +12,19 @@ import { InlineConfirm } from '../components/InlineConfirm';
 import { AlertIcon, CheckCircleIcon, PlusIcon } from '../components/icons';
 import { useApiData } from '../hooks/useApiData';
 
-/** "6 groups · 4 open", so a busy course looks different from an empty one. */
+/**
+ * "6 groups · 4 open", so a busy course looks different from an empty one.
+ * A course with no groups says how many classmates have added it instead:
+ * that is what makes starting the first group worth it.
+ */
 function GroupCounts({ course }: { course: EnrolledCourse }): ReactNode {
+  if (course.groupCount === 0 && course.classmateCount > 0) {
+    return (
+      <p className="cm-card__muted">
+        No groups · <strong>{course.classmateCount}</strong> {course.classmateCount === 1 ? 'classmate' : 'classmates'}
+      </p>
+    );
+  }
   if (course.groupCount === 0) {
     return <p className="cm-card__muted">No groups yet — start one</p>;
   }
