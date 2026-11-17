@@ -1,0 +1,24 @@
+# Rebuilt inside the image; copying them in would be slow and platform-wrong.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+
+# Secrets stay out of the build context entirely. Runtime config is passed
+# when the container starts; see the Dockerfile.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Not needed to build or run the app.
+.git
+.gitignore
+.vscode
+.idea
+.claude
+**/*.log
+*.md
+docs
+start.bat
+scripts
+Dockerfile
+.dockerignore
