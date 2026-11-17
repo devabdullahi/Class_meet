@@ -82,10 +82,13 @@ test('the edit form starts from the group as it is, and saves without a course',
   expect(toGroupSettings({ ...values, name: 'Crew' })).not.toHaveProperty('courseId');
 });
 
-test('an online group needs an http(s) link, like the server requires', () => {
+test('an online group needs an https link, like the server requires', () => {
   const online = { ...VALID, format: 'online' as const };
   expect(validateGroupForm({ ...online, location: 'https://zoom.us/j/1' })).toEqual({});
   expect(validateGroupForm({ ...online, location: 'zoom.us/j/1' }).location).toBe(
+    'Paste the full link, starting with https://',
+  );
+  expect(validateGroupForm({ ...online, location: 'http://zoom.us/j/1' }).location).toBe(
     'Paste the full link, starting with https://',
   );
   expect(validateGroupForm({ ...online, location: 'javascript:alert(1)' }).location).toBeDefined();

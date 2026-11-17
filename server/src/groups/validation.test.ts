@@ -100,7 +100,7 @@ test('rejects an unknown format', () => {
   assert.equal(rejectionCode(validBody({ format: 'hybrid' })), 'invalid_format');
 });
 
-for (const link of ['not-a-link', 'ftp://example.com/room', 'javascript:alert(1)']) {
+for (const link of ['not-a-link', 'http://zoom.us/j/1', 'ftp://example.com/room', 'javascript:alert(1)']) {
   test(`rejects online link ${JSON.stringify(link)}`, () => {
     assert.equal(rejectionCode(validBody({ format: 'online', location: link })), 'invalid_location');
   });

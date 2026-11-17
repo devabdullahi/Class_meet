@@ -52,10 +52,11 @@ export const GROUP_FORM_FIELD_ORDER: GroupFormField[] = [
   'groupSize',
 ];
 
-function isHttpUrl(value: string): boolean {
+// https only: every meeting platform serves its links over https, and a plain
+// http link would send the meeting's id (often its only key) unencrypted.
+function isHttpsUrl(value: string): boolean {
   try {
-    const { protocol } = new URL(value);
-    return protocol === 'https:' || protocol === 'http:';
+    return new URL(value).protocol === 'https:';
   } catch {
     return false;
   }
@@ -79,7 +80,7 @@ function locationError(format: GroupFormat, location: string): string | undefine
   const trimmed = location.trim();
   if (format === 'online') {
     if (trimmed === '') return 'Paste the meeting link.';
-    if (!isHttpUrl(trimmed)) return 'Paste the full link, starting with https://';
+    if (!isHttpsUrl(trimmed)) return 'Paste the full link, starting with https://';
     return undefined;
   }
   return trimmed === '' ? 'Say where the group will meet.' : undefined;

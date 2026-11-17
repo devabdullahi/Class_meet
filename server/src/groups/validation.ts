@@ -61,10 +61,11 @@ function readTrimmedString(body: Record<string, unknown>, field: string, label: 
   return value.trim();
 }
 
-function isHttpUrl(value: string): boolean {
+// https only: every meeting platform serves its links over https, and a plain
+// http link would send the meeting's id (often its only key) unencrypted.
+function isHttpsUrl(value: string): boolean {
   try {
-    const { protocol } = new URL(value);
-    return protocol === 'https:' || protocol === 'http:';
+    return new URL(value).protocol === 'https:';
   } catch {
     return false;
   }
@@ -123,8 +124,8 @@ function parseGroupSettings(fields: Record<string, unknown>): GroupSettings {
   if (location.length > MAX_LOCATION_LENGTH) {
     throw invalid('location', `Meeting location must be ${MAX_LOCATION_LENGTH} characters or fewer.`);
   }
-  if (format === 'online' && !isHttpUrl(location)) {
-    throw invalid('location', 'An online group needs a meeting link starting with http:// or https://.');
+  if (format === 'online' && !isHttpsUrl(location)) {
+    throw invalid('location', 'An online group needs a meeting link starting with https://.');
   }
 
   const maxMembers = fields['maxMembers'];
