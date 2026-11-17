@@ -1,16 +1,19 @@
 /**
- * Feature F1 — university sign-in via Microsoft Entra ID.
+ * Feature F1 — university sign-in. Students sign in with a code emailed to
+ * their UTA address (`routes/email-login.ts`, mounted at /api/auth/email).
+ * Microsoft Entra ID sign-in is kept, off unless ENABLE_MICROSOFT_LOGIN=true.
  *
  *   POST /api/auth/entra    { accessToken } -> verify, authorise, upsert, set cookie
  *   GET  /api/auth/me                       -> current user, or 401
  *   POST /api/auth/logout                   -> clear cookie
- *   GET  /api/auth/config                   -> what the SPA needs to talk to Entra
+ *   GET  /api/auth/config                   -> which sign-in methods are on, and
+ *                                              what the SPA needs to use them
  *
  *   POST /api/auth/dev-login  DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE
  *                             PILOT. See `src/dev-login.ts`.
  */
 import { Router, type Request, type Response } from 'express';
-import { verifyEntraAccessToken, isEntraConfigured } from '../entra.js';
+import { verifyEntraAccessToken, isEntraConfigured, isMicrosoftLoginEnabled } from '../entra.js';
 import { upsertUserFromDirectory, findUserById, ensureDevUserRow, type PublicUser } from '../users.js';
 import { isDatabaseConfigured } from '../db/pool.js';
 import { createSessionToken, setSessionCookie, clearSessionCookie } from '../session.js';
@@ -50,6 +53,12 @@ function readAccessToken(body: unknown): string {
 }
 
 authRouter.post('/entra', async (req: Request, res: Response) => {
+  if (!isMicrosoftLoginEnabled()) {
+    throw HttpError.forbidden(
+      'microsoft_login_disabled',
+      'Microsoft sign-in is turned off. Sign in with the code we email to your UTA address instead.',
+    );
+  }
   const accessToken = readAccessToken(req.body);
 
   // Throws 401 for an unverifiable token, 403 for a token from another tenant
@@ -113,8 +122,9 @@ authRouter.post('/logout', (_req: Request, res: Response) => {
 });
 
 /**
- * Everything the SPA needs in order to ask Microsoft for a token, served from
- * the one process that also *validates* those tokens. Keeping the authority
+ * Everything the login page needs: which sign-in methods are on, and, for
+ * Microsoft, how to ask it for a token — served from the one process that
+ * also *validates* those tokens. Keeping the authority
  * and the scope here means the browser cannot drift out of step with what the
  * server will accept, and the login page can say which organisation is allowed
  * in without hard-coding it a second time.
@@ -124,6 +134,11 @@ authRouter.post('/logout', (_req: Request, res: Response) => {
  */
 authRouter.get('/config', (_req: Request, res: Response) => {
   res.status(200).json({
+    // Which addresses may ask for a code, so the login page can check what
+    // was typed before a round trip, with the same list the server enforces.
+    emailDomains: env.emailLoginDomains,
+    // The login page offers Microsoft sign-in, and loads MSAL, only when true.
+    microsoftLoginEnabled: isMicrosoftLoginEnabled(),
     configured: isEntraConfigured(),
     clientId: env.entraClientId,
     tenantId: env.utaTenantId,

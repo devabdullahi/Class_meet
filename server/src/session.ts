@@ -1,6 +1,9 @@
 /**
  * Session management.
  *
+ * Both ways in — a code emailed to a UTA address, and (when it is switched
+ * on) Microsoft sign-in — end in the same session, minted here.
+ *
  * We do NOT keep Microsoft's access token as the session. It is a credential
  * for a single moment of authentication: it is short-lived (Microsoft assigns
  * it a random 60-90 minute lifetime), refreshing it is MSAL's job in the
@@ -26,9 +29,8 @@
  *
  * Expiry: the JWT `exp` and the cookie `maxAge` are set from the same value,
  * so a cookie the browser still holds is never a session the server accepts.
- * There is no refresh token: when the session expires the user presses the
- * sign-in button again, which — because the browser still has a live
- * Microsoft session — is usually a single click with no password prompt.
+ * There is no refresh token: when the session expires the student signs in
+ * again.
  */
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import type { Response } from 'express';
@@ -42,7 +44,10 @@ const AUDIENCE = 'class-meet-client';
 export interface SessionClaims {
   /** `users.id` — our own primary key, not the directory's. */
   userId: string;
-  /** Entra's `oid`, kept so we can audit which account a session belongs to. */
+  /**
+   * How the session was obtained, for auditing: Entra's `oid` for a Microsoft
+   * sign-in, `email-code` for an emailed code.
+   */
   providerObjectId: string;
   /**
    * DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT.

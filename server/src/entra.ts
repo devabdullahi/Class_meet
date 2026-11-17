@@ -86,6 +86,17 @@ export function isEntraConfigured(): boolean {
   return env.entraClientId.length > 0;
 }
 
+/**
+ * Whether students are offered Microsoft sign-in at all: only when it is both
+ * asked for (ENABLE_MICROSOFT_LOGIN=true) and registered (ENTRA_CLIENT_ID).
+ * Off by default, because UTA's tenant requires an administrator to approve
+ * the app before any student can consent to it; emailed codes are the
+ * sign-in until that happens.
+ */
+export function isMicrosoftLoginEnabled(): boolean {
+  return env.microsoftLoginRequested && isEntraConfigured();
+}
+
 /** The same message in the two places that need it. */
 function notConfigured(): HttpError {
   return HttpError.serviceUnavailable(

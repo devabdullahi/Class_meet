@@ -1,13 +1,18 @@
 import { createApp } from './app.js';
 import { env } from './env.js';
 import { closePool, isDatabaseConfigured } from './db/pool.js';
-import { isEntraConfigured } from './entra.js';
+import { isEntraConfigured, isMicrosoftLoginEnabled } from './entra.js';
+import { createLoginCodeSender } from './email-login/mailer.js';
 
-const app = createApp();
+const loginCodeSender = createLoginCodeSender(env);
+const app = createApp({ loginCodeSender });
 
 const server = app.listen(env.port, () => {
   console.log(`[api] Class Meet API listening on http://localhost:${env.port} (${env.nodeEnv})`);
-  console.log(`[api] admitting Entra tenant ${env.utaTenantId} (${env.tenantDisplayName}) only`);
+  console.log(`[api] sign-in codes for @${env.emailLoginDomains.join(', @')} addresses are ${loginCodeSender.description}`);
+  if (isMicrosoftLoginEnabled()) {
+    console.log(`[api] Microsoft sign-in is on, admitting Entra tenant ${env.utaTenantId} (${env.tenantDisplayName}) only`);
+  }
   console.log(`[api] accepting requests from: ${env.clientOrigins.join(', ')}`);
 
   // DEVELOPMENT SIGN-IN BYPASS — REMOVE BEFORE THE PILOT.
@@ -18,11 +23,10 @@ const server = app.listen(env.port, () => {
     );
   }
 
-  if (!isEntraConfigured()) {
+  if (env.microsoftLoginRequested && !isEntraConfigured()) {
     console.warn(
-      '[api] ENTRA_CLIENT_ID is not set. The server will run, but sign-in will return 503 ' +
-        'until you register the app in the Azure portal and add its Application (client) ID ' +
-        'to server/.env.',
+      '[api] ENABLE_MICROSOFT_LOGIN=true but ENTRA_CLIENT_ID is not set, so Microsoft sign-in stays ' +
+        'off. Add the Application (client) ID from the Azure portal to server/.env.',
     );
   }
 

@@ -4,18 +4,19 @@
  * Everything the server needs is read and validated here, once, at startup.
  * Two deliberate rules:
  *
- *  1. Config that the server cannot run at all without (SESSION_SECRET) is
- *     validated eagerly and aborts startup.
+ *  1. Config that the server cannot run at all without (SESSION_SECRET, and
+ *     in production SMTP) is validated eagerly and aborts startup.
  *  2. ENTRA_CLIENT_ID and DATABASE_URL are NOT required to boot. Whoever
- *     registers the Entra app and creates the Neon project may not have done
- *     it yet, and the server should still start and serve `GET /api/auth/me`
- *     (401) so the front end can be developed. Routes that genuinely need
- *     them report a clear 503 instead of crashing. See `src/entra.ts` and
- *     `src/db/pool.ts`.
+ *     creates the Neon project may not have done it yet, and the server
+ *     should still start and serve `GET /api/auth/me` (401) so the front end
+ *     can be developed. Routes that genuinely need them report a clear 503
+ *     instead of crashing. See `src/entra.ts` and `src/db/pool.ts`.
  */
 import { config as loadDotenv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { DEFAULT_EMAIL_LOGIN_DOMAINS, parseEmailLoginDomains } from './email-login/email-address.js';
+import { readSmtpConfig } from './email-login/smtp-config.js';
 
 const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 loadDotenv({ path: path.join(serverRoot, '.env'), quiet: true });
@@ -116,6 +117,35 @@ if (devLoginRequested && nodeEnv === 'production') {
 
 const allowDevLogin = devLoginRequested && nodeEnv !== 'production';
 
+/** Who may sign in with an emailed code. See `src/email-login/email-address.ts`. */
+const emailLoginDomains = parseEmailLoginDomains(
+  optional('EMAIL_LOGIN_DOMAINS', DEFAULT_EMAIL_LOGIN_DOMAINS.join(',')),
+);
+
+/**
+ * Outgoing mail for sign-in codes. Unlike ENTRA_CLIENT_ID and DATABASE_URL,
+ * production refuses to boot without it rather than answering 503: an
+ * emailed code is the only way into a deployed Class Meet, so a production
+ * server without SMTP could not let a single student in, and the
+ * development fallback (printing codes to the console) must never be what
+ * runs instead. A failed deploy keeps the previous one serving.
+ */
+const smtp = readSmtpConfig(process.env);
+
+if (smtp === null && nodeEnv === 'production') {
+  throw new Error(
+    'NODE_ENV=production without SMTP_HOST. Sign-in works by emailing a code, so production needs ' +
+      'SMTP_HOST, SMTP_USER, SMTP_PASS and EMAIL_FROM (see docs/DEPLOY.md, "Sending sign-in emails").',
+  );
+}
+
+/**
+ * Microsoft sign-in is kept but off unless asked for: UTA's tenant requires an
+ * administrator to approve the app, so students cannot use it until someone
+ * at UTA grants that. ENTRA_CLIENT_ID alone no longer turns it on.
+ */
+const microsoftLoginRequested = optional('ENABLE_MICROSOFT_LOGIN', '').toLowerCase() === 'true';
+
 const clientOrigins = optional('CLIENT_ORIGIN', 'http://localhost:5173')
   .split(',')
   .map((part) => part.trim().replace(/\/$/, ''))
@@ -128,6 +158,15 @@ export const env = {
 
   /** Application (client) ID of the Entra app registration. Empty until set. */
   entraClientId,
+
+  /** ENABLE_MICROSOFT_LOGIN=true. Microsoft sign-in also needs `entraClientId`; see `src/entra.ts`. */
+  microsoftLoginRequested,
+
+  /** Domains whose addresses may sign in with an emailed code, e.g. `mavs.uta.edu`. */
+  emailLoginDomains,
+
+  /** Outgoing mail for sign-in codes, or null in development without SMTP. */
+  smtp,
 
   /**
    * The only tenant whose users may sign in. Enforced on the `tid` claim of a

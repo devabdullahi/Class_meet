@@ -19,6 +19,8 @@ import type { Server } from 'node:http';
 // dotenv never overrides a variable that is already present.
 process.env['SESSION_SECRET'] = 'test-session-secret-that-is-long-enough-0123456789';
 process.env['NODE_ENV'] = 'test';
+// Off whatever server/.env says, so the sign-in tests below see the default.
+process.env['ENABLE_MICROSOFT_LOGIN'] = '';
 const { createApp } = await import('./app.js');
 const { CONTENT_SECURITY_POLICY } = await import('./middleware/security-headers.js');
 
@@ -127,6 +129,38 @@ describe('the API next to the built client', () => {
     assert.equal(publicLookup.status, 400);
     const signedInLookup = await fetch(`${baseUrl}/api/courses/by-code/${longCode}`);
     assert.equal(signedInLookup.status, 401);
+  });
+});
+
+describe('sign-in', () => {
+  test('the login page is told to offer emailed codes to UTA addresses, and not Microsoft', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/config`);
+    assert.equal(response.status, 200);
+    const config = (await response.json()) as { emailDomains: string[]; microsoftLoginEnabled: boolean };
+    assert.deepEqual(config.emailDomains, ['mavs.uta.edu', 'uta.edu']);
+    assert.equal(config.microsoftLoginEnabled, false);
+  });
+
+  test('Microsoft sign-in is refused while it is switched off', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/entra`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Class-Meet': '1' },
+      body: JSON.stringify({ accessToken: 'anything' }),
+    });
+    assert.equal(response.status, 403);
+    const body = (await response.json()) as { error: { code: string } };
+    assert.equal(body.error.code, 'microsoft_login_disabled');
+  });
+
+  test('asking for a code is a write, so it needs the CSRF header like any other', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/email/start`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'jane@mavs.uta.edu' }),
+    });
+    assert.equal(response.status, 403);
+    const body = (await response.json()) as { error: { code: string } };
+    assert.equal(body.error.code, 'csrf_header_missing');
   });
 });
 

@@ -1,6 +1,9 @@
 import express, { type Express } from 'express';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './routes/auth.js';
+import { createEmailLoginRouter } from './routes/email-login.js';
+import { postgresEmailLoginRepository } from './email-login/repository.js';
+import { createLoginCodeSender, type LoginCodeSender } from './email-login/mailer.js';
 import { createCoursesRouter } from './routes/courses.js';
 import { createCourseLinksRouter } from './routes/course-links.js';
 import { createGroupsRouter } from './routes/groups.js';
@@ -27,6 +30,11 @@ export interface AppOptions {
    * build so they can exercise the production wiring without NODE_ENV.
    */
   clientDistDir?: string | null;
+  /**
+   * Delivers sign-in codes. Left out, it is SMTP when configured and the
+   * development console otherwise (see `email-login/mailer.ts`).
+   */
+  loginCodeSender?: LoginCodeSender;
 }
 
 /**
@@ -79,6 +87,13 @@ export function createApp(options: AppOptions = {}): Express {
     });
   });
 
+  app.use(
+    '/api/auth/email',
+    createEmailLoginRouter({
+      repository: postgresEmailLoginRepository,
+      sender: options.loginCodeSender ?? createLoginCodeSender(env),
+    }),
+  );
   app.use('/api/auth', authRouter);
   app.use('/api/me/profile', requireAuth, createProfileRouter(postgresProfileRepository));
   app.use('/api/course-links', createCourseLinksRouter(postgresGroupRepository));
