@@ -13,8 +13,9 @@
  *
  * SSL: Neon requires TLS. Rather than depending on how a given `pg` release
  * interprets `sslmode=` inside the URL, we set `ssl` explicitly and keep
- * certificate verification ON for remote hosts. Localhost gets no TLS so a
- * plain local Postgres still works if someone sets one up later.
+ * certificate verification ON for hosts on the internet. A host on a private
+ * network (localhost, or Render's internal database address) gets no TLS;
+ * see `isPrivateNetworkHost`.
  *
  * Missing DATABASE_URL is a first-class, deliberate state: `getPool()` throws
  * an `HttpError` 503 with an actionable message, which the route error handler
@@ -29,7 +30,23 @@ let pool: Pool | null = null;
 interface ParsedConnection {
   /** The URL with TLS query parameters removed. */
   connectionString: string;
-  isLocal: boolean;
+  /** Connect without TLS; see `isPrivateNetworkHost`. */
+  isPrivateNetwork: boolean;
+}
+
+/**
+ * A host reached over a private network rather than the internet: this
+ * machine, or a single-label name such as Render's internal database address
+ * (`dpg-<id>-a`, the host in the `connectionString` a Render Blueprint wires
+ * into DATABASE_URL). A name without a dot resolves only inside the network
+ * that defines it, and no public certificate can name it, so certificate
+ * verification could never succeed there. Render documents TLS as not
+ * required on its private network, where its certificates are self-signed:
+ * https://render.com/docs/postgresql-creating-connecting
+ * Every host with a dot, Neon's included, keeps full verification.
+ */
+function isPrivateNetworkHost(hostname: string): boolean {
+  return hostname === '127.0.0.1' || !hostname.includes('.');
 }
 
 /**
@@ -46,22 +63,22 @@ function parseConnection(raw: string): ParsedConnection {
     url.searchParams.delete('channel_binding');
     return {
       connectionString: url.toString(),
-      isLocal: url.hostname === 'localhost' || url.hostname === '127.0.0.1',
+      isPrivateNetwork: isPrivateNetworkHost(url.hostname),
     };
   } catch {
     // Not a parseable URL. Hand it to pg unchanged and let pg report why.
-    return { connectionString: raw, isLocal: false };
+    return { connectionString: raw, isPrivateNetwork: false };
   }
 }
 
 export function buildPoolConfig(raw: string): PoolConfig {
-  const { connectionString, isLocal } = parseConnection(raw);
+  const { connectionString, isPrivateNetwork } = parseConnection(raw);
   return {
     connectionString,
-    // Neon requires TLS and presents a publicly trusted certificate, so full
-    // verification works and there is no reason to weaken it. A local
-    // Postgres (if anyone sets one up later) speaks plaintext.
-    ssl: isLocal ? false : { rejectUnauthorized: true },
+    // Neon (and Render's external address) requires TLS and presents a
+    // publicly trusted certificate, so full verification works and there is
+    // no reason to weaken it. A private-network host speaks plaintext.
+    ssl: isPrivateNetwork ? false : { rejectUnauthorized: true },
     // Small pool: this is a student project on Neon's free tier, and Neon's
     // pooler already multiplexes on its side.
     max: 5,
