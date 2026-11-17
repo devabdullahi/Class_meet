@@ -40,7 +40,8 @@ test('fills in the port and TLS mode from each other', () => {
 });
 
 test('refuses a partial or malformed configuration', () => {
-  assert.throws(() => readSmtpConfig({ EMAIL_FROM: 'a@b.edu' }), /EMAIL_FROM is set but SMTP_HOST is empty/);
+  assert.throws(() => readSmtpConfig({ SMTP_USER: 'a@b.edu' }), /SMTP_USER is set but SMTP_HOST is empty/);
+  assert.equal(readSmtpConfig({ EMAIL_FROM: 'a@b.edu' }), null, 'EMAIL_FROM alone may belong to the Brevo sender');
   assert.throws(() => readSmtpConfig({ ...GMAIL, EMAIL_FROM: '' }), /EMAIL_FROM is required/);
   assert.throws(() => readSmtpConfig({ ...GMAIL, SMTP_PASS: '' }), /both SMTP_USER and SMTP_PASS/);
   assert.throws(() => readSmtpConfig({ ...GMAIL, SMTP_SECURE: 'yes' }), /SMTP_SECURE must be/);

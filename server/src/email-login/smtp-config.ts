@@ -2,12 +2,12 @@
  * Reading the outgoing-mail settings (SMTP_HOST, SMTP_PORT, SMTP_SECURE,
  * SMTP_USER, SMTP_PASS, EMAIL_FROM).
  *
- * Plain SMTP on purpose: every mail provider speaks it, so switching from a
- * Gmail account to Brevo or a university relay is a change of five values,
- * not of code. All blank means "not configured", which development allows
- * (codes are printed to the console instead) and production refuses — see
- * `env.ts`. Half-configured is always an error at startup, because the
- * alternative is a server that boots fine and then fails every sign-in.
+ * Plain SMTP: every mail provider speaks it, so a Gmail account, Brevo's
+ * relay or a university server is a change of values, not of code. It is one
+ * of two ways to send (see `email-delivery-config.ts`); the other is Brevo's
+ * HTTPS API, for hosts that block SMTP. Half-configured is always an error at
+ * startup, because the alternative is a server that boots fine and then fails
+ * every sign-in.
  */
 
 export interface SmtpConfig {
@@ -24,7 +24,8 @@ export interface SmtpConfig {
   from: string;
 }
 
-const SMTP_VARIABLES = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM'] as const;
+/** EMAIL_FROM is not among them: the Brevo sender uses it too. */
+export const SMTP_VARIABLES = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASS'] as const;
 
 const IMPLICIT_TLS_PORT = 465;
 const SUBMISSION_PORT = 587;

@@ -5,7 +5,7 @@
  * Two deliberate rules:
  *
  *  1. Config that the server cannot run at all without (SESSION_SECRET, and
- *     in production SMTP) is validated eagerly and aborts startup.
+ *     in production an email provider) is validated eagerly and aborts startup.
  *  2. ENTRA_CLIENT_ID and DATABASE_URL are NOT required to boot. Whoever
  *     creates the Neon project may not have done it yet, and the server
  *     should still start and serve `GET /api/auth/me` (401) so the front end
@@ -16,7 +16,7 @@ import { config as loadDotenv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { DEFAULT_EMAIL_LOGIN_DOMAINS, parseEmailLoginDomains } from './email-login/email-address.js';
-import { readSmtpConfig } from './email-login/smtp-config.js';
+import { EMAIL_DELIVERY_HELP, readEmailDelivery } from './email-login/email-delivery-config.js';
 
 const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 loadDotenv({ path: path.join(serverRoot, '.env'), quiet: true });
@@ -123,19 +123,19 @@ const emailLoginDomains = parseEmailLoginDomains(
 );
 
 /**
- * Outgoing mail for sign-in codes. Unlike ENTRA_CLIENT_ID and DATABASE_URL,
- * production refuses to boot without it rather than answering 503: an
- * emailed code is the only way into a deployed Class Meet, so a production
- * server without SMTP could not let a single student in, and the
- * development fallback (printing codes to the console) must never be what
- * runs instead. A failed deploy keeps the previous one serving.
+ * How sign-in codes are emailed: Brevo's API or SMTP (see
+ * `src/email-login/email-delivery-config.ts`). Unlike ENTRA_CLIENT_ID and
+ * DATABASE_URL, production refuses to boot without one rather than answering
+ * 503: an emailed code is the only way into a deployed Class Meet, so a
+ * production server without a provider could not let a single student in,
+ * and the development fallback (printing codes to the console) must never be
+ * what runs instead. A failed deploy keeps the previous one serving.
  */
-const smtp = readSmtpConfig(process.env);
+const emailDelivery = readEmailDelivery(process.env);
 
-if (smtp === null && nodeEnv === 'production') {
+if (emailDelivery === null && nodeEnv === 'production') {
   throw new Error(
-    'NODE_ENV=production without SMTP_HOST. Sign-in works by emailing a code, so production needs ' +
-      'SMTP_HOST, SMTP_USER, SMTP_PASS and EMAIL_FROM (see docs/DEPLOY.md, "Sending sign-in emails").',
+    `NODE_ENV=production without an email provider. Sign-in works by emailing a code. ${EMAIL_DELIVERY_HELP}`,
   );
 }
 
@@ -165,8 +165,8 @@ export const env = {
   /** Domains whose addresses may sign in with an emailed code, e.g. `mavs.uta.edu`. */
   emailLoginDomains,
 
-  /** Outgoing mail for sign-in codes, or null in development without SMTP. */
-  smtp,
+  /** How sign-in codes are emailed, or null in development without a provider. */
+  emailDelivery,
 
   /**
    * The only tenant whose users may sign in. Enforced on the `tid` claim of a

@@ -31,7 +31,7 @@ export interface AppOptions {
    */
   clientDistDir?: string | null;
   /**
-   * Delivers sign-in codes. Left out, it is SMTP when configured and the
+   * Delivers sign-in codes. Left out, it is the configured provider and the
    * development console otherwise (see `email-login/mailer.ts`).
    */
   loginCodeSender?: LoginCodeSender;

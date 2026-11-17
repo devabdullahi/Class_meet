@@ -229,7 +229,9 @@ function configureEnvironment() {
   }
 
   const databaseConfigured = readValue(serverText, 'DATABASE_URL') !== null;
-  const smtpConfigured = readValue(serverText, 'SMTP_HOST') !== null;
+  // Brevo's API or SMTP; the server itself checks the settings are complete.
+  const emailConfigured =
+    readValue(serverText, 'BREVO_API_KEY') !== null || readValue(serverText, 'SMTP_HOST') !== null;
   const nodeEnv = readValue(serverText, 'NODE_ENV') ?? 'development';
   const devLoginRequested = (readValue(serverText, 'ALLOW_DEV_LOGIN') ?? '').toLowerCase() === 'true';
 
@@ -248,21 +250,22 @@ function configureEnvironment() {
     );
   }
 
-  if (!smtpConfigured && nodeEnv === 'production') {
+  if (!emailConfigured && nodeEnv === 'production') {
     note(
-      'NODE_ENV=production with no SMTP_HOST: the server will refuse to start, because sign-in ' +
-        'codes must be emailed in production. Set the SMTP_ values, or NODE_ENV=development.',
+      'NODE_ENV=production with no email provider: the server will refuse to start, because ' +
+        'sign-in codes must be emailed in production. Set EMAIL_PROVIDER and its values (see ' +
+        'server/.env.example), or NODE_ENV=development.',
     );
   }
 
   if (serverText !== originalServerText) writeFileSync(paths.serverEnv, serverText);
   if (clientText !== originalClientText) writeFileSync(paths.clientEnv, clientText);
 
-  info(`sign-in codes: ${smtpConfigured ? 'emailed through SMTP' : 'printed in the server output ([dev email])'}`);
+  info(`sign-in codes: ${emailConfigured ? 'emailed' : 'printed in the server output ([dev email])'}`);
   info(`database: ${databaseConfigured ? 'configured' : 'not configured'}`);
   info(`dev bypass: ${devLoginEnabled ? 'ON' : 'off'}`);
 
-  return { databaseConfigured, smtpConfigured, devLoginEnabled };
+  return { databaseConfigured, emailConfigured, devLoginEnabled };
 }
 
 /**
@@ -306,7 +309,7 @@ function printSummary(state) {
 
   if (state.databaseConfigured) {
     console.log(
-      state.smtpConfigured
+      state.emailConfigured
         ? '  Sign in with your UTA email; the code arrives by email.'
         : '  Sign in with any @mavs.uta.edu address; the code appears below as a [dev email] line.',
     );

@@ -27,6 +27,8 @@ function loadEnv(variables: Record<string, string>): { ok: boolean; stderr: stri
         SMTP_USER: '',
         SMTP_PASS: '',
         EMAIL_FROM: '',
+        EMAIL_PROVIDER: '',
+        BREVO_API_KEY: '',
         ...variables,
       },
       encoding: 'utf8',
@@ -35,10 +37,38 @@ function loadEnv(variables: Record<string, string>): { ok: boolean; stderr: stri
   return { ok: result.status === 0, stderr: result.stderr };
 }
 
-test('production refuses to start without SMTP, so codes can never fall back to the console', () => {
+test('production refuses to start without an email provider, so codes can never fall back to the console', () => {
   const { ok, stderr } = loadEnv({ NODE_ENV: 'production' });
   assert.equal(ok, false);
-  assert.match(stderr, /NODE_ENV=production without SMTP_HOST/);
+  assert.match(stderr, /NODE_ENV=production without an email provider/);
+  assert.match(stderr, /EMAIL_PROVIDER=brevo with BREVO_API_KEY and EMAIL_FROM/);
+});
+
+test('production starts with Brevo configured', () => {
+  const { ok, stderr } = loadEnv({
+    NODE_ENV: 'production',
+    EMAIL_PROVIDER: 'brevo',
+    BREVO_API_KEY: 'xkeysib-test-key',
+    EMAIL_FROM: 'Class Meet <classmeet.uta@gmail.com>',
+  });
+  assert.equal(ok, true, stderr);
+});
+
+test('production refuses an incomplete Brevo configuration, naming what is missing', () => {
+  const { ok, stderr } = loadEnv({ NODE_ENV: 'production', EMAIL_PROVIDER: 'brevo', EMAIL_FROM: 'a@b.org' });
+  assert.equal(ok, false);
+  assert.match(stderr, /EMAIL_PROVIDER=brevo needs BREVO_API_KEY/);
+});
+
+test('settings for two providers stop startup', () => {
+  const { ok, stderr } = loadEnv({
+    NODE_ENV: 'production',
+    BREVO_API_KEY: 'xkeysib-test-key',
+    SMTP_HOST: 'smtp.gmail.com',
+    EMAIL_FROM: 'a@b.org',
+  });
+  assert.equal(ok, false);
+  assert.match(stderr, /SMTP_HOST is set, but email goes through Brevo/);
 });
 
 test('production starts with SMTP configured', () => {
