@@ -150,6 +150,82 @@ export interface CreateGroupRequest extends GroupSettings {
 
 export type JoinDecision = 'approve' | 'decline';
 
+// ---- Reports and moderation (mirror server/src/moderation/repository.ts) ----
+
+export type ReportReason = 'exam_answers' | 'spam' | 'harassment' | 'not_study_group' | 'other';
+
+export type ReportOutcome = 'kept' | 'removed' | 'removed_from_group';
+
+export interface ReportRequest {
+  /** Null reports the whole group. */
+  memberId: string | null;
+  reason: ReportReason;
+  /** Optional; blank is stored as no details. */
+  details: string;
+}
+
+/** One of the student's own open reports about a group. */
+export interface MyOpenReport {
+  memberId: string | null;
+  memberName: string | null;
+  reportedAt: string;
+}
+
+/** What is left of a group a moderator removed. */
+export interface RemovedGroup {
+  groupId: string;
+  title: string;
+  courseId: string;
+  courseCode: string;
+  removedAt: string;
+}
+
+/** Mirrors `GET /api/moderation/me`. `openCount` is null for anyone but a moderator. */
+export interface ModerationStatus {
+  isModerator: boolean;
+  openCount: number | null;
+}
+
+export interface OpenReportTarget {
+  groupId: string;
+  groupTitle: string;
+  courseId: string;
+  courseCode: string;
+  leaderName: string;
+  memberCount: number;
+  /** Null when the reports are about the whole group. */
+  member: { userId: string; name: string; isLeader: boolean; inGroup: boolean } | null;
+  reportCount: number;
+  latestReport: {
+    reason: ReportReason;
+    details: string | null;
+    reporterName: string;
+    reportedAt: string;
+  };
+}
+
+export interface ResolvedReportTarget {
+  groupId: string;
+  /** Null only for a group its leader deleted after the reports were resolved. */
+  groupTitle: string | null;
+  courseCode: string | null;
+  memberName: string | null;
+  reportCount: number;
+  reason: ReportReason;
+  outcome: ReportOutcome;
+  resolvedAt: string;
+  resolvedById: string;
+  resolvedByName: string;
+}
+
+/** Mirrors `GET /api/moderation/reports`. */
+export interface ModerationReports {
+  open: OpenReportTarget[];
+  /** The most recent decisions only; `resolvedCount` counts them all. */
+  resolved: ResolvedReportTarget[];
+  resolvedCount: number;
+}
+
 /** An API failure with a message that is safe and useful to display. */
 export class ApiError extends Error {
   readonly status: number;
@@ -342,4 +418,42 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ decision }),
     }),
+
+  // ---- Reports and moderation ---------------------------------------------
+
+  /** Refused (409 already_reported) while the student's earlier report of the same target is open. */
+  reportGroup: (groupId: string, report: ReportRequest): Promise<{ report: MyOpenReport }> =>
+    request<{ report: MyOpenReport }>(`/api/groups/${groupId}/reports`, {
+      method: 'POST',
+      body: JSON.stringify(report),
+    }),
+
+  fetchMyReports: (groupId: string): Promise<{ reports: MyOpenReport[] }> =>
+    request<{ reports: MyOpenReport[] }>(`/api/groups/${groupId}/reports/mine`),
+
+  /** 404 unless a moderator removed the group. */
+  fetchGroupRemoval: (groupId: string): Promise<{ removal: RemovedGroup }> =>
+    request<{ removal: RemovedGroup }>(`/api/groups/${groupId}/removal`),
+
+  fetchModerationStatus: (): Promise<ModerationStatus> => request<ModerationStatus>('/api/moderation/me'),
+
+  /** Moderators only (403 for anyone else). */
+  fetchModerationReports: (): Promise<ModerationReports> =>
+    request<ModerationReports>('/api/moderation/reports'),
+
+  /** Resolves the open reports about the group, or one member of it, and changes nothing else. */
+  keepReported: (groupId: string, memberId: string | null): Promise<null> =>
+    request<null>(
+      memberId === null
+        ? `/api/moderation/groups/${groupId}/keep`
+        : `/api/moderation/groups/${groupId}/members/${memberId}/keep`,
+      { method: 'POST' },
+    ),
+
+  /** Takes the group down for everyone and resolves every open report about it. */
+  removeReportedGroup: (groupId: string): Promise<null> =>
+    request<null>(`/api/moderation/groups/${groupId}`, { method: 'DELETE' }),
+
+  removeReportedMember: (groupId: string, memberId: string): Promise<null> =>
+    request<null>(`/api/moderation/groups/${groupId}/members/${memberId}`, { method: 'DELETE' }),
 };

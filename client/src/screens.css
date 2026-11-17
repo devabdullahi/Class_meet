@@ -907,6 +907,281 @@
   margin-top: var(--space-4);
 }
 
+/* ---- Reports ------------------------------------------------------------
+   Reporting from Group Details, and the moderators' Reports page. */
+
+.cm-report-entry {
+  display: flex;
+}
+
+.cm-report-entry .cm-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cm-report-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-top: var(--space-5);
+}
+
+.cm-report-form .cm-dialog__footer {
+  margin-top: var(--space-1);
+}
+
+/* One list of choices in a single outline, each row a full-width target. */
+.cm-radio-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.cm-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.cm-radio:first-child {
+  border-top: none;
+}
+
+/* Drawn to match the form controls: a 3:1 ring, blue when chosen. */
+.cm-radio input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin: 0;
+  appearance: none;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.cm-radio input:checked {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 4px var(--surface-1);
+  background: var(--accent);
+}
+
+.cm-radio input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.cm-reports-view {
+  width: 300px;
+  max-width: 100%;
+  margin-top: var(--space-6);
+}
+
+.cm-reports-skeleton {
+  margin-top: var(--space-6);
+}
+
+.cm-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+/* One reported group or member. The count is the heaviest thing in the row,
+   the reason is bold, the reporter's words are muted. The actions wrapper
+   lets its children sit in the grid itself, so that when Remove opens its
+   question, the question spans the row under the text instead of squeezing
+   into the narrow column of buttons. */
+.cm-report {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto 1fr;
+  gap: var(--space-2) var(--space-5);
+  align-items: start;
+}
+
+.cm-report__count {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.cm-report__count strong {
+  font-size: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.cm-report__count span {
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+  font-weight: 600;
+}
+
+.cm-report__body {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* Size, weight and the space under it come from .cm-panel h2. */
+.cm-report__title {
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.cm-report__meta {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+.cm-report__reason {
+  margin-top: var(--space-2);
+  font-weight: 600;
+}
+
+.cm-report__quote {
+  max-width: 62ch;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.cm-report__actions {
+  display: contents;
+}
+
+.cm-report__actions > * {
+  grid-column: 3;
+  min-width: 156px;
+}
+
+.cm-report__actions > a {
+  justify-self: center;
+  min-width: 0;
+  font-size: var(--font-label);
+  font-weight: 600;
+}
+
+.cm-report .cm-confirm {
+  grid-column: 2 / 4;
+  grid-row: 4;
+  margin-top: var(--space-3);
+}
+
+/* Resolved reports: a plain table of decisions, newest first. */
+.cm-resolved {
+  width: 100%;
+  margin-top: var(--space-6);
+  border-collapse: collapse;
+}
+
+.cm-resolved th {
+  padding: 0 var(--space-4) var(--space-2) 0;
+  color: var(--text-muted);
+  font-size: var(--font-small);
+  font-weight: 600;
+  text-align: left;
+}
+
+.cm-resolved td {
+  padding: var(--space-3) var(--space-4) var(--space-3) 0;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.cm-resolved td:first-child {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.cm-resolved .cm-report__meta {
+  display: block;
+  font-weight: 400;
+}
+
+.cm-resolved__date {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cm-resolved__more {
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  /* The decisions move under the text, full width, where a thumb reaches. */
+  .cm-report {
+    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .cm-report__count,
+  .cm-report__body {
+    grid-row: auto;
+  }
+
+  .cm-report__actions {
+    grid-column: 1 / 3;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .cm-report__actions > * {
+    min-width: 0;
+  }
+
+  .cm-report__actions > a {
+    align-self: center;
+  }
+
+  .cm-report .cm-confirm {
+    margin-top: 0;
+  }
+
+  /* Four columns do not fit a phone, so each decision becomes a short
+     stack: what was reported, the reason, the outcome, when and by whom.
+     The column names stay for screen readers, which the table's explicit
+     roles keep reading as a table. */
+  .cm-resolved thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .cm-resolved tr {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .cm-resolved td {
+    padding: 0;
+    border-top: none;
+  }
+}
+
 /* ---- Narrow screens --------------------------------------------------- */
 
 @media (max-width: 960px) {

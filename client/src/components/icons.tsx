@@ -100,6 +100,15 @@ export function AlertIcon(): ReactNode {
   );
 }
 
+export function FlagIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M6 20.5V4.5" {...STROKE} />
+      <path d="M6 5h11.5l-2.5 4 2.5 4H6" {...STROKE} />
+    </svg>
+  );
+}
+
 export function PlusIcon(): ReactNode {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

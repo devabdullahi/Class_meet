@@ -10,11 +10,14 @@ import { StudyGroupsPage } from './pages/StudyGroupsPage';
 import { GroupDetailsPage } from './pages/GroupDetailsPage';
 import { CreateGroupPage } from './pages/CreateGroupPage';
 import { EditGroupPage } from './pages/EditGroupPage';
+import { ModerationPage } from './pages/ModerationPage';
+import { ModerationStatusProvider } from './moderation/ModerationStatusProvider';
 export function App(): ReactNode {
   return (
     <BrowserRouter>
       <AuthProvider>
         <PendingRequestsProvider>
+          <ModerationStatusProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<RequireAuth><MyCoursesPage /></RequireAuth>} />
@@ -30,8 +33,10 @@ export function App(): ReactNode {
               path="/groups/:courseId/:groupId/edit"
               element={<RequireAuth><EditGroupPage /></RequireAuth>}
             />
+            <Route path="/reports" element={<RequireAuth><ModerationPage /></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ModerationStatusProvider>
         </PendingRequestsProvider>
       </AuthProvider>
     </BrowserRouter>
