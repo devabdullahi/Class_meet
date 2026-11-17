@@ -153,7 +153,16 @@ if (emailDelivery === null && nodeEnv === 'production') {
  */
 const microsoftLoginRequested = optional('ENABLE_MICROSOFT_LOGIN', '').toLowerCase() === 'true';
 
-const clientOrigins = optional('CLIENT_ORIGIN', 'http://localhost:5173')
+/**
+ * Where write requests may come from (see `middleware/csrf.ts`), in order of
+ * preference: CLIENT_ORIGIN, a comma-separated list; else the service's own
+ * address on Render, which Render sets as RENDER_EXTERNAL_URL
+ * (`https://<name>.onrender.com`) on every web service, so a Blueprint deploy
+ * needs no value that is only known after it is created; else Vite's dev
+ * server. Set CLIENT_ORIGIN to add a custom domain, listing the onrender.com
+ * address too if it should keep working.
+ */
+const clientOrigins = optional('CLIENT_ORIGIN', optional('RENDER_EXTERNAL_URL', 'http://localhost:5173'))
   .split(',')
   .map((part) => part.trim().replace(/\/$/, ''))
   .filter((part) => part.length > 0);

@@ -38,6 +38,7 @@ function loadEnv(
         BREVO_API_KEY: '',
         ENABLE_MICROSOFT_LOGIN: '',
         CLIENT_ORIGIN: '',
+        RENDER_EXTERNAL_URL: '',
         DATABASE_URL: '',
         DIRECT_DATABASE_URL: '',
         ...variables,
@@ -147,5 +148,35 @@ describe('the development sign-in bypass in production', () => {
       devLoginStatus: 403,
       devLoginCookie: null,
     });
+  });
+});
+
+describe('which origins may send write requests', () => {
+  const printOrigins = "const { env } = await import('./src/env.ts'); console.log(JSON.stringify(env.clientOrigins));";
+
+  function originsWith(variables: Record<string, string>): string[] {
+    const { ok, stdout, stderr } = loadEnv({ NODE_ENV: 'production', ...BREVO, ...variables }, printOrigins);
+    assert.equal(ok, true, stderr);
+    return JSON.parse(stdout.trim()) as string[];
+  }
+
+  test("on Render, the service's own address, so a Blueprint deploy needs no CLIENT_ORIGIN", () => {
+    assert.deepEqual(originsWith({ RENDER_EXTERNAL_URL: 'https://class-meet.onrender.com' }), [
+      'https://class-meet.onrender.com',
+    ]);
+  });
+
+  test('CLIENT_ORIGIN, when set, wins over the Render address', () => {
+    assert.deepEqual(
+      originsWith({
+        RENDER_EXTERNAL_URL: 'https://class-meet.onrender.com',
+        CLIENT_ORIGIN: 'https://classmeet.example.edu/, https://class-meet.onrender.com',
+      }),
+      ['https://classmeet.example.edu', 'https://class-meet.onrender.com'],
+    );
+  });
+
+  test('neither set: the Vite development server', () => {
+    assert.deepEqual(originsWith({}), ['http://localhost:5173']);
   });
 });
