@@ -246,44 +246,21 @@ Until it matches, signing in fails with `403 origin_not_allowed`.
 ## Step 7 — Optional: add more courses to the catalog
 
 Students can only add courses that exist in the catalog. The migrations seed
-three: CSE 3311, CSE 4308 and CSE 4316. To give classmates more to choose from,
-add a few real UTA CSE courses:
+UTA's 2025–2026 CSE courses and MATH 2425 (`server/migrations/009_add_uta_course_catalog.sql`),
+and they run on every deploy, so a new database has the full catalog without
+any manual step. To add a course outside that list:
 
 1. In the Neon console, open **SQL Editor** (left sidebar).
 2. At the top of the editor, set the branch to the one from step 1 and the
    **database to `classmeet_iter4`**. Running this against the old database
    would add rows to it.
-3. Paste and click **Run**:
+3. Paste, with the course you want, and click **Run**:
 
    ```sql
-   -- UTA CSE courses, from the 2025–2026 BS in Computer Science degree plan.
    -- ON CONFLICT makes it safe to run more than once.
    INSERT INTO courses (code, title) VALUES
-       ('CSE 1310', 'Introduction to Programming'),
-       ('CSE 1320', 'Intermediate Programming'),
-       ('CSE 1325', 'Object-Oriented Programming'),
-       ('CSE 2312', 'Computer Organization'),
-       ('CSE 2315', 'Discrete Structures'),
-       ('CSE 3302', 'Programming Languages'),
-       ('CSE 3310', 'Introduction to Software Engineering'),
-       ('CSE 3315', 'Theoretical Computer Science'),
-       ('CSE 3318', 'Algorithms and Data Structures'),
-       ('CSE 3320', 'Operating Systems'),
-       ('CSE 3330', 'Databases'),
-       ('CSE 3380', 'Linear Algebra for CSE'),
-       ('CSE 4303', 'Computer Graphics'),
-       ('CSE 4305', 'Compilers'),
-       ('CSE 4309', 'Fundamentals of Machine Learning'),
-       ('CSE 4344', 'Computer Networks'),
-       ('CSE 4360', 'Autonomous Robot Design and Programming'),
-       ('CSE 4380', 'Information Security')
+       ('MATH 2326', 'Calculus III')
    ON CONFLICT (code) DO NOTHING;
-
-   -- The starter catalog titles CSE 4316 "Computer Networks", but at UTA that
-   -- is CSE 4344 (added above); CSE 4316 is Senior Design I. The title check
-   -- makes this a no-op if the row has already been corrected.
-   UPDATE courses SET title = 'Senior Design I'
-   WHERE code = 'CSE 4316' AND title = 'Computer Networks';
    ```
 
 The app reads the catalog live, so the new courses show up in **Add course**

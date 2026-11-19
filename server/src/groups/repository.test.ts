@@ -273,6 +273,21 @@ test('course search matches a code typed without its space and marks courses alr
   assert.deepEqual(await repository.listCourses('100%', student), []);
 });
 
+test('the migrations seed the full catalog, so courses beyond the starter three are found', async () => {
+  // Regression: only CSE 3311, 4308 and 4316 were seeded, so the deployed
+  // Add Course answered "No courses match" for MATH 2425.
+  const student = await addStudent('Jo');
+  assert.deepEqual(
+    (await repository.listCourses('MATH 2425', student)).map((course) => [course.code, course.title]),
+    [['MATH 2425', 'Calculus II']],
+  );
+  assert.equal((await repository.listCourses('', student)).length, 45);
+  assert.deepEqual(
+    (await repository.listCourses('cse4316', student)).map((course) => course.title),
+    ['Senior Design I'],
+  );
+});
+
 // ---- Classmates and course links ----------------------------------------------
 
 test('classmates are the other students who have added the course, counted without the viewer', async () => {
